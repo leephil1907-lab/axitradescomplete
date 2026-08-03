@@ -11,6 +11,9 @@ import AdminSystemIntegrationStatus from './AdminSystemIntegrationStatus';
 import EmailNotificationModal, { EmailTriggerPayload } from './EmailNotificationModal';
 import { sendTelegramAlert } from '../utils/telegram';
 import { safeStorage } from '../utils/storage';
+import { db } from '../firebase';
+import { doc, setDoc } from 'firebase/firestore';
+import { setPnlOverrideForUser, getPnlOverrideForUser, PnlOverrideConfig } from '../utils/pnlOverride';
 
 interface AdminDashboardViewProps {
   transactions: any[];
@@ -355,6 +358,11 @@ export default function AdminDashboardView({
   const [userSearchQuery, setUserSearchQuery] = useState('');
   const [targetUserIdForManual, setTargetUserIdForManual] = useState<string>('usr_8492');
 
+  // Manual P&L Override State
+  const [userPnlInputs, setUserPnlInputs] = useState<Record<string, string>>({});
+  const [savingPnlUserId, setSavingPnlUserId] = useState<string | null>(null);
+  const [pnlOverrideUserSelected, setPnlOverrideUserSelected] = useState<string>('usr_8492');
+
   // Custom User Adjustment Modal State
   const [adjustModalUser, setAdjustModalUser] = useState<any | null>(null);
   const [customDeltaInput, setCustomDeltaInput] = useState('');
@@ -578,6 +586,112 @@ export default function AdminDashboardView({
 
     logAuditAction('Balance Adjustment', userId, `Simulated market return of ${percentage >= 0 ? '+' : ''}${percentage}% on client portfolio`);
     showToast(`📈 Simulated ${percentage >= 0 ? '+' : ''}${percentage}% Market Return on Client Portfolio`, 'info');
+  };
+
+  const handleSaveUserPnlPercentage = async (userId: string, targetPnlPercent?: number) => {
+    const user = recentUsers.find(u => u.id === userId || u.email === userId);
+    const targetId = user?.id || userId;
+    const targetEmail = user?.email || (userId.includes('@') ? userId : '');
+    const targetName = user?.name || 'Axi Trader';
+    const currentBal = user?.balance ?? 24850;
+
+    const rawVal = targetPnlPercent !== undefined 
+      ? targetPnlPercent 
+      : parseFloat(userPnlInputs[targetId] ?? (user?.pnlPercentage ?? user?.pnlOverride?.pnlPercentage ?? 24.5).toString()) || 0;
+
+    setSavingPnlUserId(targetId);
+
+    // 1. Update local state
+    setRecentUsers(prevUsers => prevUsers.map(u => {
+      if (u.id === targetId || u.email === targetEmail) {
+        return {
+          ...u,
+          pnlPercentage: rawVal,
+          pnlOverride: {
+            enabled: true,
+            pnlPercentage: rawVal,
+            unrealizedPnl: Math.round(currentBal * (rawVal / 100)),
+            updatedAt: new Date().toISOString()
+          }
+        };
+      }
+      return u;
+    }));
+
+    if (selectedUserDetailModal && (selectedUserDetailModal.id === targetId || selectedUserDetailModal.email === targetEmail)) {
+      setSelectedUserDetailModal((prev: any) => prev ? {
+        ...prev,
+        pnlPercentage: rawVal,
+        pnlOverride: {
+          enabled: true,
+          pnlPercentage: rawVal,
+          unrealizedPnl: Math.round(currentBal * (rawVal / 100)),
+          updatedAt: new Date().toISOString()
+        }
+      } : null);
+    }
+
+    // 2. Sync to local storage utility for live dashboard event triggers
+    const config: PnlOverrideConfig = {
+      enabled: true,
+      pnlPercentage: rawVal,
+      unrealizedPnl: Math.round(currentBal * (rawVal / 100)),
+      realizedPnl: Math.round(currentBal * 0.15),
+      trendPattern: rawVal >= 0 ? 'bullish' : 'bearish',
+      customAccountNotes: `Administrative P&L Percentage set to ${rawVal >= 0 ? '+' : ''}${rawVal}%`,
+      updatedAt: new Date().toISOString()
+    };
+
+    setPnlOverrideForUser(targetId, config);
+    if (targetEmail) {
+      setPnlOverrideForUser(targetEmail, config);
+    }
+
+    // 3. Write override directly to user's Firestore document
+    try {
+      const userDocRef = doc(db, 'users', targetId);
+      await setDoc(userDocRef, {
+        pnlPercentage: rawVal,
+        pnlOverride: {
+          enabled: true,
+          pnlPercentage: rawVal,
+          unrealizedPnl: Math.round(currentBal * (rawVal / 100)),
+          updatedAt: new Date().toISOString()
+        },
+        updatedAt: Date.now()
+      }, { merge: true });
+
+      if (targetEmail && targetEmail !== targetId) {
+        const emailDocRef = doc(db, 'users', targetEmail);
+        await setDoc(emailDocRef, {
+          pnlPercentage: rawVal,
+          pnlOverride: {
+            enabled: true,
+            pnlPercentage: rawVal,
+            unrealizedPnl: Math.round(currentBal * (rawVal / 100)),
+            updatedAt: new Date().toISOString()
+          },
+          updatedAt: Date.now()
+        }, { merge: true }).catch(() => {});
+      }
+    } catch (err) {
+      console.warn('Firestore user P&L update notice:', err);
+    }
+
+    setSavingPnlUserId(null);
+
+    // 4. Alerts and Audits
+    sendTelegramAlert('ADMIN_PNL_PERCENTAGE_SET', `📈 Admin Set User P&L Percentage Override: ${targetName}`, {
+      'User Name': targetName,
+      'User Email': targetEmail || targetId,
+      'Target P&L Percentage': `${rawVal >= 0 ? '+' : ''}${rawVal}%`,
+      'Calculated Return Value': `$${Math.round(currentBal * (rawVal / 100)).toLocaleString()} USD`,
+      'Saved to Firestore': 'YES',
+      'Timestamp': new Date().toUTCString()
+    });
+
+    logAuditAction('P&L Percentage Override', `${targetName} (${targetEmail || targetId})`, `Set account P&L percentage override to ${rawVal >= 0 ? '+' : ''}${rawVal}% in Firestore`);
+    showToast(`🎯 Account P&L percentage set to ${rawVal >= 0 ? '+' : ''}${rawVal}% and saved to Firestore for ${targetName}!`, 'success');
   };
 
   const handleCreateNewClient = (e: React.FormEvent) => {
@@ -2300,7 +2414,7 @@ export default function AdminDashboardView({
                   <h2 className="text-xl font-bold text-slate-900 flex items-center gap-2">
                     <Users className="w-5 h-5 text-indigo-600" /> Registered Traders Directory
                   </h2>
-                  <p className="text-xs text-slate-500 mt-1">Full registry of registered traders, portfolio balances, and account status management.</p>
+                  <p className="text-xs text-slate-500 mt-1">Full registry of registered traders, portfolio balances, P&L overrides, and account status management.</p>
                 </div>
                 <button
                   onClick={() => setShowAddUserModal(true)}
@@ -2311,7 +2425,102 @@ export default function AdminDashboardView({
                 </button>
               </div>
 
-              {/* Table */}
+              {/* Dedicated User P&L Percentage Override Panel */}
+              <div id="user-pnl-override-control" className="bg-slate-900 text-white p-5 md:p-6 rounded-2xl border border-slate-800 shadow-xl space-y-4">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-800 pb-3">
+                  <div>
+                    <h3 className="text-base font-bold text-white flex items-center gap-2">
+                      <TrendingUp className="w-5 h-5 text-emerald-400" /> Account P&L Percentage Manual Override
+                    </h3>
+                    <p className="text-xs text-slate-400 mt-0.5">
+                      Manually set the current P&L percentage for a selected user account. Clicking <strong className="text-emerald-400 font-bold">Save P&L Override</strong> writes this override directly to the user's specific Firestore document for their dashboard display.
+                    </p>
+                  </div>
+                  <span className="text-[10px] font-mono uppercase bg-emerald-950 text-emerald-300 border border-emerald-800/80 px-2.5 py-1 rounded-full font-bold self-start sm:self-auto shrink-0">
+                    Firestore Sync Active
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-12 gap-4 items-end">
+                  {/* Select User Dropdown */}
+                  <div className="md:col-span-5 space-y-1.5">
+                    <label className="text-xs font-bold text-slate-300 block">Select User Account</label>
+                    <select
+                      value={pnlOverrideUserSelected}
+                      onChange={(e) => setPnlOverrideUserSelected(e.target.value)}
+                      className="w-full bg-slate-950 border border-slate-700 text-white rounded-xl px-3 py-2 text-xs font-medium focus:outline-none focus:border-emerald-500 font-mono"
+                    >
+                      {recentUsers.map(u => (
+                        <option key={u.id} value={u.id}>
+                          {u.name} ({u.email}) — Bal: ${u.balance?.toLocaleString()}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Specific Input Field for P&L Percentage */}
+                  <div className="md:col-span-4 space-y-1.5">
+                    <label className="text-xs font-bold text-slate-300 block">Current P&L Percentage (%)</label>
+                    <div className="relative">
+                      <input
+                        type="number"
+                        step="0.1"
+                        placeholder="e.g. 24.5"
+                        value={userPnlInputs[pnlOverrideUserSelected] ?? (recentUsers.find(u => u.id === pnlOverrideUserSelected)?.pnlPercentage ?? recentUsers.find(u => u.id === pnlOverrideUserSelected)?.pnlOverride?.pnlPercentage ?? 24.5).toString()}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setUserPnlInputs(prev => ({ ...prev, [pnlOverrideUserSelected]: val }));
+                        }}
+                        className="w-full bg-slate-950 border border-slate-700 text-emerald-400 font-mono font-black rounded-xl pl-3 pr-8 py-2 text-sm focus:outline-none focus:border-emerald-500"
+                      />
+                      <span className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-xs">%</span>
+                    </div>
+                  </div>
+
+                  {/* Save Button */}
+                  <div className="md:col-span-3 flex items-center gap-2">
+                    <button
+                      onClick={() => {
+                        const valStr = userPnlInputs[pnlOverrideUserSelected] ?? (recentUsers.find(u => u.id === pnlOverrideUserSelected)?.pnlPercentage ?? 24.5).toString();
+                        handleSaveUserPnlPercentage(pnlOverrideUserSelected, parseFloat(valStr) || 0);
+                      }}
+                      disabled={savingPnlUserId === pnlOverrideUserSelected}
+                      className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-xs py-2.5 px-4 rounded-xl flex items-center justify-center gap-1.5 shadow-md transition cursor-pointer disabled:opacity-50"
+                    >
+                      {savingPnlUserId === pnlOverrideUserSelected ? (
+                        <>
+                          <RefreshCw className="w-4 h-4 animate-spin" />
+                          <span>Saving to Firestore...</span>
+                        </>
+                      ) : (
+                        <>
+                          <CheckCircle2 className="w-4 h-4" />
+                          <span>Save P&L Override</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </div>
+
+                {/* Quick Presets */}
+                <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-slate-800/80 text-xs">
+                  <span className="text-[11px] text-slate-400 font-bold uppercase mr-1">Quick Presets:</span>
+                  {[10, 24.5, 45, -12, 0].map((presetVal) => (
+                    <button
+                      key={presetVal}
+                      onClick={() => {
+                        setUserPnlInputs(prev => ({ ...prev, [pnlOverrideUserSelected]: presetVal.toString() }));
+                        handleSaveUserPnlPercentage(pnlOverrideUserSelected, presetVal);
+                      }}
+                      className="bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 px-2.5 py-1 rounded-lg text-[11px] font-mono font-bold transition cursor-pointer"
+                    >
+                      {presetVal > 0 ? `+${presetVal}%` : `${presetVal}%`}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Directory Table */}
               <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-xs">
                 <table className="w-full text-left border-collapse">
                   <thead>
@@ -2320,6 +2529,7 @@ export default function AdminDashboardView({
                       <th className="p-4">Account No</th>
                       <th className="p-4">Tier & Country</th>
                       <th className="p-4">Live Balance</th>
+                      <th className="p-4">P&L % Override</th>
                       <th className="p-4">Account Status</th>
                       <th className="p-4 text-right">Quick Actions</th>
                     </tr>
@@ -2327,6 +2537,7 @@ export default function AdminDashboardView({
                   <tbody>
                     {recentUsers.map(user => {
                       const status = user.status || user.verificationStatus || 'Pending';
+                      const currentPnlVal = userPnlInputs[user.id] ?? (user.pnlPercentage ?? user.pnlOverride?.pnlPercentage ?? 24.5).toString();
                       return (
                         <tr key={user.id} className="border-b border-slate-100 hover:bg-slate-50 transition">
                           <td className="p-4">
@@ -2342,6 +2553,36 @@ export default function AdminDashboardView({
                           </td>
                           <td className="p-4 font-mono font-black text-slate-900 text-sm">
                             ${user.balance?.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                          </td>
+                          <td className="p-4">
+                            <div className="flex items-center gap-1.5">
+                              <div className="relative w-20">
+                                <input
+                                  type="number"
+                                  step="0.1"
+                                  placeholder="0.0"
+                                  value={currentPnlVal}
+                                  onChange={(e) => {
+                                    const val = e.target.value;
+                                    setUserPnlInputs(prev => ({ ...prev, [user.id]: val }));
+                                  }}
+                                  className="w-full bg-slate-50 border border-slate-300 rounded-lg pl-2 pr-5 py-1 text-xs font-mono font-bold text-slate-900 focus:outline-none focus:border-emerald-500"
+                                />
+                                <span className="absolute right-1.5 top-1/2 -translate-y-1/2 text-[10px] text-slate-400 font-bold">%</span>
+                              </div>
+                              <button
+                                onClick={() => handleSaveUserPnlPercentage(user.id, parseFloat(currentPnlVal) || 0)}
+                                disabled={savingPnlUserId === user.id}
+                                className="bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-extrabold px-2.5 py-1 rounded-lg transition cursor-pointer shadow-2xs flex items-center gap-1 disabled:opacity-50 shrink-0"
+                              >
+                                {savingPnlUserId === user.id ? (
+                                  <RefreshCw className="w-3 h-3 animate-spin" />
+                                ) : (
+                                  <Check className="w-3 h-3" />
+                                )}
+                                <span>Save</span>
+                              </button>
+                            </div>
                           </td>
                           <td className="p-4">
                             <span className={`text-[10px] font-bold uppercase px-2.5 py-1 rounded-full border ${
@@ -2363,7 +2604,10 @@ export default function AdminDashboardView({
                                 {status === 'Approved' ? 'Mark Pending' : 'Approve & Notify'}
                               </button>
                               <button
-                                onClick={() => setSelectedUserDetailModal(user)}
+                                onClick={() => {
+                                  setPnlOverrideUserSelected(user.id);
+                                  setSelectedUserDetailModal(user);
+                                }}
                                 className="bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-bold px-3 py-1.5 rounded-lg transition cursor-pointer"
                               >
                                 Details
@@ -3354,6 +3598,49 @@ export default function AdminDashboardView({
                     className="bg-rose-600 hover:bg-rose-500 text-white font-extrabold text-xs py-2 rounded-xl transition cursor-pointer text-center"
                   >
                     -$1,000
+                  </button>
+                </div>
+              </div>
+
+              {/* Account P&L Percentage Firestore Override Panel */}
+              <div className="bg-slate-950 p-4 rounded-xl border border-slate-800 space-y-2">
+                <div className="flex justify-between items-center">
+                  <span className="text-[11px] font-extrabold uppercase tracking-wider text-emerald-400 flex items-center gap-1.5">
+                    <TrendingUp className="w-3.5 h-3.5 text-emerald-400" /> Account P&L Percentage Firestore Override
+                  </span>
+                  <span className="text-[10px] font-mono text-slate-400">Writes to doc: users/{selectedUserDetailModal.id}</span>
+                </div>
+                
+                <div className="flex items-center gap-3">
+                  <div className="relative flex-1">
+                    <input
+                      type="number"
+                      step="0.1"
+                      placeholder="e.g. 24.5"
+                      value={userPnlInputs[selectedUserDetailModal.id] ?? (selectedUserDetailModal.pnlPercentage ?? selectedUserDetailModal.pnlOverride?.pnlPercentage ?? 24.5).toString()}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setUserPnlInputs(prev => ({ ...prev, [selectedUserDetailModal.id]: val }));
+                      }}
+                      className="w-full bg-slate-900 border border-slate-700 text-emerald-400 font-mono font-black rounded-xl pl-3 pr-8 py-2 text-sm focus:outline-none focus:border-emerald-500"
+                    />
+                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-xs">%</span>
+                  </div>
+
+                  <button
+                    onClick={() => {
+                      const valStr = userPnlInputs[selectedUserDetailModal.id] ?? (selectedUserDetailModal.pnlPercentage ?? selectedUserDetailModal.pnlOverride?.pnlPercentage ?? 24.5).toString();
+                      handleSaveUserPnlPercentage(selectedUserDetailModal.id, parseFloat(valStr) || 0);
+                    }}
+                    disabled={savingPnlUserId === selectedUserDetailModal.id}
+                    className="bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs py-2 px-4 rounded-xl flex items-center gap-1.5 transition cursor-pointer shadow-sm disabled:opacity-50 shrink-0"
+                  >
+                    {savingPnlUserId === selectedUserDetailModal.id ? (
+                      <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                    ) : (
+                      <CheckCircle2 className="w-3.5 h-3.5" />
+                    )}
+                    <span>Save P&L Override</span>
                   </button>
                 </div>
               </div>

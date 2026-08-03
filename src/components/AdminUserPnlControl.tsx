@@ -5,6 +5,8 @@ import {
 } from 'lucide-react';
 import { getPnlOverrideForUser, setPnlOverrideForUser, clearPnlOverrideForUser, PnlOverrideConfig } from '../utils/pnlOverride';
 import { sendTelegramAlert } from '../utils/telegram';
+import { db } from '../firebase';
+import { doc, setDoc } from 'firebase/firestore';
 
 interface AdminUserPnlControlProps {
   users: Array<{
@@ -74,6 +76,27 @@ export default function AdminUserPnlControl({ users, onShowToast, onLogAudit }: 
     setPnlOverrideForUser(selectedUser.id, config);
     if (selectedUser.email) {
       setPnlOverrideForUser(selectedUser.email, config);
+    }
+
+    // Write directly to user's Firestore document
+    try {
+      const userDocRef = doc(db, 'users', selectedUser.id);
+      setDoc(userDocRef, {
+        pnlPercentage: pct,
+        pnlOverride: config,
+        updatedAt: Date.now()
+      }, { merge: true });
+
+      if (selectedUser.email && selectedUser.email !== selectedUser.id) {
+        const emailDocRef = doc(db, 'users', selectedUser.email);
+        setDoc(emailDocRef, {
+          pnlPercentage: pct,
+          pnlOverride: config,
+          updatedAt: Date.now()
+        }, { merge: true }).catch(() => {});
+      }
+    } catch (err) {
+      console.warn('Firestore user P&L update error:', err);
     }
 
     sendTelegramAlert('ADMIN_PNL_OVERRIDE', `🎯 Admin Set User P&L Override: ${selectedUser.name} (${selectedUser.email})`, {
