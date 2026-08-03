@@ -1,0 +1,10 @@
+{
+  "name": "Remix: Axi - CFD \u0026 Forex Broker",
+  "description": "A high-fidelity interactive clone of the Axi.com financial trading platform. Trade Forex, Shares, Cryptocurrencies, Commodities, and Indices with premium interactive tools, web trading terminal mock, leverage calculators, academy quiz, and regulatory insights.",
+  "requestFramePermissions": [
+    "microphone"
+  ],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

@@ -1,0 +1,120 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "User profile and account balances.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "maxLength": 128 },
+        "email": { "type": "string", "maxLength": 255 },
+        "balance": { "type": "number" },
+        "liveBalance": { "type": "number" },
+        "createdAt": { "type": "number" }
+      },
+      "required": ["uid", "email", "balance", "liveBalance", "createdAt"]
+    },
+    "TradeOrder": {
+      "title": "TradeOrder",
+      "description": "An open trade position.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "symbol": { "type": "string", "maxLength": 20 },
+        "type": { "type": "string", "enum": ["Buy", "Sell"] },
+        "volume": { "type": "number" },
+        "openPrice": { "type": "number" },
+        "currentPrice": { "type": "number" },
+        "sl": { "type": "number" },
+        "tp": { "type": "number" },
+        "profit": { "type": "number" },
+        "time": { "type": "string", "maxLength": 64 },
+        "accountType": { "type": "string", "enum": ["demo", "live"] }
+      },
+      "required": ["id", "symbol", "type", "volume", "openPrice", "currentPrice", "profit", "time", "accountType"]
+    },
+    "ClosedPosition": {
+      "title": "ClosedPosition",
+      "description": "A closed trade position.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "symbol": { "type": "string", "maxLength": 20 },
+        "type": { "type": "string", "enum": ["Buy", "Sell"] },
+        "volume": { "type": "number" },
+        "openPrice": { "type": "number" },
+        "closePrice": { "type": "number" },
+        "profit": { "type": "number" },
+        "openTime": { "type": "string", "maxLength": 64 },
+        "closeTime": { "type": "string", "maxLength": 64 },
+        "accountType": { "type": "string", "enum": ["demo", "live"] }
+      },
+      "required": ["id", "symbol", "type", "volume", "openPrice", "closePrice", "profit", "openTime", "closeTime", "accountType"]
+    },
+    "Transaction": {
+      "title": "Transaction",
+      "description": "A deposit or withdrawal transaction.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "type": { "type": "string", "enum": ["Deposit", "Withdraw"] },
+        "method": { "type": "string", "maxLength": 100 },
+        "amount": { "type": "number" },
+        "status": { "type": "string", "maxLength": 50 },
+        "timestamp": { "type": "string", "maxLength": 64 },
+        "accountType": { "type": "string", "enum": ["demo", "live"] }
+      },
+      "required": ["id", "type", "method", "amount", "status", "timestamp", "accountType"]
+    },
+    "PriceAlert": {
+      "title": "PriceAlert",
+      "description": "A user defined price alert.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "symbol": { "type": "string", "maxLength": 20 },
+        "targetPrice": { "type": "number" },
+        "condition": { "type": "string", "enum": ["above", "below"] },
+        "active": { "type": "boolean" }
+      },
+      "required": ["id", "symbol", "targetPrice", "condition", "active"]
+    },
+    "PaymentConfig": {
+      "title": "PaymentConfig",
+      "description": "Central payment configuration document storing active payment methods, crypto wallets, bank wire details, and fees.",
+      "type": "object",
+      "properties": {
+        "updatedAt": { "type": "number" },
+        "cryptoWallets": { "type": "object" },
+        "bankSettings": { "type": "object" },
+        "paymentMethods": { "type": "array" }
+      },
+      "required": ["updatedAt"]
+    }
+  },
+  "firestore": {
+    "/config/{configId}": {
+      "schema": { "$ref": "#/entities/PaymentConfig" },
+      "description": "Central platform payment configuration document."
+    },
+    "/users/{userId}": {
+      "schema": { "$ref": "#/entities/User" },
+      "description": "Stores user profiles and balances."
+    },
+    "/users/{userId}/openPositions/{positionId}": {
+      "schema": { "$ref": "#/entities/TradeOrder" },
+      "description": "Stores user's open trade positions."
+    },
+    "/users/{userId}/closedPositions/{positionId}": {
+      "schema": { "$ref": "#/entities/ClosedPosition" },
+      "description": "Stores user's closed trade positions."
+    },
+    "/users/{userId}/transactions/{transactionId}": {
+      "schema": { "$ref": "#/entities/Transaction" },
+      "description": "Stores user's deposit/withdraw transactions."
+    },
+    "/users/{userId}/priceAlerts/{alertId}": {
+      "schema": { "$ref": "#/entities/PriceAlert" },
+      "description": "Stores user's price alerts."
+    }
+  }
+}

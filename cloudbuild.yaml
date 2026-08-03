@@ -1,0 +1,49 @@
+# Google Cloud Build Configuration for Axi Forex & CFD Application
+steps:
+  # Step 1: Build Docker Container Image
+  - name: 'gcr.io/cloud-builders/docker'
+    id: 'build-image'
+    args:
+      - 'build'
+      - '-t'
+      - 'gcr.io/$PROJECT_ID/axi-forex-app:$COMMIT_SHA'
+      - '-t'
+      - 'gcr.io/$PROJECT_ID/axi-forex-app:latest'
+      - '.'
+
+  # Step 2: Push Image to Container Registry
+  - name: 'gcr.io/cloud-builders/docker'
+    id: 'push-image'
+    args:
+      - 'push'
+      - 'gcr.io/$PROJECT_ID/axi-forex-app:$COMMIT_SHA'
+
+  - name: 'gcr.io/cloud-builders/docker'
+    id: 'push-image-latest'
+    args:
+      - 'push'
+      - 'gcr.io/$PROJECT_ID/axi-forex-app:latest'
+
+  # Step 3: Deploy to Google Cloud Run
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    id: 'deploy-cloud-run'
+    entrypoint: gcloud
+    args:
+      - 'run'
+      - 'deploy'
+      - 'axi-forex-service'
+      - '--image'
+      - 'gcr.io/$PROJECT_ID/axi-forex-app:$COMMIT_SHA'
+      - '--region'
+      - 'us-central1'
+      - '--platform'
+      - 'managed'
+      - '--allow-unauthenticated'
+      - '--port'
+      - '8080'
+
+images:
+  - 'gcr.io/$PROJECT_ID/axi-forex-app:$COMMIT_SHA'
+  - 'gcr.io/$PROJECT_ID/axi-forex-app:latest'
+
+timeout: '1200s'

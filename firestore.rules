@@ -1,0 +1,144 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+    
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isValidUser(data) {
+      return data.keys().hasAll(['uid', 'email', 'balance', 'liveBalance', 'createdAt'])
+        && data.uid is string && data.uid.size() <= 128
+        && data.email is string && data.email.size() <= 255
+        && data.balance is number
+        && data.liveBalance is number
+        && data.createdAt is number;
+    }
+
+    function isValidTradeOrder(data) {
+      return data.keys().hasAll(['id', 'symbol', 'type', 'volume', 'openPrice', 'currentPrice', 'profit', 'time', 'accountType'])
+        && data.id is string && data.id.size() <= 128
+        && data.symbol is string && data.symbol.size() <= 20
+        && data.type in ['Buy', 'Sell']
+        && data.volume is number
+        && data.openPrice is number
+        && data.currentPrice is number
+        && data.profit is number
+        && data.time is string && data.time.size() <= 64
+        && data.accountType in ['demo', 'live'];
+    }
+
+    function isValidClosedPosition(data) {
+      return data.keys().hasAll(['id', 'symbol', 'type', 'volume', 'openPrice', 'closePrice', 'profit', 'openTime', 'closeTime', 'accountType'])
+        && data.id is string && data.id.size() <= 128
+        && data.symbol is string && data.symbol.size() <= 20
+        && data.type in ['Buy', 'Sell']
+        && data.volume is number
+        && data.openPrice is number
+        && data.closePrice is number
+        && data.profit is number
+        && data.openTime is string && data.openTime.size() <= 64
+        && data.closeTime is string && data.closeTime.size() <= 64
+        && data.accountType in ['demo', 'live'];
+    }
+
+    function isValidTransaction(data) {
+      return data.keys().hasAll(['id', 'type', 'method', 'amount', 'status', 'timestamp', 'accountType'])
+        && data.id is string && data.id.size() <= 128
+        && data.type in ['Deposit', 'Withdraw']
+        && data.method is string && data.method.size() <= 100
+        && data.amount is number
+        && data.status is string && data.status.size() <= 50
+        && data.timestamp is string && data.timestamp.size() <= 64
+        && data.accountType in ['demo', 'live'];
+    }
+
+    function isValidPriceAlert(data) {
+      return data.keys().hasAll(['id', 'symbol', 'targetPrice', 'condition', 'active'])
+        && data.id is string && data.id.size() <= 128
+        && data.symbol is string && data.symbol.size() <= 20
+        && data.targetPrice is number
+        && data.condition in ['above', 'below']
+        && data.active is bool;
+    }
+
+    match /users/{userId} {
+      allow read: if isSignedIn() && request.auth.uid == userId;
+      allow create: if isSignedIn() && request.auth.uid == userId
+        && isValidId(userId)
+        && isValidUser(incoming())
+        && incoming().uid == request.auth.uid;
+      allow update: if isSignedIn() && request.auth.uid == userId
+        && isValidId(userId)
+        && (
+           incoming().diff(existing()).affectedKeys().hasOnly(['balance', 'liveBalance'])
+        );
+      
+      match /openPositions/{positionId} {
+        allow read: if isSignedIn() && request.auth.uid == userId;
+        allow create: if isSignedIn() && request.auth.uid == userId
+          && isValidId(positionId)
+          && isValidTradeOrder(incoming());
+        allow update: if isSignedIn() && request.auth.uid == userId
+          && isValidId(positionId)
+          && (
+             incoming().diff(existing()).affectedKeys().hasOnly(['currentPrice', 'profit', 'sl', 'tp'])
+          );
+        allow delete: if isSignedIn() && request.auth.uid == userId
+          && isValidId(positionId);
+      }
+      
+      match /closedPositions/{positionId} {
+        allow read: if isSignedIn() && request.auth.uid == userId;
+        allow create: if isSignedIn() && request.auth.uid == userId
+          && isValidId(positionId)
+          && isValidClosedPosition(incoming());
+        allow delete: if isSignedIn() && request.auth.uid == userId
+          && isValidId(positionId);
+      }
+      
+      match /transactions/{transactionId} {
+        allow read: if isSignedIn() && request.auth.uid == userId;
+        allow create: if isSignedIn() && request.auth.uid == userId
+          && isValidId(transactionId)
+          && isValidTransaction(incoming());
+        allow delete: if isSignedIn() && request.auth.uid == userId
+          && isValidId(transactionId);
+      }
+      
+      match /priceAlerts/{alertId} {
+        allow read: if isSignedIn() && request.auth.uid == userId;
+        allow create: if isSignedIn() && request.auth.uid == userId
+          && isValidId(alertId)
+          && isValidPriceAlert(incoming());
+        allow update: if isSignedIn() && request.auth.uid == userId
+          && isValidId(alertId)
+          && (
+             incoming().diff(existing()).affectedKeys().hasOnly(['active'])
+          );
+        allow delete: if isSignedIn() && request.auth.uid == userId
+          && isValidId(alertId);
+      }
+    }
+
+    match /config/{configId} {
+      allow read: if true;
+      allow write: if true;
+    }
+  }
+}
