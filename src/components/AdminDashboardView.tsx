@@ -2,11 +2,12 @@ import { useSiteCMS } from '../hooks/useSiteCMS';
 import React, { useState, useEffect } from 'react';
 import { ViewType, DisplayCurrency } from '../types';
 import CurrencySelector from './CurrencySelector';
-import { HandCoins, LogOut, Headphones, Copy, ArrowRightLeft, Key, Cpu, ArrowUpFromLine, ArrowDownToLine, Globe, Users, DollarSign, Activity, AlertTriangle, Settings, RefreshCw, BarChart4, ArrowUpRight, ArrowDownRight, Clock, AlertCircle, CheckCircle2, ShieldAlert, BellRing, PlusCircle, XCircle, Mail, FileText, ShieldCheck, MessageSquare, Send, Headset, ExternalLink, UserPlus, Sliders, TrendingUp, Search, Plus, Minus, RotateCcw, ChevronRight, Check, Zap, Lock, Unlock, SlidersHorizontal, Edit3 } from 'lucide-react';
+import { Wallet, HandCoins, LogOut, Headphones, Copy, ArrowRightLeft, Key, Cpu, ArrowUpFromLine, ArrowDownToLine, Globe, Users, DollarSign, Activity, AlertTriangle, Settings, RefreshCw, BarChart4, ArrowUpRight, ArrowDownRight, Clock, AlertCircle, CheckCircle2, ShieldAlert, BellRing, PlusCircle, XCircle, Mail, FileText, ShieldCheck, MessageSquare, Send, Headset, ExternalLink, UserPlus, Sliders, TrendingUp, Search, Plus, Minus, RotateCcw, ChevronRight, Check, Zap, Lock, Unlock, SlidersHorizontal, Edit3 } from 'lucide-react';
 import { motion } from 'motion/react';
 import AdminManageWallet from './AdminManageWallet';
 import AdminLiveSiteEditor from './AdminLiveSiteEditor';
 import AdminUserPnlControl from './AdminUserPnlControl';
+import AdminSystemIntegrationStatus from './AdminSystemIntegrationStatus';
 import EmailNotificationModal, { EmailTriggerPayload } from './EmailNotificationModal';
 import { sendTelegramAlert } from '../utils/telegram';
 import { safeStorage } from '../utils/storage';
@@ -805,6 +806,7 @@ export default function AdminDashboardView({
             { id: 'sendEmail', label: 'Send Email', icon: Mail },
             { id: 'walletSettings', label: 'Payment Settings', icon: Settings },
             { id: 'walletAddressManagement', label: 'Wallet Address Management', icon: Wallet },
+            { id: 'systemIntegration', label: 'System Integration Status', icon: Activity },
             { id: 'tradingBotSettings', label: 'Trading Bot Settings', icon: Sliders },
             { id: 'investmentPlanSettings', label: 'Investment Plan Settings', icon: TrendingUp },
             { id: 'changePassword', label: 'Change Password', icon: Key },
@@ -1120,6 +1122,13 @@ export default function AdminDashboardView({
                 </div>
               </div>
               <AdminManageWallet initialSubTab="crypto" />
+            </motion.div>
+          )}
+
+          {/* DEDICATED SYSTEM INTEGRATION STATUS TAB */}
+          {activeTab === 'systemIntegration' && (
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
+              <AdminSystemIntegrationStatus onShowToast={showToast} />
             </motion.div>
           )}
           {activeTab === 'siteCMS' && (
