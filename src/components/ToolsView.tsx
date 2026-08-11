@@ -156,7 +156,7 @@ const TOP_MASTER_TRADERS: MasterTrader[] = [
     riskScore: 2,
     maxDrawdown: -4.1,
     allocatedCapitalTotal: '$920K',
-    strategy: 'Asian Session Breakout & USD/JPY Carry Trade',
+    strategy: 'Asia-Pacific Market Breakout & USD/JPY Carry Strategy',
     assetFocus: 'USD/JPY, AUD/JPY, Nikkei 225',
     monthlyPerformance: [8.5, 9.2, 11.0, 7.8, 14.2, 10.1, 12.5, 8.9, 13.4, 15.0, 11.8, 12.2],
     openPositions: [

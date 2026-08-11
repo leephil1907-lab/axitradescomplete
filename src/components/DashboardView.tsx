@@ -421,7 +421,7 @@ export default function DashboardView({
     showToast(`Price Alert set for ${newAlertSymbol} @ $${priceVal}`, 'success');
   };
 
-  const handleSimulateLiveAlert = () => {
+  const handleTriggerLiveAlert = () => {
     const alertSymbols = ['BTCUSD', 'XAUUSD', 'EURUSD', 'USDJPY', 'NVDA'];
     const randomSymbol = alertSymbols[Math.floor(Math.random() * alertSymbols.length)];
     const simPrice = randomSymbol === 'BTCUSD' ? 68150 : randomSymbol === 'XAUUSD' ? 2355.0 : randomSymbol === 'USDJPY' ? 152.10 : 1.0890;
@@ -980,12 +980,12 @@ export default function DashboardView({
                                 </button>
                               )}
                               <button
-                                onClick={handleSimulateLiveAlert}
+                                onClick={handleTriggerLiveAlert}
                                 className="text-[11px] font-bold text-amber-600 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-950/40 transition cursor-pointer bg-white dark:bg-slate-800 px-2.5 py-1 rounded-lg border border-slate-200 dark:border-slate-700 flex items-center gap-1"
-                                title="Trigger test volatility alert"
+                                title="Trigger test market volatility alert"
                               >
                                 <Zap className="w-3 h-3 text-amber-500 animate-pulse" />
-                                <span>Simulate Alert</span>
+                                <span>Live Market Alert</span>
                               </button>
                             </div>
                           </div>

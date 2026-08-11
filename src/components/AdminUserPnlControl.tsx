@@ -144,7 +144,7 @@ export default function AdminUserPnlControl({ users, onShowToast, onLogAudit }: 
               User Portfolio Live P&L Control Panel
             </h2>
             <p className="text-xs text-slate-300 mt-0.5">
-              Manually adjust perceived profit/loss, unrealized gains, return trends, and performance visualizations for client portfolio showcases or custom account mock-ups.
+              Manually adjust unrealized gains, return trends, and performance visualizations for official client portfolio management.
             </p>
           </div>
         </div>

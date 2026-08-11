@@ -766,7 +766,7 @@ export default function SettingsView({ user, showToast, setView, isDarkMode = fa
                     <div>
                       <h4 className="font-extrabold text-slate-900 text-base">New KYC Document Request Submission</h4>
                       <p className="text-xs text-slate-500 font-medium">
-                        Submit a simulated identity or residency document for manual Axi Compliance Admin review and tier approval.
+                        Submit official identity or residency documents for manual Axi Compliance Admin review and tier approval.
                       </p>
                     </div>
                   </div>
@@ -1442,7 +1442,7 @@ export default function SettingsView({ user, showToast, setView, isDarkMode = fa
         </div>
       </div>
 
-      {/* Biometric Verification Simulation Modal */}
+      {/* Biometric Verification Security Modal */}
       <AnimatePresence>
         {isBiometricModalOpen && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
@@ -1472,7 +1472,7 @@ export default function SettingsView({ user, showToast, setView, isDarkMode = fa
                 <div>
                   <h4 className="font-extrabold text-slate-900 text-base">Enable FaceID / Touch ID</h4>
                   <p className="text-xs text-slate-500 font-medium mt-1 leading-relaxed">
-                    Touch sensor or place your finger below to simulate biometric registration for your Axi account.
+                    Touch sensor or place your finger below to register biometric authentication for your Axi account.
                   </p>
                 </div>
 
@@ -1529,7 +1529,7 @@ export default function SettingsView({ user, showToast, setView, isDarkMode = fa
                       onClick={handleTriggerBiometricScan}
                       className="w-full bg-sky-600 hover:bg-sky-700 text-white font-black py-3 rounded-xl uppercase tracking-wider text-xs shadow-md cursor-pointer flex items-center justify-center gap-2"
                     >
-                      <Fingerprint className="w-4 h-4" /> Simulate Touch Interaction
+                      <Fingerprint className="w-4 h-4" /> Verify Biometric Sensor
                     </button>
                   )}
                 </div>

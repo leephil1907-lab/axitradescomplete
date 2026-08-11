@@ -1,10 +1,13 @@
 import { useSiteCMS } from '../hooks/useSiteCMS';
 import ManCityImage from "../assets/images/man_city_partnership_1784968579657.jpg";
 import React, { useState, useEffect } from 'react';
+import AssetBrandLogo from './AssetBrandLogo';
 import spacexHeroImg from '../assets/images/spacex_ipo_hero_1784835887334.jpg';
-import spreadsHeroImg from '../assets/images/axi_trading_spreads_1784835901617.jpg';
-import aiSignalsHeroImg from '../assets/images/axi_ai_signals_1784835914680.jpg';
-import cryptoSpotHeroImg from '../assets/images/axi_crypto_spot_1784835927385.jpg';
+import axiSelectHeroImg from '../assets/images/axi_select_hero_1786473577102.jpg';
+import spreadsHeroImg from '../assets/images/axi_spreads_hero_1786473589536.jpg';
+import marketsAppHeroImg from '../assets/images/axi_markets_app_hero_1786473599610.jpg';
+import spotCryptoHeroImg from '../assets/images/axi_spot_crypto_hero_1786474416366.jpg';
+import aiStrategyHeroImg from '../assets/images/axi_ai_strategy_hero_1786474430607.jpg';
 import { 
   ArrowUpRight, 
   ArrowDownRight, 
@@ -181,9 +184,12 @@ function MobileAppPreview({ onAddFunds }: { onAddFunds: () => void }) {
                         : 'bg-slate-950/40 border-slate-850 hover:bg-slate-850'
                     }`}
                   >
-                    <div>
-                      <div className="text-[10px] font-black text-white">{asset.name}</div>
-                      <div className="text-[8px] font-semibold text-slate-400">{asset.desc}</div>
+                    <div className="flex items-center gap-2">
+                      <AssetBrandLogo symbol={asset.name} size="sm" />
+                      <div>
+                        <div className="text-[10px] font-black text-white">{asset.name}</div>
+                        <div className="text-[8px] font-semibold text-slate-400">{asset.desc}</div>
+                      </div>
                     </div>
                     <div className="text-right">
                       <div className="text-[10px] font-mono font-black text-brand-yellow">
@@ -261,7 +267,7 @@ export default function HomeView({ quotes, setView, openSignUp }: HomeViewProps)
   const [currentSlide, setCurrentSlide] = useState(0);
 
   // Search and Live Assets tab state
-  const [activeTab, setActiveTab] = useState<'popular' | 'forex' | 'metals' | 'indices' | 'commodities' | 'cryptocurrencies'>('popular');
+  const [activeTab, setActiveTab] = useState<'popular' | 'cryptocurrencies' | 'stocks' | 'forex' | 'metals' | 'indices' | 'commodities'>('popular');
   const [searchQuery, setSearchQuery] = useState('');
 
   // Copy Trading Preview State
@@ -301,11 +307,11 @@ export default function HomeView({ quotes, setView, openSignUp }: HomeViewProps)
       bgClass: 'bg-[#030614]',
       textColor: 'text-white',
       subTextColor: 'text-slate-200',
-      title: 'SpaceX has landed',
-      subhead: 'Trade SPCX after its historic trillion-dollar IPO',
-      btnText: 'Trade now',
+      title: 'Trade with Axi funds up to $1 million USD',
+      subhead: 'Axi has launched a capital allocation program. No registration fees. No monthly fees. 100% FREE',
+      btnText: 'JOIN NOW',
       btnClass: 'bg-[#FFD250] hover:bg-[#FFC518] text-slate-900', linkText: '',
-      image: 'https://aximedia.s3.amazonaws.com/rebrand-prod/huob50z0/launch-slider-new.png',
+      image: axiSelectHeroImg,
       imagePosition: 'bottom',
     },
     {
@@ -318,37 +324,11 @@ export default function HomeView({ quotes, setView, openSignUp }: HomeViewProps)
       subhead: 'SPREADS ON GOLD $0.16, BTC $15',
       btnText: 'ACCESS TIGHT SPREADS',
       btnClass: 'bg-transparent border border-[#FFD250] hover:bg-[#FFD250]/10 text-[#FFD250]',
-      image: 'https://aximedia.s3.amazonaws.com/rebrand-prod/jnnpaysd/mobile-13.png',
+      image: spreadsHeroImg,
       imagePosition: 'bottom',
     },
     {
       id: 2,
-      theme: 'teal',
-      bgClass: 'bg-[#43B8B8]',
-      textColor: 'text-white',
-      subTextColor: 'text-white/90',
-      title: 'POWER UP YOUR TRADING STRATEGY WITH AI',
-      subhead: '',
-      btnText: 'LEARN MORE',
-      btnClass: 'bg-transparent border border-[#FFD250] hover:bg-[#FFD250]/10 text-[#FFD250]',
-      image: 'https://aximedia.s3.amazonaws.com/rebrand-prod/4vejfwwl/webslider-mobile-1.png', 
-      imagePosition: 'bottom',
-    },
-    {
-      id: 3,
-      theme: 'grey',
-      bgClass: 'bg-[#F4F3EF]',
-      textColor: 'text-slate-900',
-      subTextColor: 'text-[#E3000F]',
-      title: 'SPOT IT. BUY IT. OWN IT.',
-      subhead: '',
-      btnText: 'BUY CRYPTO NOW',
-      btnClass: 'bg-[#E3000F] hover:bg-[#CC000D] text-white',
-      image: 'https://aximedia.s3.amazonaws.com/rebrand-prod/5xlg22pc/webslider-buy-crypto-1.png',
-      imagePosition: 'bottom',
-    },
-    {
-      id: 4,
       theme: 'grey',
       bgClass: 'bg-[#F4F3EF]',
       textColor: 'text-slate-900',
@@ -359,7 +339,33 @@ export default function HomeView({ quotes, setView, openSignUp }: HomeViewProps)
       btnClass: 'bg-[#FFD250] hover:bg-[#FFC518] text-slate-900', linkText: '',
       secondaryBtnText: 'Learn more',
       secondaryBtnClass: 'bg-transparent border border-slate-900 hover:bg-slate-900 hover:text-white text-slate-900',
-      image: 'https://aximedia.s3.amazonaws.com/rebrand-prod/4vejfwwl/webslider-mobile-1.png',
+      image: marketsAppHeroImg,
+      imagePosition: 'bottom',
+    },
+    {
+      id: 3,
+      theme: 'grey',
+      bgClass: 'bg-[#F4F3EF]',
+      textColor: 'text-slate-900',
+      subTextColor: 'text-[#E3000F]',
+      title: 'SPOT IT. BUY IT. OWN IT.',
+      subhead: 'Experience instant crypto spot buying with zero commission and deep liquidity across top trading pairs.',
+      btnText: 'BUY CRYPTO NOW',
+      btnClass: 'bg-[#E3000F] hover:bg-[#CC000D] text-white',
+      image: spotCryptoHeroImg,
+      imagePosition: 'bottom',
+    },
+    {
+      id: 4,
+      theme: 'teal',
+      bgClass: 'bg-[#43B8B8]',
+      textColor: 'text-white',
+      subTextColor: 'text-white/90',
+      title: 'POWER UP YOUR TRADING STRATEGY WITH AI',
+      subhead: 'Automated signals, signal analytics, and intelligent copy trading built into your dashboard.',
+      btnText: 'LEARN MORE',
+      btnClass: 'bg-transparent border border-[#FFD250] hover:bg-[#FFD250]/10 text-[#FFD250]',
+      image: aiStrategyHeroImg, 
       imagePosition: 'bottom',
     }
   ];
@@ -370,37 +376,61 @@ export default function HomeView({ quotes, setView, openSignUp }: HomeViewProps)
     
     if (activeTab === 'popular') {
       list = [
+        { symbol: 'BTCUSD', name: 'Bitcoin CFD', category: 'Crypto', bidDiff: -2.5, askDiff: 2.5 },
+        { symbol: 'ETHUSD', name: 'Ethereum CFD', category: 'Crypto', bidDiff: -0.25, askDiff: 0.25 },
+        { symbol: 'SOLUSD', name: 'Solana CFD', category: 'Crypto', bidDiff: -0.05, askDiff: 0.05 },
+        { symbol: 'NVDA', name: 'NVIDIA Corp CFD', category: 'Shares', bidDiff: -0.20, askDiff: 0.20 },
+        { symbol: 'AAPL', name: 'Apple Inc CFD', category: 'Shares', bidDiff: -0.05, askDiff: 0.05 },
         { symbol: 'XAUUSD', name: 'Gold Spot vs US Dollar', category: 'Metals', bidDiff: -0.18, askDiff: 0.18 },
         { symbol: 'EURUSD', name: 'Euro vs US Dollar', category: 'Forex', bidDiff: -0.0001, askDiff: 0.0001 },
-        { symbol: 'GBPUSD', name: 'Pound vs US Dollar', category: 'Forex', bidDiff: -0.0002, askDiff: 0.0002 },
-        { symbol: 'BTCUSD', name: 'Bitcoin CFD', category: 'Crypto', bidDiff: -0.12, askDiff: 0.15 },
-        { symbol: 'US30', name: 'Dow Jones CFD', category: 'Indices', bidDiff: -1.5, askDiff: 1.5 },
-        { symbol: 'ETHUSD', name: 'Ethereum CFD', category: 'Crypto', bidDiff: -0.05, askDiff: 0.08 }
+        { symbol: 'US30', name: 'Dow Jones CFD', category: 'Indices', bidDiff: -1.5, askDiff: 1.5 }
+      ];
+    } else if (activeTab === 'cryptocurrencies') {
+      list = [
+        { symbol: 'BTCUSD', name: 'Bitcoin CFD', category: 'Crypto', bidDiff: -2.5, askDiff: 2.5 },
+        { symbol: 'ETHUSD', name: 'Ethereum CFD', category: 'Crypto', bidDiff: -0.25, askDiff: 0.25 },
+        { symbol: 'SOLUSD', name: 'Solana CFD', category: 'Crypto', bidDiff: -0.05, askDiff: 0.05 },
+        { symbol: 'XRPUSD', name: 'XRP Ripple CFD', category: 'Crypto', bidDiff: -0.0002, askDiff: 0.0002 },
+        { symbol: 'DOGEUSD', name: 'Dogecoin CFD', category: 'Crypto', bidDiff: -0.0001, askDiff: 0.0001 },
+        { symbol: 'ADAUSD', name: 'Cardano CFD', category: 'Crypto', bidDiff: -0.0002, askDiff: 0.0002 },
+        { symbol: 'AVAXUSD', name: 'Avalanche CFD', category: 'Crypto', bidDiff: -0.02, askDiff: 0.02 },
+        { symbol: 'DOTUSD', name: 'Polkadot CFD', category: 'Crypto', bidDiff: -0.01, askDiff: 0.01 },
+        { symbol: 'LINKUSD', name: 'Chainlink CFD', category: 'Crypto', bidDiff: -0.01, askDiff: 0.01 },
+        { symbol: 'BNBUSD', name: 'BNB Binance Coin CFD', category: 'Crypto', bidDiff: -0.10, askDiff: 0.10 }
+      ];
+    } else if (activeTab === 'stocks') {
+      list = [
+        { symbol: 'AAPL', name: 'Apple Inc CFD', category: 'Shares', bidDiff: -0.05, askDiff: 0.05 },
+        { symbol: 'TSLA', name: 'Tesla Inc CFD', category: 'Shares', bidDiff: -0.08, askDiff: 0.08 },
+        { symbol: 'NVDA', name: 'NVIDIA Corp CFD', category: 'Shares', bidDiff: -0.20, askDiff: 0.20 },
+        { symbol: 'MSFT', name: 'Microsoft Corp CFD', category: 'Shares', bidDiff: -0.10, askDiff: 0.10 },
+        { symbol: 'AMZN', name: 'Amazon.com Inc CFD', category: 'Shares', bidDiff: -0.08, askDiff: 0.08 },
+        { symbol: 'GOOGL', name: 'Alphabet / Google CFD', category: 'Shares', bidDiff: -0.06, askDiff: 0.06 },
+        { symbol: 'META', name: 'Meta Platforms CFD', category: 'Shares', bidDiff: -0.15, askDiff: 0.15 },
+        { symbol: 'AMD', name: 'Advanced Micro Devices CFD', category: 'Shares', bidDiff: -0.08, askDiff: 0.08 }
       ];
     } else if (activeTab === 'forex') {
       list = [
         { symbol: 'EURUSD', name: 'Euro vs US Dollar', category: 'Forex', bidDiff: -0.0001, askDiff: 0.0001 },
         { symbol: 'GBPUSD', name: 'Pound vs US Dollar', category: 'Forex', bidDiff: -0.0002, askDiff: 0.0002 },
         { symbol: 'USDJPY', name: 'US Dollar vs Yen', category: 'Forex', bidDiff: -0.01, askDiff: 0.01 },
-        { symbol: 'AUDUSD', name: 'Aussie vs US Dollar', category: 'Forex', bidDiff: -0.0001, askDiff: 0.0001 }
+        { symbol: 'AUDUSD', name: 'Aussie vs US Dollar', category: 'Forex', bidDiff: -0.0001, askDiff: 0.0001 },
+        { symbol: 'USDCAD', name: 'US Dollar vs Canadian Dollar', category: 'Forex', bidDiff: -0.0001, askDiff: 0.0001 }
       ];
     } else if (activeTab === 'metals') {
       list = [
-        { symbol: 'XAUUSD', name: 'Gold Spot US Dollar', category: 'Metals', bidDiff: -0.18, askDiff: 0.18 }
+        { symbol: 'XAUUSD', name: 'Gold Spot US Dollar', category: 'Metals', bidDiff: -0.18, askDiff: 0.18 },
+        { symbol: 'XAGUSD', name: 'Silver Spot US Dollar', category: 'Metals', bidDiff: -0.01, askDiff: 0.01 }
       ];
     } else if (activeTab === 'indices') {
       list = [
         { symbol: 'US30', name: 'Dow Jones CFD', category: 'Indices', bidDiff: -1.5, askDiff: 1.5 },
-        { symbol: 'SPX500', name: 'S&P 500 CFD', category: 'Indices', bidDiff: -0.25, askDiff: 0.25 }
+        { symbol: 'SPX500', name: 'S&P 500 CFD', category: 'Indices', bidDiff: -0.25, askDiff: 0.25 },
+        { symbol: 'NAS100', name: 'Nasdaq 100 CFD', category: 'Indices', bidDiff: -0.80, askDiff: 0.80 }
       ];
     } else if (activeTab === 'commodities') {
       list = [
         { symbol: 'USOUSD', name: 'WTI Crude Oil', category: 'Commodities', bidDiff: -0.02, askDiff: 0.02 }
-      ];
-    } else { // cryptocurrencies
-      list = [
-        { symbol: 'BTCUSD', name: 'Bitcoin CFD', category: 'Crypto', bidDiff: -0.12, askDiff: 0.15 },
-        { symbol: 'ETHUSD', name: 'Ethereum CFD', category: 'Crypto', bidDiff: -0.05, askDiff: 0.08 }
       ];
     }
 
@@ -578,67 +608,69 @@ export default function HomeView({ quotes, setView, openSignUp }: HomeViewProps)
       </section>
 
       {/* 4. A WORLD OF OPPORTUNITY + INTERACTIVE MARKETS TABLE */}
-      <section className="py-16 bg-slate-50 border-b border-slate-200">
+      <section className="py-16 bg-white border-b border-slate-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
           <div className="max-w-3xl mx-auto flex flex-col gap-3 mb-10 items-center">
-            <h2 className="text-3xl font-black text-slate-900 uppercase tracking-tight">
-              Discover popular markets to trade
+            <h2 className="text-3xl md:text-4xl font-black text-slate-900 tracking-tight">
+              A world of opportunity
             </h2>
             <p className="text-slate-600 text-xs sm:text-sm font-semibold leading-relaxed max-w-xl">
               Ultra-competitive pricing and fairer charges, so more of your money is invested in the markets.
             </p>
             <div className="mt-2">
               <motion.button
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
+                whileHover={{ scale: 1.03 }}
+                whileTap={{ scale: 0.97 }}
                 onClick={openSignUp}
-                className="bg-brand-yellow hover:bg-brand-yellow-hover text-brand-dark font-black text-xs uppercase tracking-wider px-8 py-4 rounded-lg shadow-md cursor-pointer"
+                className="bg-[#FFCC00] hover:bg-[#E6B800] text-slate-950 font-black text-xs uppercase tracking-wider px-8 py-3.5 rounded-lg shadow-md cursor-pointer"
               >
-                POWER UP YOUR PORTFOLIO
+                Power up your portfolio
               </motion.button>
             </div>
           </div>
 
           {/* Tab Selection Row */}
-          <div className="grid grid-cols-2 md:grid-cols-6 gap-2 max-w-5xl mx-auto mb-8 text-sm font-semibold">
-            {[
-              { id: 'popular', label: 'Trending', icon: 'https://d2tpnh780x5es.cloudfront.net/rebrand-prod/pnhj0btw/indices-trading.svg' },
-              { id: 'forex', label: 'Forex', icon: 'https://d2tpnh780x5es.cloudfront.net/rebrand-prod/xe3h1t0y/forex-trading.svg' },
-              { id: 'metals', label: 'Metals', icon: 'https://d2tpnh780x5es.cloudfront.net/rebrand-prod/awlbqsrt/commodities-trading.svg' },
-              { id: 'indices', label: 'Indices', icon: 'https://d2tpnh780x5es.cloudfront.net/rebrand-prod/pnhj0btw/indices-trading.svg' },
-              { id: 'commodities', label: 'Commodities', icon: 'https://d2tpnh780x5es.cloudfront.net/rebrand-prod/awlbqsrt/commodities-trading.svg' },
-              { id: 'cryptocurrencies', label: 'Crypto', icon: 'https://d2tpnh780x5es.cloudfront.net/rebrand-prod/wv1ddq5l/crypto-trading.svg' }
-            ].map((tab) => (
-              <button
-                key={tab.id}
-                onClick={() => {
-                  setActiveTab(tab.id as any);
-                  setSearchQuery('');
-                }}
-                className={`py-4 px-2 rounded-xl flex flex-col items-center justify-center gap-3 transition-all cursor-pointer border-2 ${
-                  activeTab === tab.id 
-                    ? 'border-[#E3000F] bg-white text-slate-900 shadow-md' 
-                    : 'border-transparent bg-white text-slate-600 hover:border-slate-200 hover:shadow-sm'
-                }`}
-              >
-                <img src={tab.icon} alt={tab.label} className="w-8 h-8 md:w-10 md:h-10 opacity-80" referrerPolicy="no-referrer" />
-                <span>{tab.label}</span>
-              </button>
-            ))}
-          </div>
-
-          {/* Search Input */}
-          <div className="relative max-w-md mx-auto mb-6">
-            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-              <Search className="h-4 w-4 text-slate-400" />
+          <div className="flex flex-wrap items-center justify-between gap-4 max-w-5xl mx-auto mb-6 pb-2 border-b border-slate-200 text-xs font-extrabold">
+            <div className="flex flex-wrap items-center gap-1 sm:gap-2">
+              {[
+                { id: 'popular', label: 'Popular' },
+                { id: 'cryptocurrencies', label: 'Cryptocurrencies' },
+                { id: 'stocks', label: 'Stocks / Shares' },
+                { id: 'forex', label: 'Forex' },
+                { id: 'metals', label: 'Metals' },
+                { id: 'indices', label: 'Indices' },
+                { id: 'commodities', label: 'Commodities' }
+              ].map((tab) => (
+                <button
+                  key={tab.id}
+                  onClick={() => {
+                    setActiveTab(tab.id as any);
+                    setSearchQuery('');
+                  }}
+                  className={`px-4 py-2 rounded-lg transition-all cursor-pointer font-bold ${
+                    activeTab === tab.id 
+                      ? 'bg-[#FFCC00] text-slate-950 shadow-sm' 
+                      : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                  }`}
+                >
+                  {tab.label}
+                </button>
+              ))}
             </div>
-            <input
-              type="text"
-              placeholder="Search instrument..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full bg-white border border-slate-300 focus:border-brand-red rounded-lg pl-9 pr-4 py-2.5 text-xs text-slate-800 font-bold focus:outline-none shadow-inner"
-            />
+
+            {/* Search Input inline with tabs */}
+            <div className="relative w-full sm:w-48">
+              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                <Search className="h-3.5 w-3.5 text-slate-400" />
+              </div>
+              <input
+                type="text"
+                placeholder="Search..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full bg-slate-50 border border-slate-200 focus:border-[#FFCC00] rounded-lg pl-8 pr-3 py-1.5 text-xs text-slate-800 font-semibold focus:outline-none"
+              />
+            </div>
           </div>
 
           {/* Tabulated Instruments Board */}
@@ -659,25 +691,38 @@ export default function HomeView({ quotes, setView, openSignUp }: HomeViewProps)
                 <tbody className="divide-y divide-slate-200">
                   {getFilteredInstruments().map((symbolObj) => {
                     const liveData = liveQuotesMap[symbolObj.symbol] || quotes[symbolObj.symbol];
-                    const basePrice = liveData?.price ?? (symbolObj.symbol === 'BTCUSD' ? 67845.00 : symbolObj.symbol === 'ETHUSD' ? 3482.50 : 1.0845);
+                    const basePrice = liveData?.price ?? (
+                      symbolObj.symbol === 'BTCUSD' ? 67845.00 :
+                      symbolObj.symbol === 'ETHUSD' ? 3482.50 :
+                      symbolObj.symbol === 'SOLUSD' ? 182.40 :
+                      symbolObj.symbol === 'NVDA' ? 881.86 :
+                      symbolObj.symbol === 'AAPL' ? 172.62 : 1.0845
+                    );
                     const changeNum = liveData?.change ?? (symbolObj.symbol === 'XAUUSD' ? 1.15 : symbolObj.symbol === 'BTCUSD' ? 2.45 : 0.12);
                     const isPositive = changeNum >= 0;
 
                     const isTickUp = liveData?.prevPrice ? basePrice > liveData.prevPrice : isPositive;
                     const isTickDown = liveData?.prevPrice ? basePrice < liveData.prevPrice : !isPositive;
 
-                    const bidPrice = Number((basePrice + symbolObj.bidDiff).toFixed(symbolObj.symbol.includes('USD') && !symbolObj.symbol.includes('BTC') && !symbolObj.symbol.includes('ETH') && !symbolObj.symbol.includes('XAU') ? 4 : 2));
-                    const askPrice = Number((basePrice + symbolObj.askDiff).toFixed(symbolObj.symbol.includes('USD') && !symbolObj.symbol.includes('BTC') && !symbolObj.symbol.includes('ETH') && !symbolObj.symbol.includes('XAU') ? 4 : 2));
-                    const stdSpread = symbolObj.symbol === 'BTCUSD' ? '12.5' : symbolObj.symbol === 'ETHUSD' ? '1.25' : '1.2 pips';
-                    const proSpread = symbolObj.symbol === 'BTCUSD' ? '2.5' : symbolObj.symbol === 'ETHUSD' ? '0.25' : '0.0 pips';
+                    const isSmallDec = symbolObj.symbol.includes('DOGE') || symbolObj.symbol.includes('ADA') || symbolObj.symbol.includes('XRP') || symbolObj.symbol === 'EURUSD' || symbolObj.symbol === 'GBPUSD' || symbolObj.symbol === 'AUDUSD' || symbolObj.symbol === 'USDCAD';
+                    const decDigits = isSmallDec ? 4 : 2;
+
+                    const bidPrice = Number((basePrice + symbolObj.bidDiff).toFixed(decDigits));
+                    const askPrice = Number((basePrice + symbolObj.askDiff).toFixed(decDigits));
+
+                    let stdSpread = '1.2 pips';
+                    let proSpread = '0.0 pips';
+                    if (symbolObj.symbol === 'BTCUSD') { stdSpread = '12.5 pts'; proSpread = '2.5 pts'; }
+                    else if (symbolObj.symbol === 'ETHUSD') { stdSpread = '1.25 pts'; proSpread = '0.25 pts'; }
+                    else if (symbolObj.symbol === 'SOLUSD') { stdSpread = '0.15 pts'; proSpread = '0.03 pts'; }
+                    else if (['AAPL', 'TSLA', 'NVDA', 'MSFT', 'AMZN', 'GOOGL', 'META', 'AMD'].includes(symbolObj.symbol)) { stdSpread = '$0.08'; proSpread = '$0.01'; }
+                    else if (['US30', 'SPX500', 'NAS100'].includes(symbolObj.symbol)) { stdSpread = '1.5 pts'; proSpread = '0.4 pts'; }
 
                     return (
                       <tr key={symbolObj.symbol} className="hover:bg-slate-50/80 transition group">
                         <td className="px-6 py-4">
                           <div className="flex items-center gap-3">
-                            <div className={`w-8 h-8 rounded-lg flex items-center justify-center font-black text-xs ${isPositive ? 'bg-emerald-100 text-emerald-800 border border-emerald-200' : 'bg-rose-100 text-rose-800 border border-rose-200'}`}>
-                              {isPositive ? <ArrowUpRight className="w-4 h-4 text-emerald-600" /> : <ArrowDownRight className="w-4 h-4 text-rose-600" />}
-                            </div>
+                            <AssetBrandLogo symbol={symbolObj.symbol} size="md" />
                             <div className="flex flex-col">
                               <span className="font-extrabold text-slate-900 text-sm tracking-tight">{symbolObj.symbol}</span>
                               <span className="text-[10px] text-slate-400 font-semibold">{symbolObj.name}</span>
@@ -686,12 +731,12 @@ export default function HomeView({ quotes, setView, openSignUp }: HomeViewProps)
                         </td>
                         <td className="px-6 py-4 text-right font-mono">
                           <span className={`px-2 py-1 rounded transition-colors duration-300 font-bold ${isTickUp ? 'text-emerald-600 bg-emerald-50' : isTickDown ? 'text-rose-600 bg-rose-50' : 'text-slate-800'}`}>
-                            {bidPrice.toLocaleString(undefined, { minimumFractionDigits: symbolObj.symbol.includes('USD') && !symbolObj.symbol.includes('BTC') && !symbolObj.symbol.includes('ETH') && !symbolObj.symbol.includes('XAU') ? 4 : 2 })}
+                            {bidPrice.toLocaleString(undefined, { minimumFractionDigits: decDigits, maximumFractionDigits: decDigits })}
                           </span>
                         </td>
                         <td className="px-6 py-4 text-right font-mono">
                           <span className={`px-2 py-1 rounded transition-colors duration-300 font-bold ${isTickUp ? 'text-emerald-600 bg-emerald-50' : isTickDown ? 'text-rose-600 bg-rose-50' : 'text-slate-800'}`}>
-                            {askPrice.toLocaleString(undefined, { minimumFractionDigits: symbolObj.symbol.includes('USD') && !symbolObj.symbol.includes('BTC') && !symbolObj.symbol.includes('ETH') && !symbolObj.symbol.includes('XAU') ? 4 : 2 })}
+                            {askPrice.toLocaleString(undefined, { minimumFractionDigits: decDigits, maximumFractionDigits: decDigits })}
                           </span>
                         </td>
                         <td className="px-6 py-4 text-right">
@@ -709,9 +754,9 @@ export default function HomeView({ quotes, setView, openSignUp }: HomeViewProps)
                               setView('markets');
                               window.scrollTo({ top: 0, behavior: 'smooth' });
                             }}
-                            className="bg-brand-yellow hover:bg-brand-yellow-hover text-brand-dark text-[10px] font-black uppercase px-4 py-2 rounded shadow-sm cursor-pointer"
+                            className="bg-[#FFCC00] hover:bg-[#E6B800] text-slate-950 text-[10px] font-black uppercase px-4 py-1.5 rounded-full shadow-xs cursor-pointer"
                           >
-                            TRADE NOW
+                            Trade Now
                           </motion.button>
                         </td>
                       </tr>

@@ -99,7 +99,7 @@ export const LEADERBOARD_MASTERS: LeaderboardTrader[] = [
     riskScore: 2,
     maxDrawdown: -4.1,
     allocatedCapitalTotal: '$1.60M',
-    strategy: 'European Session Open Breakouts & Index Momentum',
+    strategy: 'European Market Open Breakouts & Index Momentum',
     assetFocus: 'GER40, EURUSD, XAUUSD',
     monthlyPerformance: [9.5, 11.2, 14.0, 8.8, 16.2, 12.1, 14.5, 10.9, 15.4, 18.0, 13.8, 14.2],
     openPositions: [
@@ -144,7 +144,7 @@ export const LEADERBOARD_MASTERS: LeaderboardTrader[] = [
     riskScore: 2,
     maxDrawdown: -3.6,
     allocatedCapitalTotal: '$1.15M',
-    strategy: 'Asian Session USD/JPY Carry Trade & Mean Reversion',
+    strategy: 'Asia-Pacific USD/JPY Carry Trade & Mean Reversion',
     assetFocus: 'USDJPY, AUDJPY, Nikkei 225',
     monthlyPerformance: [8.1, 9.5, 10.8, 7.2, 12.4, 11.0, 12.8, 9.4, 13.0, 14.5, 11.2, 12.6],
     openPositions: [

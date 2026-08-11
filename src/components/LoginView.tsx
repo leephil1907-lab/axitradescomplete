@@ -211,32 +211,12 @@ export default function LoginView({
             onClick={() => setView('home')} 
             className="cursor-pointer group flex flex-col items-center mb-3"
           >
-            <div className="flex items-center justify-center">
-              <img 
-                src="https://d2tpnh780x5es.cloudfront.net/rebrand-prod/hqwjus4e/logo-light1.svg" 
-                alt="Axi" 
-                className="h-10 sm:h-12 object-contain hidden dark:block" 
-                onError={(e) => {
-                  e.currentTarget.style.display = 'none';
-                  const fallback = e.currentTarget.parentElement?.querySelector('.fallback-text') as HTMLElement;
-                  if (fallback) fallback.style.display = 'flex';
-                }}
-                referrerPolicy="no-referrer"
-              />
-              <img 
-                src="https://d2tpnh780x5es.cloudfront.net/rebrand-prod/hqwjus4e/logo-dark1.svg" 
-                alt="Axi" 
-                className="h-10 sm:h-12 object-contain dark:hidden" 
-                onError={(e) => {
-                  e.currentTarget.style.display = 'none';
-                  const fallback = e.currentTarget.parentElement?.querySelector('.fallback-text') as HTMLElement;
-                  if (fallback) fallback.style.display = 'flex';
-                }}
-                referrerPolicy="no-referrer"
-              />
-              <h1 className="fallback-text hidden text-4xl sm:text-5xl font-black tracking-tighter text-[#E3000F] font-sans items-center gap-0.5" style={{ fontFamily: 'Outfit, sans-serif' }}>
-                axi<span className="text-[#FFD250] font-black">.</span>
-              </h1>
+            <div className="flex items-center justify-center gap-1.5">
+              <svg className="h-10 sm:h-12 w-auto text-slate-900 dark:text-white" viewBox="0 0 140 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <text x="0" y="32" fill="currentColor" fontSize="38" fontWeight="900" fontFamily="Outfit, system-ui, sans-serif" letterSpacing="-1.5">axi</text>
+                <circle cx="68" cy="28" r="4.5" fill="#E3000F" />
+              </svg>
+              <span className="text-[10px] font-black uppercase tracking-widest text-[#FFCC00] border border-[#FFCC00]/30 bg-[#FFCC00]/10 px-2 py-0.5 rounded">GLOBAL</span>
             </div>
             <span className="text-[10px] uppercase font-bold tracking-widest text-slate-400 dark:text-slate-500 mt-2">
               Client Trading Portal
@@ -442,7 +422,7 @@ export default function LoginView({
               <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z" />
               <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z" />
             </svg>
-            Google Sign-In
+            Sign in with Google
           </button>
 
           <button 
@@ -454,7 +434,7 @@ export default function LoginView({
             <svg className="w-4 h-4 shrink-0 fill-current" viewBox="0 0 24 24">
               <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z" />
             </svg>
-            Facebook Login
+            Sign in with Facebook
           </button>
         </div>
 

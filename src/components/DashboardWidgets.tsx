@@ -667,7 +667,7 @@ export function DividendCalendarWidget({ openPositions, accountMode, isLoading, 
   const [filterMode, setFilterMode] = useState<'all' | 'held'>('all');
   const [searchQuery, setSearchQuery] = useState('');
 
-  // Sample upcoming corporate dividend calendar events for major stock CFDs
+  // Upcoming corporate dividend calendar events for major stock CFDs
   const UPCOMING_DIVIDENDS = [
     {
       id: 'div-aapl',

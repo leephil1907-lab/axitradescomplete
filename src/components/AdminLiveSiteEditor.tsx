@@ -87,7 +87,7 @@ export default function AdminLiveSiteEditor({ onShowToast }: AdminLiveSiteEditor
               </span>
             </h2>
             <p className="text-xs text-slate-300 mt-1 max-w-2xl">
-              Click any text element in the visual live simulator below or select a section to instantly modify headlines, subtext, button labels, and contact copy. Changes broadcast live to all traders without code updates.
+              Click any text element in the visual live editor below or select a section to instantly modify headlines, subtext, button labels, and contact copy. Changes broadcast live to all traders without code updates.
             </p>
           </div>
         </div>
@@ -153,7 +153,7 @@ export default function AdminLiveSiteEditor({ onShowToast }: AdminLiveSiteEditor
         )}
       </div>
 
-      {/* TAB 1: VISUAL LIVE CANVAS SIMULATOR */}
+      {/* TAB 1: VISUAL LIVE CANVAS EDITOR */}
       {activeSectionTab === 'visual' && (
         <div className="space-y-4">
           <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 text-xs text-amber-900 flex items-center justify-between gap-3">
@@ -171,7 +171,7 @@ export default function AdminLiveSiteEditor({ onShowToast }: AdminLiveSiteEditor
           <div className={`mx-auto transition-all ${previewDevice === 'mobile' ? 'max-w-md' : 'w-full'}`}>
             <div className="bg-slate-900 rounded-3xl p-4 sm:p-6 shadow-xl border border-slate-800 space-y-6 text-white overflow-hidden relative">
               
-              {/* Simulated Hero Section */}
+              {/* Hero Section Live Preview */}
               <div className="relative group p-6 rounded-2xl border-2 border-dashed border-rose-500/40 hover:border-rose-500 bg-slate-800/50 transition-all cursor-pointer">
                 <div className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition bg-[#E3000F] text-white text-[10px] font-black px-2.5 py-1 rounded-full shadow-md flex items-center gap-1">
                   <Edit3 className="w-3 h-3" /> Edit Hero Section
@@ -214,7 +214,7 @@ export default function AdminLiveSiteEditor({ onShowToast }: AdminLiveSiteEditor
                 </div>
               </div>
 
-              {/* Simulated Partnership Banner */}
+              {/* Partnership Banner Live Preview */}
               <div className="relative group p-6 rounded-2xl border-2 border-dashed border-amber-500/40 hover:border-amber-500 bg-amber-950/20 transition-all cursor-pointer">
                 <div className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition bg-amber-500 text-slate-950 text-[10px] font-black px-2.5 py-1 rounded-full shadow-md flex items-center gap-1">
                   <Edit3 className="w-3 h-3" /> Edit Partnership Copy
@@ -239,7 +239,7 @@ export default function AdminLiveSiteEditor({ onShowToast }: AdminLiveSiteEditor
                 </div>
               </div>
 
-              {/* Simulated Brand & Support Bar */}
+              {/* Brand & Support Bar Live Preview */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div 
                   onClick={() => handleOpenElementEditor('brand', 'contactEmail', 'Support Contact Email')}
@@ -268,7 +268,7 @@ export default function AdminLiveSiteEditor({ onShowToast }: AdminLiveSiteEditor
                 </div>
               </div>
 
-              {/* Simulated Deposit Limits */}
+              {/* Deposit Limits Live Preview */}
               <div className="p-4 rounded-xl border-2 border-dashed border-emerald-500/40 hover:border-emerald-500 bg-emerald-950/20 transition cursor-pointer grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div onClick={() => handleOpenElementEditor('deposit', 'minimumDeposit', 'Minimum Deposit ($)')}>
                   <span className="text-[10px] font-mono text-emerald-400 font-extrabold uppercase tracking-widest block mb-1">

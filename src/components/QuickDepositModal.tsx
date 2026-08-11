@@ -150,7 +150,7 @@ export default function QuickDepositModal({
 
   const [clientSecret, setClientSecret] = useState<string | null>(null);
 
-  // Auth Simulation & Receipt
+  // Stripe Checkout & Payment Security
   const [otpCode, setOtpCode] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
   const [txReceipt, setTxReceipt] = useState<any>(null);
@@ -225,9 +225,22 @@ export default function QuickDepositModal({
       return;
     }
 
-    // Try fetching PaymentIntent or fallback to 3DS authentication
+    // Attempt Stripe Checkout Session first for real card & gateway payment
     setIsProcessing(true);
     try {
+      const checkoutRes = await fetch('/api/stripe/create-checkout-session', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ amount: numAmount, currency: 'usd', method: selectedMethod })
+      });
+      const checkoutData = await checkoutRes.json();
+      if (checkoutData.url) {
+        if (showToast) showToast('Redirecting to secure Stripe Checkout page...', 'info');
+        window.location.href = checkoutData.url;
+        return;
+      }
+
+      // If checkout session endpoint is not configured, try PaymentIntent
       const res = await fetch('/api/stripe/create-payment-intent', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

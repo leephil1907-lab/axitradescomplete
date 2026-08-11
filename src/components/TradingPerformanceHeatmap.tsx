@@ -172,7 +172,7 @@ export default function TradingPerformanceHeatmap({ closedPositions, accountMode
             </span>
           </div>
           <p className={`text-xs font-semibold mt-0.5 ${accountMode === 'demo' ? 'text-slate-400' : 'text-slate-500'}`}>
-            Calendar visualizer tracking profitable vs loss-making trading sessions.
+            Calendar visualizer tracking profitable vs loss-making trading days.
           </p>
         </div>
 

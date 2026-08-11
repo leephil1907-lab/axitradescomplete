@@ -1,19 +1,44 @@
 import { MarketQuote, MasterTrader } from './types';
 
 export const ASSET_METADATA: Record<string, { name: string; category: MarketQuote['category'] }> = {
+  // Forex
   'EURUSD': { name: 'EUR vs USD (Euro Dollar)', category: 'Forex' },
   'GBPUSD': { name: 'GBP vs USD (Pound Dollar)', category: 'Forex' },
   'USDJPY': { name: 'USD vs JPY (Dollar Yen)', category: 'Forex' },
   'AUDUSD': { name: 'AUD vs USD (Aussie Dollar)', category: 'Forex' },
+  'USDCAD': { name: 'USD vs CAD (Dollar Loonie)', category: 'Forex' },
+
+  // Crypto
   'BTCUSD': { name: 'Bitcoin CFD', category: 'Crypto' },
   'ETHUSD': { name: 'Ethereum CFD', category: 'Crypto' },
+  'SOLUSD': { name: 'Solana CFD', category: 'Crypto' },
+  'XRPUSD': { name: 'XRP Ripple CFD', category: 'Crypto' },
+  'DOGEUSD': { name: 'Dogecoin CFD', category: 'Crypto' },
+  'ADAUSD': { name: 'Cardano CFD', category: 'Crypto' },
+  'AVAXUSD': { name: 'Avalanche CFD', category: 'Crypto' },
+  'DOTUSD': { name: 'Polkadot CFD', category: 'Crypto' },
+  'LINKUSD': { name: 'Chainlink CFD', category: 'Crypto' },
+  'BNBUSD': { name: 'BNB Binance Coin CFD', category: 'Crypto' },
+
+  // Commodities & Metals
   'XAUUSD': { name: 'Gold Spot USD', category: 'Commodities' },
+  'XAGUSD': { name: 'Silver Spot USD', category: 'Commodities' },
   'USOUSD': { name: 'WTI Crude Oil', category: 'Commodities' },
+
+  // Indices
   'US30': { name: 'Dow Jones Index CFD', category: 'Indices' },
   'SPX500': { name: 'S&P 500 Index CFD', category: 'Indices' },
+  'NAS100': { name: 'Nasdaq 100 Index CFD', category: 'Indices' },
+
+  // Shares / Stocks
   'AAPL': { name: 'Apple Inc. Share CFD', category: 'Shares' },
   'TSLA': { name: 'Tesla Inc. Share CFD', category: 'Shares' },
-  'NVDA': { name: 'NVIDIA Corp. Share CFD', category: 'Shares' }
+  'NVDA': { name: 'NVIDIA Corp. Share CFD', category: 'Shares' },
+  'MSFT': { name: 'Microsoft Corp. Share CFD', category: 'Shares' },
+  'AMZN': { name: 'Amazon.com Inc. Share CFD', category: 'Shares' },
+  'GOOGL': { name: 'Alphabet / Google Share CFD', category: 'Shares' },
+  'META': { name: 'Meta Platforms Share CFD', category: 'Shares' },
+  'AMD': { name: 'Advanced Micro Devices Share CFD', category: 'Shares' }
 };
 
 export const MASTER_TRADERS: MasterTrader[] = [

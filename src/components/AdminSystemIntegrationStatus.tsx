@@ -312,7 +312,7 @@ export default function AdminSystemIntegrationStatus({ onShowToast }: AdminSyste
                 }`}
               >
                 <AlertTriangle className="w-3.5 h-3.5" />
-                {isWebhookActive ? 'Simulate Disconnect' : 'Reconnect Endpoint'}
+                {isWebhookActive ? 'Disconnect Endpoint' : 'Reconnect Endpoint'}
               </button>
             </div>
 

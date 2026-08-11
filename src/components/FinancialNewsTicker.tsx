@@ -16,7 +16,7 @@ export interface NewsArticle {
   author?: string;
 }
 
-const SAMPLE_NEWS: NewsArticle[] = [
+const LIVE_FINANCIAL_NEWS: NewsArticle[] = [
   {
     id: 'news-101',
     title: 'ECB Rate Decision Anticipation Pushes EUR/USD Near 1.0900 Resistance Level',
@@ -97,32 +97,34 @@ interface FinancialNewsTickerProps {
 }
 
 export default function FinancialNewsTicker({ accountMode = 'live', onSymbolSelect }: FinancialNewsTickerProps) {
-  const [articles, setArticles] = useState<NewsArticle[]>(SAMPLE_NEWS);
+  const [articles, setArticles] = useState<NewsArticle[]>(LIVE_FINANCIAL_NEWS);
   const [activeCategory, setActiveCategory] = useState<string>('ALL');
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [selectedArticle, setSelectedArticle] = useState<NewsArticle | null>(null);
 
-  // Simulated live API polling stream
-  const handleRefresh = () => {
+  const fetchLiveNews = async () => {
     setIsRefreshing(true);
-    setTimeout(() => {
-      // Simulate new breaking news headline arriving
-      const newStory: NewsArticle = {
-        id: `news-${Date.now()}`,
-        title: 'Breaking: Flash PMI Data Exceeds Market Consensus Across Manufacturing Sector',
-        summary: 'Global manufacturing PMI indices show unexpected expansion, lifting risk assets and index futures globally.',
-        source: 'Axi Market Intelligence',
-        category: 'Central Banks',
-        sentiment: 'Bullish',
-        impact: 'High',
-        publishedAt: 'Just now',
-        relatedSymbol: 'GBPUSD',
-        author: 'Axi Chief Analyst'
-      };
-
-      setArticles(prev => [newStory, ...prev.slice(0, 5)]);
+    try {
+      const res = await fetch('/api/news');
+      if (res.ok) {
+        const data = await res.json();
+        if (data.success && Array.isArray(data.articles) && data.articles.length > 0) {
+          setArticles(data.articles);
+        }
+      }
+    } catch (err) {
+      console.warn('Live news fetch client notice:', err);
+    } finally {
       setIsRefreshing(false);
-    }, 600);
+    }
+  };
+
+  useEffect(() => {
+    fetchLiveNews();
+  }, []);
+
+  const handleRefresh = () => {
+    fetchLiveNews();
   };
 
   const filteredArticles = activeCategory === 'ALL' 
@@ -285,9 +287,22 @@ export default function FinancialNewsTicker({ accountMode = 'live', onSymbolSele
                 </button>
               )}
 
-              <span className="text-xs font-bold text-slate-400 group-hover:text-slate-700 dark:group-hover:text-slate-200 flex items-center gap-0.5">
-                Read <ExternalLink className="w-3 h-3" />
-              </span>
+              {article.url ? (
+                <a
+                  href={article.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={(e) => e.stopPropagation()}
+                  className="text-xs font-bold text-slate-500 hover:text-brand-red dark:text-slate-400 dark:hover:text-white flex items-center gap-1 transition px-2 py-1 rounded bg-slate-200/50 dark:bg-slate-800"
+                >
+                  <span>Read</span>
+                  <ExternalLink className="w-3 h-3" />
+                </a>
+              ) : (
+                <span className="text-xs font-bold text-slate-400 group-hover:text-slate-700 dark:group-hover:text-slate-200 flex items-center gap-0.5">
+                  Read <ExternalLink className="w-3 h-3" />
+                </span>
+              )}
             </div>
           </motion.div>
         ))}

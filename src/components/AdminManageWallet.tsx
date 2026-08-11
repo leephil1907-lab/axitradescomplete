@@ -414,7 +414,7 @@ export default function AdminManageWallet({ initialSubTab = 'methods' }: AdminMa
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-          {Object.entries(config.cryptoWallets).map(([coinKey, wallet]) => (
+          {Object.entries(config.cryptoWallets).map(([coinKey, wallet]: [string, any]) => (
             <div key={coinKey} className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-3">
               <div className="flex items-center justify-between border-b border-slate-200 pb-2">
                 <span className="font-extrabold uppercase text-slate-800 text-sm flex items-center gap-2">

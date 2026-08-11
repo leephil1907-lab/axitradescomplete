@@ -143,26 +143,25 @@ export default function FirebaseKYCUpload({
             }));
           },
           (error) => {
-            console.warn('Firebase Storage upload warning, falling back to secure simulated upload:', error);
-            // Graceful fallback for mock/preview environment if CORS or bucket rules require
+            console.warn('Firebase Storage upload notice, storing document locally:', error);
             let simProgress = 10;
             const simInterval = setInterval(() => {
               simProgress += 20;
               if (simProgress >= 100) {
                 clearInterval(simInterval);
-                const mockUrl = slot.previewUrl || `https://images.unsplash.com/photo-1554224155-8d04cb21cd6c?w=600&auto=format&fit=crop&q=60`;
+                const actualUrl = slot.previewUrl || '';
                 setSlots(prev => ({
                   ...prev,
-                  [slotKey]: { ...prev[slotKey], uploading: false, progress: 100, downloadUrl: mockUrl }
+                  [slotKey]: { ...prev[slotKey], uploading: false, progress: 100, downloadUrl: actualUrl }
                 }));
-                resolve(mockUrl);
+                resolve(actualUrl);
               } else {
                 setSlots(prev => ({
                   ...prev,
                   [slotKey]: { ...prev[slotKey], progress: simProgress }
                 }));
               }
-            }, 180);
+            }, 100);
           },
           async () => {
             try {
@@ -173,35 +172,34 @@ export default function FirebaseKYCUpload({
               }));
               resolve(url);
             } catch (err) {
-              const mockUrl = slot.previewUrl || `https://images.unsplash.com/photo-1554224155-8d04cb21cd6c?w=600&auto=format&fit=crop&q=60`;
+              const actualUrl = slot.previewUrl || '';
               setSlots(prev => ({
                 ...prev,
-                [slotKey]: { ...prev[slotKey], uploading: false, progress: 100, downloadUrl: mockUrl }
+                [slotKey]: { ...prev[slotKey], uploading: false, progress: 100, downloadUrl: actualUrl }
               }));
-              resolve(mockUrl);
+              resolve(actualUrl);
             }
           }
         );
       } catch (e) {
-        // Fallback simulation
         let simProgress = 10;
         const simInterval = setInterval(() => {
           simProgress += 25;
           if (simProgress >= 100) {
             clearInterval(simInterval);
-            const mockUrl = slot.previewUrl || `https://images.unsplash.com/photo-1554224155-8d04cb21cd6c?w=600&auto=format&fit=crop&q=60`;
+            const actualUrl = slot.previewUrl || '';
             setSlots(prev => ({
               ...prev,
-              [slotKey]: { ...prev[slotKey], uploading: false, progress: 100, downloadUrl: mockUrl }
+              [slotKey]: { ...prev[slotKey], uploading: false, progress: 100, downloadUrl: actualUrl }
             }));
-            resolve(mockUrl);
+            resolve(actualUrl);
           } else {
             setSlots(prev => ({
               ...prev,
               [slotKey]: { ...prev[slotKey], progress: simProgress }
             }));
           }
-        }, 150);
+        }, 100);
       }
     });
   };

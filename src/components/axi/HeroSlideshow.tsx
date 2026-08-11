@@ -2,56 +2,52 @@ import { useSiteCMS } from '../../hooks/useSiteCMS';
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 
-import imgHeroTrader from '../../assets/images/regenerated_image_1784970375794.png';
-import imgSpacex from '../../assets/images/spacex_ipo_hero_1784835887334.jpg';
-import imgSpreads from '../../assets/images/axi_trading_spreads_1784835901617.jpg';
-import imgAi from '../../assets/images/axi_ai_signals_1784835914680.jpg';
-import imgCrypto from '../../assets/images/axi_crypto_spot_1784835927385.jpg';
+import imgAxiSelect from '../../assets/images/axi_select_hero_1786473577102.jpg';
+import imgSpreads from '../../assets/images/axi_spreads_hero_1786473589536.jpg';
+import imgMarketsApp from '../../assets/images/axi_markets_app_hero_1786473599610.jpg';
+import imgSpotCrypto from '../../assets/images/axi_spot_crypto_hero_1786474416366.jpg';
+import imgAiStrategy from '../../assets/images/axi_ai_strategy_hero_1786474430607.jpg';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
-import axiTradingSpreads from '../../assets/images/axi_trading_spreads_1784835901617.jpg';
-import axiCryptoSpot from '../../assets/images/axi_crypto_spot_1784835927385.jpg';
-import spacexIpo from '../../assets/images/spacex_ipo_hero_1784835887334.jpg';
-import axiAiSignals from '../../assets/images/axi_ai_signals_1784835914680.jpg';
 
 const SLIDES = [
   {
     id: 'slide-0',
-    title: 'Trade Your Edge',
-    subtitle: 'Global Online CFD & Forex Broker. Experience high-speed execution and precision.',
-    cta: 'OPEN A LIVE ACCOUNT',
-    image: imgHeroTrader,
+    title: 'Trade with Axi funds up to $1 million USD',
+    subtitle: 'Axi has launched a capital allocation program. No registration fees. No monthly fees. 100% FREE',
+    cta: 'JOIN NOW',
+    image: imgAxiSelect,
     theme: 'dark'
   },
   {
     id: 'slide-1',
-    title: 'SpaceX has landed',
-    subtitle: 'Trade SPCX after its historic trillion-dollar IPO',
-    cta: 'Trade now',
-    image: imgSpacex,
+    title: 'YOUR EDGE IN THE MARKETS',
+    subtitle: 'SPREADS ON GOLD $0.16, SPREADS ON OIL $0.03, SPREADS ON BTC $15',
+    cta: 'ACCESS TIGHT SPREADS',
+    image: imgSpreads,
     theme: 'dark'
   },
   {
     id: 'slide-2',
-    title: 'YOUR EDGE IN THE MARKETS',
-    subtitle: 'SPREADS ON GOLD $0.16, BTC $15',
-    cta: 'ACCESS TIGHT SPREADS',
-    image: imgSpreads,
-    theme: 'light' // The text is white in image, so maybe theme dark or light? The image has red bg and white text. Actually we'll use dark theme to keep text white. Wait, the image already has the text. We can keep it or overlay.
+    title: '650+ markets. One app.',
+    subtitle: 'Trade 650+ assets across forex, crypto, commodities, share CFDs, ETFs and global indices without switching apps.',
+    cta: 'DOWNLOAD NOW',
+    image: imgMarketsApp,
+    theme: 'dark'
   },
   {
     id: 'slide-3',
-    title: 'POWER UP YOUR TRADING STRATEGY WITH AI',
-    subtitle: '',
-    cta: 'LEARN MORE',
-    image: imgAi,
+    title: 'SPOT IT. BUY IT. OWN IT.',
+    subtitle: 'Experience instant crypto spot buying with zero commission and deep liquidity across top trading pairs.',
+    cta: 'BUY CRYPTO NOW',
+    image: imgSpotCrypto,
     theme: 'dark'
   },
   {
     id: 'slide-4',
-    title: 'Trade Crypto CFDs 24/7',
-    subtitle: 'Experience the Axi edge with up to 200:1 leverage on top Crypto CFDs including Bitcoin & Ethereum.',
-    cta: 'OPEN A LIVE ACCOUNT',
-    image: imgCrypto,
+    title: 'POWER UP YOUR TRADING STRATEGY WITH AI',
+    subtitle: 'Automated signals, signal analytics, and intelligent copy trading built into your dashboard.',
+    cta: 'LEARN MORE',
+    image: imgAiStrategy,
     theme: 'dark'
   }
 ];
@@ -271,7 +267,7 @@ export default function HeroSlideshow() {
               transition={{ duration: 0.6, delay: 0.6 }}
             >
               <button 
-                className="bg-brand-red hover:bg-brand-red-hover text-white text-sm md:text-base font-black uppercase tracking-wider px-8 py-4 rounded-lg transition-transform hover:scale-105"
+                className="bg-[#FFCC00] hover:bg-[#E6B800] text-slate-950 text-sm md:text-base font-black uppercase tracking-wider px-8 py-4 rounded-md transition-all shadow-xl hover:scale-105 cursor-pointer"
                 tabIndex={-1}
               >
                 {currentSlide.cta}
@@ -282,9 +278,9 @@ export default function HeroSlideshow() {
       </AnimatePresence>
 
       {/* Progress Bar */}
-      <div className="absolute bottom-0 left-0 w-full h-1.5 bg-black/10 z-20">
+      <div className="absolute bottom-0 left-0 w-full h-1.5 bg-black/20 z-20">
         <motion.div 
-          className="h-full bg-brand-red origin-left"
+          className="h-full bg-[#FFCC00] origin-left"
           style={{ width: `${progress}%` }}
         />
       </div>

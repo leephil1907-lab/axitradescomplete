@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import AssetBrandLogo from './AssetBrandLogo';
 import { MarketQuote, TradeOrder, ClosedPosition, PriceAlert, ViewType } from '../types';
 import { subscribePaymentConfig } from '../services/paymentConfigService';
 import RechartsCandlestickChart from './RechartsCandlestickChart';
@@ -644,7 +645,7 @@ const LiveDepositPromptModal = ({
           <div className="bg-red-950/80 text-red-400 text-[10px] font-mono font-extrabold px-2.5 py-0.5 rounded-full inline-block uppercase tracking-wider mb-2 border border-red-800/80">
             LIVE ACCOUNT BALANCE IS $0.00
           </div>
-          <h3 className="text-xl font-black text-slate-900 dark:text-white">Fund Your Live Trading Session</h3>
+          <h3 className="text-xl font-black text-slate-900 dark:text-white">Fund Your Live Trading Account</h3>
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-2 leading-relaxed">
             Your live trading balance is currently <strong>$0.00</strong>. Deposit funds using Visa, Mastercard, Bank Transfer, or Crypto to execute real-market positions on ECN servers.
           </p>
@@ -1078,19 +1079,22 @@ export default function MarketsView({
                     transition={{ duration: 0.8 }}
                     className={`flex items-center justify-between p-3 border-b border-slate-50 cursor-pointer transition ${isSelected && pulsingRow !== q.symbol ? 'bg-brand-red/5' : 'hover:bg-slate-50'}`}
                   >
-                    <div className="flex-1 min-w-0 pr-2">
-                      <div className="font-bold text-sm text-slate-900">{q.symbol.replace(/([A-Z]{3})([A-Z]{3})/, '$1/$2')}</div>
-                      <div className="text-xs text-slate-400 truncate">{q.name}</div>
-                      
-                      {/* Market Sentiment Indicator for each asset */}
-                      <div className="mt-1.5 flex items-center gap-1.5 w-full max-w-[140px]">
-                        <div className="flex-1 h-1.5 bg-slate-200 rounded-full overflow-hidden flex">
-                          <div className="bg-emerald-500 h-full transition-all duration-500" style={{ width: `${sentiment.longPercent}%` }} />
-                          <div className="bg-rose-500 h-full transition-all duration-500" style={{ width: `${sentiment.shortPercent}%` }} />
+                    <div className="flex items-center gap-3 flex-1 min-w-0 pr-2">
+                      <AssetBrandLogo symbol={q.symbol} size="md" />
+                      <div className="flex-1 min-w-0">
+                        <div className="font-bold text-sm text-slate-900">{q.symbol.replace(/([A-Z]{3})([A-Z]{3})/, '$1/$2')}</div>
+                        <div className="text-xs text-slate-400 truncate">{q.name}</div>
+                        
+                        {/* Market Sentiment Indicator for each asset */}
+                        <div className="mt-1.5 flex items-center gap-1.5 w-full max-w-[140px]">
+                          <div className="flex-1 h-1.5 bg-slate-200 rounded-full overflow-hidden flex">
+                            <div className="bg-emerald-500 h-full transition-all duration-500" style={{ width: `${sentiment.longPercent}%` }} />
+                            <div className="bg-rose-500 h-full transition-all duration-500" style={{ width: `${sentiment.shortPercent}%` }} />
+                          </div>
+                          <span className="text-[9px] font-bold font-mono text-slate-500 shrink-0">
+                            <span className="text-emerald-600">{sentiment.longPercent}% B</span>
+                          </span>
                         </div>
-                        <span className="text-[9px] font-bold font-mono text-slate-500 shrink-0">
-                          <span className="text-emerald-600">{sentiment.longPercent}% B</span>
-                        </span>
                       </div>
                     </div>
 

@@ -38,19 +38,44 @@ import DashboardView from './components/DashboardView';
 import FloatingLiveSupportWidget from './components/FloatingLiveSupportWidget';
 // Real-time custom price alert evaluator
 const INITIAL_QUOTES: Record<string, MarketQuote> = {
+  // Forex
   'EURUSD': { symbol: 'EURUSD', name: 'EUR vs USD', category: 'Forex', price: 1.0845, change: 0.12, bidDiff: -0.0001, askDiff: 0.0001, spread: 0.2, history: [1.0841, 1.0843, 1.0842, 1.0847, 1.0845] },
   'GBPUSD': { symbol: 'GBPUSD', name: 'GBP vs USD', category: 'Forex', price: 1.2684, change: -0.08, bidDiff: -0.0002, askDiff: 0.0002, spread: 0.4, history: [1.2690, 1.2688, 1.2682, 1.2685, 1.2684] },
   'USDJPY': { symbol: 'USDJPY', name: 'USD vs JPY', category: 'Forex', price: 151.62, change: 0.35, bidDiff: -0.02, askDiff: 0.02, spread: 0.4, history: [151.20, 151.45, 151.58, 151.60, 151.62] },
   'AUDUSD': { symbol: 'AUDUSD', name: 'AUD vs USD', category: 'Forex', price: 0.6542, change: -0.22, bidDiff: -0.0001, askDiff: 0.0001, spread: 0.2, history: [0.6558, 0.6550, 0.6545, 0.6540, 0.6542] },
+  'USDCAD': { symbol: 'USDCAD', name: 'USD vs CAD', category: 'Forex', price: 1.3560, change: 0.15, bidDiff: -0.0001, askDiff: 0.0001, spread: 0.2, history: [1.3540, 1.3550, 1.3555, 1.3560] },
+
+  // Crypto
   'BTCUSD': { symbol: 'BTCUSD', name: 'Bitcoin CFD', category: 'Crypto', price: 67845.00, change: 2.45, bidDiff: -5.00, askDiff: 5.00, spread: 10.0, history: [66500, 67100, 67450, 67900, 67845] },
   'ETHUSD': { symbol: 'ETHUSD', name: 'Ethereum CFD', category: 'Crypto', price: 3482.50, change: 1.84, bidDiff: -0.50, askDiff: 0.50, spread: 1.0, history: [3420, 3450, 3490, 3475, 3482.50] },
+  'SOLUSD': { symbol: 'SOLUSD', name: 'Solana CFD', category: 'Crypto', price: 182.40, change: 4.12, bidDiff: -0.10, askDiff: 0.10, spread: 0.2, history: [175, 178, 180, 182.40] },
+  'XRPUSD': { symbol: 'XRPUSD', name: 'XRP Ripple CFD', category: 'Crypto', price: 0.6240, change: 0.95, bidDiff: -0.0005, askDiff: 0.0005, spread: 0.001, history: [0.618, 0.620, 0.622, 0.6240] },
+  'DOGEUSD': { symbol: 'DOGEUSD', name: 'Dogecoin CFD', category: 'Crypto', price: 0.1620, change: 3.85, bidDiff: -0.0002, askDiff: 0.0002, spread: 0.0004, history: [0.155, 0.158, 0.160, 0.1620] },
+  'ADAUSD': { symbol: 'ADAUSD', name: 'Cardano CFD', category: 'Crypto', price: 0.4850, change: -1.12, bidDiff: -0.0004, askDiff: 0.0004, spread: 0.0008, history: [0.492, 0.490, 0.488, 0.4850] },
+  'AVAXUSD': { symbol: 'AVAXUSD', name: 'Avalanche CFD', category: 'Crypto', price: 35.80, change: 2.75, bidDiff: -0.05, askDiff: 0.05, spread: 0.1, history: [34.8, 35.2, 35.5, 35.80] },
+  'DOTUSD': { symbol: 'DOTUSD', name: 'Polkadot CFD', category: 'Crypto', price: 7.20, change: 0.82, bidDiff: -0.01, askDiff: 0.01, spread: 0.02, history: [7.12, 7.15, 7.18, 7.20] },
+  'LINKUSD': { symbol: 'LINKUSD', name: 'Chainlink CFD', category: 'Crypto', price: 17.50, change: 1.95, bidDiff: -0.02, askDiff: 0.02, spread: 0.04, history: [17.1, 17.3, 17.4, 17.50] },
+  'BNBUSD': { symbol: 'BNBUSD', name: 'BNB Binance Coin CFD', category: 'Crypto', price: 588.20, change: 1.40, bidDiff: -0.20, askDiff: 0.20, spread: 0.4, history: [580, 584, 586, 588.20] },
+
+  // Commodities
   'XAUUSD': { symbol: 'XAUUSD', name: 'Gold Spot USD', category: 'Commodities', price: 2342.80, change: 1.15, bidDiff: -0.30, askDiff: 0.30, spread: 0.6, history: [2320, 2335, 2345, 2340, 2342.80] },
+  'XAGUSD': { symbol: 'XAGUSD', name: 'Silver Spot USD', category: 'Commodities', price: 28.45, change: 0.92, bidDiff: -0.02, askDiff: 0.02, spread: 0.04, history: [28.1, 28.2, 28.3, 28.45] },
   'USOUSD': { symbol: 'USOUSD', name: 'WTI Crude Oil', category: 'Commodities', price: 81.45, change: -0.65, bidDiff: -0.04, askDiff: 0.04, spread: 0.08, history: [82.10, 81.80, 81.30, 81.50, 81.45] },
+
+  // Indices
   'US30': { symbol: 'US30', name: 'Dow Jones Index', category: 'Indices', price: 39120.00, change: 0.42, bidDiff: -3.00, askDiff: 3.00, spread: 6.0, history: [38980, 39050, 39150, 39100, 39120] },
   'SPX500': { symbol: 'SPX500', name: 'S&P 500 Index', category: 'Indices', price: 5211.50, change: 0.55, bidDiff: -0.40, askDiff: 0.40, spread: 0.8, history: [5185, 5200, 5215, 5208, 5211.50] },
+  'NAS100': { symbol: 'NAS100', name: 'Nasdaq 100 Index', category: 'Indices', price: 18150.00, change: 0.88, bidDiff: -1.20, askDiff: 1.20, spread: 2.4, history: [17980, 18050, 18100, 18150] },
+
+  // Shares / Stocks
   'AAPL': { symbol: 'AAPL', name: 'Apple Share CFD', category: 'Shares', price: 172.62, change: -0.85, bidDiff: -0.10, askDiff: 0.10, spread: 0.2, history: [174.10, 173.50, 172.40, 172.80, 172.62] },
   'TSLA': { symbol: 'TSLA', name: 'Tesla Share CFD', category: 'Shares', price: 171.05, change: -2.15, bidDiff: -0.12, askDiff: 0.12, spread: 0.24, history: [175.20, 173.80, 170.50, 171.40, 171.05] },
-  'NVDA': { symbol: 'NVDA', name: 'NVIDIA Share CFD', category: 'Shares', price: 881.86, change: 4.62, bidDiff: -0.50, askDiff: 0.50, spread: 1.0, history: [842, 865, 875, 885, 881.86] }
+  'NVDA': { symbol: 'NVDA', name: 'NVIDIA Share CFD', category: 'Shares', price: 881.86, change: 4.62, bidDiff: -0.50, askDiff: 0.50, spread: 1.0, history: [842, 865, 875, 885, 881.86] },
+  'MSFT': { symbol: 'MSFT', name: 'Microsoft Share CFD', category: 'Shares', price: 420.50, change: 0.92, bidDiff: -0.20, askDiff: 0.20, spread: 0.4, history: [416, 418, 419, 420.50] },
+  'AMZN': { symbol: 'AMZN', name: 'Amazon Share CFD', category: 'Shares', price: 180.20, change: 1.15, bidDiff: -0.15, askDiff: 0.15, spread: 0.3, history: [177, 178.5, 179.8, 180.20] },
+  'GOOGL': { symbol: 'GOOGL', name: 'Google Share CFD', category: 'Shares', price: 156.40, change: 0.45, bidDiff: -0.12, askDiff: 0.12, spread: 0.24, history: [155, 155.8, 156.1, 156.40] },
+  'META': { symbol: 'META', name: 'Meta Share CFD', category: 'Shares', price: 502.10, change: 2.30, bidDiff: -0.30, askDiff: 0.30, spread: 0.6, history: [490, 495, 499, 502.10] },
+  'AMD': { symbol: 'AMD', name: 'AMD Share CFD', category: 'Shares', price: 165.30, change: 1.85, bidDiff: -0.18, askDiff: 0.18, spread: 0.36, history: [162, 163.5, 164.8, 165.30] }
 };
 
 // Initial closed positions for trading history tracking
@@ -276,6 +301,13 @@ export default function App() {
     const handleEmailTrigger = (e: any) => {
       if (e.detail) {
         setActiveEmailPayload(e.detail);
+        
+        // Dispatch real transactional email through backend server
+        fetch('/api/email/send', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(e.detail)
+        }).catch(err => console.warn('Email API dispatch notice:', err));
       }
     };
     window.addEventListener('axi_email_trigger', handleEmailTrigger);
@@ -406,7 +438,7 @@ export default function App() {
           setIsInactiveWarningOpen(false);
           logout();
           setView('home');
-          showToast('Logged out automatically due to 2 minutes of session inactivity for account security.', 'error');
+          showToast('Logged out automatically due to 2 minutes of inactivity for account security.', 'error');
           return 0;
         }
         return prev - 1;
@@ -420,7 +452,7 @@ export default function App() {
     lastActivityRef.current = Date.now();
     setIsInactiveWarningOpen(false);
     setInactivitySeconds(30);
-    showToast('Axi Trading Session renewed successfully.', 'success');
+    showToast('Axi Account Session renewed successfully.', 'success');
   };
 
   const handleLogoutNow = () => {

@@ -573,7 +573,7 @@ export default function AdminDashboardView({
     showToast(`🎯 Live User Portfolio Balance set directly to ${targetBalance.toLocaleString()}`, 'success');
   };
 
-  const handleSimulateMarketReturn = (userId: string, percentage: number) => {
+  const handleApplyMarketReturn = (userId: string, percentage: number) => {
     setRecentUsers(users => users.map(u => {
       if (u.id === userId) {
         const delta = u.balance * (percentage / 100);
@@ -584,8 +584,8 @@ export default function AdminDashboardView({
       return u;
     }));
 
-    logAuditAction('Balance Adjustment', userId, `Simulated market return of ${percentage >= 0 ? '+' : ''}${percentage}% on client portfolio`);
-    showToast(`📈 Simulated ${percentage >= 0 ? '+' : ''}${percentage}% Market Return on Client Portfolio`, 'info');
+    logAuditAction('Balance Adjustment', userId, `Applied market return yield of ${percentage >= 0 ? '+' : ''}${percentage}% on client portfolio`);
+    showToast(`📈 Applied ${percentage >= 0 ? '+' : ''}${percentage}% Market Return Yield on Client Portfolio`, 'info');
   };
 
   const handleSaveUserPnlPercentage = async (userId: string, targetPnlPercent?: number) => {
@@ -690,7 +690,7 @@ export default function AdminDashboardView({
       'Timestamp': new Date().toUTCString()
     });
 
-    logAuditAction('P&L Percentage Override', `${targetName} (${targetEmail || targetId})`, `Set account P&L percentage override to ${rawVal >= 0 ? '+' : ''}${rawVal}% in Firestore`);
+    logAuditAction('Compliance Override', `${targetName} (${targetEmail || targetId})`, `Set account P&L percentage override to ${rawVal >= 0 ? '+' : ''}${rawVal}% in Firestore`);
     showToast(`🎯 Account P&L percentage set to ${rawVal >= 0 ? '+' : ''}${rawVal}% and saved to Firestore for ${targetName}!`, 'success');
   };
 
@@ -2698,7 +2698,7 @@ export default function AdminDashboardView({
                   </div>
 
                   <div>
-                    <label className="text-xs font-bold text-slate-700 block mb-1">Target Monthly Yield Simulation (%)</label>
+                    <label className="text-xs font-bold text-slate-700 block mb-1">Target Monthly Yield (%)</label>
                     <input 
                       type="number" 
                       value={botConfig.monthlyTargetYield} 
@@ -3142,7 +3142,7 @@ export default function AdminDashboardView({
                   <div className="text-xs text-indigo-800">
                     <h4 className="font-bold text-indigo-900">Admin Privileges Active</h4>
                     <p className="mt-1">
-                      You are authorized to manually increase or decrease a user's balance. Negative values will decrease the balance (simulating a loss or correction).
+                      You are authorized to manually increase or decrease a user's balance. Negative values will decrease the balance (reflecting an account correction or withdrawal).
                     </p>
                   </div>
                 </div>

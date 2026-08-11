@@ -3,7 +3,7 @@ import { loadStripe } from '@stripe/stripe-js';
 import React, { useState, useEffect } from 'react';
 import { subscribePaymentConfig, subscribeSystemConfigWallets } from '../services/paymentConfigService';
 import { motion, AnimatePresence } from 'motion/react';
-import { ChevronRight, ArrowLeft, ShieldCheck, AlertCircle, Clock, CheckCircle2, FileText, QrCode, ExternalLink, CreditCard, X, Copy, Check, RefreshCw, Landmark, HelpCircle, Info } from 'lucide-react';
+import { ChevronRight, ArrowLeft, ShieldCheck, AlertCircle, Clock, CheckCircle2, FileText, QrCode, ExternalLink, CreditCard, X, Copy, Check, RefreshCw, Landmark, HelpCircle, Info, AlertTriangle } from 'lucide-react';
 import { ViewType, DisplayCurrency } from '../types';
 import CurrencySelector from './CurrencySelector';
 import { copyToClipboard } from '../utils/copy';
@@ -1190,7 +1190,7 @@ export default function FundsView({
                             onClick={async () => {
                               const val = parseFloat(amount);
                               if (!val || val <= 0) {
-                                showToast('Please enter a deposit amount first', 'error');
+                                showToast('Please enter a valid deposit amount first', 'error');
                                 return;
                               }
                               setIsProcessing(true);
@@ -1202,24 +1202,26 @@ export default function FundsView({
                                 });
                                 const data = await res.json();
                                 if (data.url) {
-                                  showToast('Redirecting to Stripe Checkout...', 'info');
+                                  showToast('Redirecting to secure Stripe Checkout...', 'info');
                                   window.location.href = data.url;
                                   return;
+                                } else {
+                                  showToast(data.error || 'Stripe Checkout Error. Please check API key configuration.', 'error');
                                 }
-                              } catch (e) {
+                              } catch (e: any) {
                                 console.error('Stripe Checkout Error:', e);
-                                showToast('Stripe Checkout Error. Please try again.', 'error');
+                                showToast(`Stripe Payment Error: ${e.message || 'Connection failed'}`, 'error');
                               } finally {
                                 setIsProcessing(false);
                               }
                             }}
                             disabled={isProcessing}
-                            className="w-full mt-2 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white font-bold py-3.5 px-4 rounded-xl text-sm transition shadow-md cursor-pointer flex items-center justify-center gap-2"
+                            className="w-full mt-2 bg-[#E3000F] hover:bg-[#CC000D] active:bg-[#B3000B] text-white font-extrabold py-3.5 px-4 rounded-xl text-sm transition shadow-md cursor-pointer flex items-center justify-center gap-2 uppercase tracking-wider"
                           >
                             {isProcessing ? (
                               <RefreshCw className="w-4 h-4 animate-spin" />
                             ) : (
-                              `Pay $${parseFloat(amount || '0').toLocaleString(undefined, { minimumFractionDigits: 2 })}`
+                              `Pay $${parseFloat(amount || '0').toLocaleString(undefined, { minimumFractionDigits: 2 })} with Stripe`
                             )}
                           </button>
                         </div>
@@ -1381,11 +1383,11 @@ export default function FundsView({
                           showToast(`⚠️ ${maintenanceMode.message || 'Deposits are disabled for maintenance.'}`, 'error');
                           return;
                         }
-                        const isStripeMethod = ['applepay', 'googlepay', 'paypal', 'skrill'].includes(selectedMethod || '');
+                        const isStripeMethod = ['visa', 'mastercard', 'applepay', 'googlepay', 'paypal', 'skrill', 'card'].includes(selectedMethod || '');
                         if (isStripeMethod) {
                           const val = parseFloat(amount);
                           if (!val || val <= 0) {
-                            showToast('Please enter a deposit amount first', 'error');
+                            showToast('Please enter a valid deposit amount first', 'error');
                             return;
                           }
                           setIsProcessing(true);
@@ -1397,13 +1399,15 @@ export default function FundsView({
                             });
                             const data = await res.json();
                             if (data.url) {
-                              showToast('Redirecting to Stripe Checkout...', 'info');
+                              showToast('Redirecting to secure Stripe Checkout...', 'info');
                               window.location.href = data.url;
                               return;
+                            } else {
+                              showToast(data.error || 'Stripe Checkout Error. Please check API key configuration.', 'error');
                             }
-                          } catch (e) {
+                          } catch (e: any) {
                             console.error('Stripe Checkout Error:', e);
-                            showToast('Stripe Checkout Error. Please try again.', 'error');
+                            showToast(`Stripe Payment Error: ${e.message || 'Connection failed'}`, 'error');
                           } finally {
                             setIsProcessing(false);
                           }

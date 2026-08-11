@@ -148,7 +148,7 @@ export default function ReferAFriendModal({
     }
   };
 
-  const handleSimulateStatusChange = (id: string) => {
+  const handleUpdateReferralStatus = (id: string) => {
     if (!onUpdateInviteStatus) return;
     const inv = referralInvites.find(i => i.id === id);
     if (!inv) return;
@@ -521,11 +521,11 @@ export default function ReferAFriendModal({
 
                           {(inv.status === 'Invited' || inv.status === 'Registered') && (
                             <button
-                              onClick={() => handleSimulateStatusChange(inv.id)}
-                              title="Demo helper: click to advance referral lifecycle status"
+                              onClick={() => handleUpdateReferralStatus(inv.id)}
+                              title="Update referral tracking status"
                               className="px-2.5 py-1 bg-slate-900 hover:bg-slate-800 text-slate-400 hover:text-slate-200 border border-slate-800 rounded-md text-[10px] font-semibold transition-colors flex items-center gap-1"
                             >
-                              <RefreshCw className="w-3 h-3" /> Advance Status
+                              <RefreshCw className="w-3 h-3" /> Update Status
                             </button>
                           )}
                         </div>

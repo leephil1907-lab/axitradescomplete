@@ -219,30 +219,30 @@ export default function Header({
   ];
 
   return (
-    <header className={`w-full bg-[#E3000F] sticky top-0 z-50 transition-all duration-300 ${scrolled ? 'shadow-md shadow-black/20' : ''}`}>
+    <header className={`w-full bg-[#0B0E17] sticky top-0 z-50 transition-all duration-300 ${scrolled ? 'shadow-xl shadow-black/40 bg-[#070910]/95 backdrop-blur-md' : ''}`}>
       
       
       {/* Top Utility Bar */}
-      <div className="hidden xl:block w-full bg-[#1C1C1C] border-b border-[#2A2A2A]">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 flex items-center justify-between h-10">
-          <div className="flex items-center gap-6 text-[11px] font-bold text-slate-300 tracking-wider uppercase">
-            <button className="text-white cursor-default">Personal</button>
+      <div className="hidden xl:block w-full bg-[#05070B] border-b border-slate-800/80">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 flex items-center justify-between h-9">
+          <div className="flex items-center gap-6 text-[11px] font-extrabold text-slate-300 tracking-wider uppercase">
+            <button className="text-[#FFCC00] font-black cursor-default border-b-2 border-[#FFCC00] pb-0.5">Personal</button>
             <button onClick={() => handleNav('about')} className="hover:text-white transition-colors cursor-pointer">Professional</button>
             <button onClick={() => handleNav('about')} className="hover:text-white transition-colors cursor-pointer">Partners</button>
             <button onClick={() => { if (showToast) showToast('Institutional Prime Brokerage desk requested.', 'info'); handleNav('about'); }} className="hover:text-white transition-colors cursor-pointer">Institutions</button>
           </div>
-          <div className="flex items-center gap-6 text-[11px] font-bold text-slate-300 tracking-wider uppercase">
+          <div className="flex items-center gap-6 text-[11px] font-extrabold text-slate-300 tracking-wider uppercase">
             <a href="mailto:axicustomersupport@gmail.com" className="hover:text-white transition-colors flex items-center gap-1 cursor-pointer normal-case"><svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg> axicustomersupport@gmail.com</a>
-            <div className="h-3 w-px bg-slate-700"></div>
-            <button onClick={openReferModal} className="text-[#FFD250] hover:text-yellow-300 font-extrabold transition-colors flex items-center gap-1 cursor-pointer animate-pulse">
+            <div className="h-3 w-px bg-slate-800"></div>
+            <button onClick={openReferModal} className="text-[#FFCC00] hover:text-yellow-300 font-extrabold transition-colors flex items-center gap-1 cursor-pointer">
               <Gift className="w-3.5 h-3.5" /> Refer & Earn $100
             </button>
             <button onClick={openVoiceModal} className="text-emerald-400 hover:text-emerald-300 font-extrabold transition-colors flex items-center gap-1 cursor-pointer">
               <Mic className="w-3.5 h-3.5" /> Voice Dictation
             </button>
             <button onClick={() => handleNav('settings')} className="hover:text-white transition-colors flex items-center gap-1 cursor-pointer">Help Centre</button>
-            <button onClick={() => { if(user) handleNav('dashboard'); else handleNav('login'); }} className="hover:text-white transition-colors flex items-center gap-1 cursor-pointer"><User className="w-3 h-3" /> Client Login</button>
-            <button onClick={() => setShowLanguageModal(true)} className="hover:text-white transition-colors flex items-center gap-1 cursor-pointer"><Globe className="w-3 h-3 text-[#FFD250]" /> {selectedLang}</button>
+            <button onClick={() => { if(user) handleNav('dashboard'); else handleNav('login'); }} className="hover:text-white transition-colors flex items-center gap-1 cursor-pointer"><User className="w-3 h-3 text-[#FFCC00]" /> Client Login</button>
+            <button onClick={() => setShowLanguageModal(true)} className="hover:text-white transition-colors flex items-center gap-1 cursor-pointer"><Globe className="w-3 h-3 text-[#FFCC00]" /> {selectedLang}</button>
           </div>
         </div>
       </div>
@@ -262,23 +262,16 @@ export default function Header({
               showToast("Invalid admin credentials", "error");
             }
           }}
-          className="flex items-center cursor-pointer select-none group shrink-0 gap-2"
+          className="flex items-center cursor-pointer select-none group shrink-0 gap-2.5"
           id="logo-brand"
         >
-          <img 
-            src="https://d2tpnh780x5es.cloudfront.net/rebrand-prod/hqwjus4e/logo-light1.svg" 
-            alt="Axi" 
-            className="h-8 md:h-10 object-contain" 
-            onError={(e) => {
-              e.currentTarget.style.display = 'none';
-              const fallback = e.currentTarget.nextElementSibling as HTMLElement;
-              if (fallback) fallback.style.display = 'flex';
-            }}
-            referrerPolicy="no-referrer"
-          />
-          <span className="hidden text-3xl md:text-4xl font-black tracking-tighter text-white font-sans flex items-center gap-0.5" style={{ fontFamily: 'Outfit, sans-serif' }}>
-            axi<span className="text-[#FFD250] font-black">.</span>
-          </span>
+          <div className="flex items-center gap-1.5">
+            <svg className="h-8 md:h-10 w-auto text-white" viewBox="0 0 140 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <text x="0" y="32" fill="#FFFFFF" fontSize="38" fontWeight="900" fontFamily="Outfit, system-ui, sans-serif" letterSpacing="-1.5">axi</text>
+              <circle cx="68" cy="28" r="4.5" fill="#E3000F" />
+            </svg>
+            <span className="hidden sm:inline-block text-[10px] font-black uppercase tracking-widest text-[#FFCC00] border border-[#FFCC00]/30 bg-[#FFCC00]/10 px-2 py-0.5 rounded">GLOBAL</span>
+          </div>
         </div>
 
         {/* Desktop Navigation */}
@@ -399,13 +392,27 @@ export default function Header({
         </nav>
 
         {/* Action Buttons */}
-        <div className="flex items-center gap-3 xl:gap-4">
+        <div className="flex items-center gap-2.5 xl:gap-3">
+          
+          {/* Search Trigger Button */}
+          <button
+            onClick={() => {
+              const query = window.prompt("Search Axi markets, instruments, education & tools:");
+              if (query && query.trim()) {
+                handleNav('markets');
+              }
+            }}
+            aria-label="Search"
+            className="w-9 h-9 md:w-10 md:h-10 rounded-full bg-slate-900/80 hover:bg-slate-800 text-slate-300 hover:text-white border border-slate-700/60 flex items-center justify-center transition cursor-pointer shrink-0"
+          >
+            <Search className="w-4 h-4 md:w-4.5 md:h-4.5" />
+          </button>
 
           <motion.button
             whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.98 }}
             onClick={openSignUp}
-            className="bg-[#FFD250] hover:bg-[#FFC518] text-slate-900 text-[14px] font-bold px-6 py-2.5 rounded flex items-center justify-center tracking-wide cursor-pointer font-sans"
+            className="bg-[#FFCC00] hover:bg-[#E6B800] text-slate-950 font-black text-[13px] md:text-[14px] px-5 md:px-6 py-2 md:py-2.5 rounded-md flex items-center justify-center tracking-wider uppercase shadow-md cursor-pointer font-sans shrink-0"
           >
             OPEN ACCOUNT
           </motion.button>
@@ -533,11 +540,13 @@ export default function Header({
                   }}
                   className="flex items-center gap-2 cursor-pointer select-none"
                 >
-                  <img 
-                    src="https://d2tpnh780x5es.cloudfront.net/rebrand-prod/hqwjus4e/logo-light1.svg" 
-                    alt="Axi" 
-                    className="h-8 object-contain" 
-                  />
+                  <div className="flex items-center gap-1.5">
+                    <svg className="h-8 w-auto text-white" viewBox="0 0 140 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+                      <text x="0" y="32" fill="#FFFFFF" fontSize="38" fontWeight="900" fontFamily="Outfit, system-ui, sans-serif" letterSpacing="-1.5">axi</text>
+                      <circle cx="68" cy="28" r="4.5" fill="#E3000F" />
+                    </svg>
+                    <span className="text-[10px] font-black uppercase tracking-widest text-[#FFCC00] border border-[#FFCC00]/30 bg-[#FFCC00]/10 px-1.5 py-0.5 rounded">GLOBAL</span>
+                  </div>
                 </div>
 
                 <div className="flex items-center gap-2">
