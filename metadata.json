@@ -1,0 +1,8 @@
+{
+  "name": "Axi",
+  "description": "Official Axi online CFD & Forex trading platform. Trade Forex, Indices, Shares, Cryptocurrencies, and Commodities with institutional ECN spreads, fast execution, MT5 terminal, and secure client portal.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

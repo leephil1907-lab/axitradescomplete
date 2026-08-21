@@ -1,0 +1,183 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "User profile and account balances.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "maxLength": 128 },
+        "email": { "type": "string", "maxLength": 255 },
+        "displayName": { "type": "string", "maxLength": 255 },
+        "photoURL": { "type": "string", "maxLength": 1024 },
+        "providerId": { "type": "string", "maxLength": 128 },
+        "balance": { "type": "number" },
+        "liveBalance": { "type": "number" },
+        "paymentMethods": { "type": "array" },
+        "pnlPercentage": { "type": "number" },
+        "pnlOverride": { "type": "object" },
+        "createdAt": { "type": "number" },
+        "updatedAt": { "type": "number" }
+      },
+      "required": ["uid", "email", "balance", "liveBalance"]
+    },
+    "TradeOrder": {
+      "title": "TradeOrder",
+      "description": "An open trade position.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "symbol": { "type": "string", "maxLength": 32 },
+        "type": { "type": "string" },
+        "volume": { "type": "number" },
+        "entryPrice": { "type": "number" },
+        "currentPrice": { "type": "number" },
+        "openPrice": { "type": "number" },
+        "sl": { "type": "number" },
+        "tp": { "type": "number" },
+        "profit": { "type": "number" },
+        "time": { "type": "string", "maxLength": 64 },
+        "timestamp": { "type": "string", "maxLength": 64 },
+        "accountType": { "type": "string" }
+      },
+      "required": ["id", "symbol", "type", "currentPrice"]
+    },
+    "ClosedPosition": {
+      "title": "ClosedPosition",
+      "description": "A closed trade position.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "symbol": { "type": "string", "maxLength": 32 },
+        "type": { "type": "string" },
+        "volume": { "type": "number" },
+        "entryPrice": { "type": "number" },
+        "exitPrice": { "type": "number" },
+        "openPrice": { "type": "number" },
+        "closePrice": { "type": "number" },
+        "profit": { "type": "number" },
+        "entryTime": { "type": "string", "maxLength": 64 },
+        "exitTime": { "type": "string", "maxLength": 64 },
+        "openTime": { "type": "string", "maxLength": 64 },
+        "closeTime": { "type": "string", "maxLength": 64 },
+        "accountType": { "type": "string" }
+      },
+      "required": ["id", "symbol", "type", "profit"]
+    },
+    "Transaction": {
+      "title": "Transaction",
+      "description": "A deposit or withdrawal transaction.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "type": { "type": "string", "maxLength": 64 },
+        "method": { "type": "string", "maxLength": 128 },
+        "amount": { "type": "number" },
+        "status": { "type": "string", "maxLength": 64 },
+        "date": { "type": "string", "maxLength": 64 },
+        "timestamp": { "type": "string", "maxLength": 64 },
+        "account": { "type": "string", "maxLength": 128 },
+        "accountType": { "type": "string", "maxLength": 64 },
+        "refCode": { "type": "string", "maxLength": 128 },
+        "proofNote": { "type": "string", "maxLength": 512 },
+        "user": { "type": "string", "maxLength": 255 },
+        "userId": { "type": "string", "maxLength": 128 },
+        "userEmail": { "type": "string", "maxLength": 255 }
+      },
+      "required": ["id", "type", "amount", "method", "status"]
+    },
+    "PriceAlert": {
+      "title": "PriceAlert",
+      "description": "A user defined price alert.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "symbol": { "type": "string", "maxLength": 32 },
+        "targetPrice": { "type": "number" },
+        "condition": { "type": "string", "maxLength": 32 },
+        "createdAt": { "type": "string", "maxLength": 64 },
+        "isTriggered": { "type": "boolean" },
+        "active": { "type": "boolean" }
+      },
+      "required": ["id", "symbol", "targetPrice", "condition"]
+    },
+    "KycSubmission": {
+      "title": "KycSubmission",
+      "description": "User submitted identity verification and compliance documents.",
+      "type": "object",
+      "properties": {
+        "fullName": { "type": "string", "maxLength": 255 },
+        "docType": { "type": "string", "maxLength": 128 },
+        "docNumber": { "type": "string", "maxLength": 128 },
+        "userId": { "type": "string", "maxLength": 128 },
+        "userEmail": { "type": "string", "maxLength": 255 },
+        "documents": { "type": "array" },
+        "status": { "type": "string", "maxLength": 64 },
+        "submittedAt": { "type": "object" }
+      },
+      "required": ["fullName", "docType", "userId", "userEmail", "status"]
+    },
+    "PaymentConfig": {
+      "title": "PaymentConfig",
+      "description": "Central payment configuration document storing active payment methods, crypto wallets, bank wire details, and fees.",
+      "type": "object",
+      "properties": {
+        "updatedAt": { "type": "number" },
+        "cryptoWallets": { "type": "object" },
+        "bankSettings": { "type": "object" },
+        "paymentMethods": { "type": "array" },
+        "autoApproveLimit": { "type": "number" },
+        "requireKycForDeposit": { "type": "boolean" },
+        "maintenanceMode": { "type": "object" }
+      },
+      "required": ["updatedAt"]
+    },
+    "SystemConfigWallets": {
+      "title": "SystemConfigWallets",
+      "description": "System configuration dedicated for crypto receiving wallet addresses.",
+      "type": "object",
+      "properties": {
+        "updatedAt": { "type": "number" },
+        "btc": { "type": "object" },
+        "eth": { "type": "object" },
+        "usdt": { "type": "object" },
+        "usdc": { "type": "object" },
+        "sol": { "type": "object" }
+      },
+      "required": ["updatedAt"]
+    }
+  },
+  "firestore": {
+    "/config/{configId}": {
+      "schema": { "$ref": "#/entities/PaymentConfig" },
+      "description": "Central platform payment configuration document."
+    },
+    "/system_config/{configId}": {
+      "schema": { "$ref": "#/entities/SystemConfigWallets" },
+      "description": "System wallet configuration document."
+    },
+    "/kyc_submissions/{submissionId}": {
+      "schema": { "$ref": "#/entities/KycSubmission" },
+      "description": "User KYC document uploads."
+    },
+    "/users/{userId}": {
+      "schema": { "$ref": "#/entities/User" },
+      "description": "Stores user profiles and balances."
+    },
+    "/users/{userId}/openPositions/{positionId}": {
+      "schema": { "$ref": "#/entities/TradeOrder" },
+      "description": "Stores user's open trade positions."
+    },
+    "/users/{userId}/closedPositions/{positionId}": {
+      "schema": { "$ref": "#/entities/ClosedPosition" },
+      "description": "Stores user's closed trade positions."
+    },
+    "/users/{userId}/transactions/{transactionId}": {
+      "schema": { "$ref": "#/entities/Transaction" },
+      "description": "Stores user's deposit/withdraw transactions."
+    },
+    "/users/{userId}/priceAlerts/{alertId}": {
+      "schema": { "$ref": "#/entities/PriceAlert" },
+      "description": "Stores user's price alerts."
+    }
+  }
+}

@@ -1,0 +1,4 @@
+-e User-agent: *
+Allow: /
+
+Sitemap: https://axitrades.com/sitemap.xml
