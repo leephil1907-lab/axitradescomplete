@@ -88,11 +88,21 @@ const webhookPingState = {
   ] as WebhookPingEntry[]
 };
 
+// Stripe configuration & lazy client initialization
+let stripeClient: Stripe | null = null;
+function getStripe(): Stripe | null {
+  if (!stripeClient && process.env.STRIPE_SECRET_KEY) {
+    stripeClient = new Stripe(process.env.STRIPE_SECRET_KEY);
+  }
+  return stripeClient;
+}
+
 // Dedicated raw body handling for Stripe webhook BEFORE express.json()
 app.post('/api/stripe/webhook', express.raw({ type: 'application/json' }), async (req, res) => {
   const startTime = Date.now();
   const sig = req.headers['stripe-signature'];
   const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
+  const stripe = getStripe();
 
   let event;
 
@@ -208,15 +218,22 @@ app.post('/api/webhook/trading-signals', (req, res) => {
 const PORT = Number(process.env.PORT) || 3000;
 
 // Shared Gemini client setup
-const apiKey = process.env.GEMINI_API_KEY;
-const ai = new GoogleGenAI({
-  apiKey: apiKey || '',
-  httpOptions: {
-    headers: {
-      'User-Agent': 'aistudio-build',
-    }
+let genAIClient: GoogleGenAI | null = null;
+function getGenAI(): GoogleGenAI | null {
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) return null;
+  if (!genAIClient) {
+    genAIClient = new GoogleGenAI({
+      apiKey,
+      httpOptions: {
+        headers: {
+          'User-Agent': 'aistudio-build',
+        }
+      }
+    });
   }
-});
+  return genAIClient;
+}
 
 // Store live rates
 
@@ -633,12 +650,27 @@ async function updateLiveMarkets() {
   }
 }
 
-// Update immediately on startup and run loop every 2 seconds
-updateLiveMarkets();
-setInterval(updateLiveMarkets, 2000);
+// Update immediately on startup and run loop every 2 seconds (only in non-serverless container mode)
+const isServerless = Boolean(process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME);
+if (!isServerless) {
+  updateLiveMarkets();
+  setInterval(updateLiveMarkets, 2000);
+}
 
 // Endpoint for live real market rates
-app.get('/api/markets/quotes', (req, res) => {
+app.get('/api/markets/quotes', async (req, res) => {
+  // If in serverless mode and data hasn't been fetched yet, perform a quick non-blocking update
+  if (isServerless) {
+    try {
+      // Set cache headers to minimize function invocations and ensure high responsiveness
+      res.setHeader('Cache-Control', 's-maxage=2, stale-while-revalidate=5');
+      if (Object.keys(LIVE_MARKETS).length === 0 || !LIVE_MARKETS['EUR/USD']?.price) {
+        await updateLiveMarkets();
+      }
+    } catch (e) {
+      console.warn('Serverless market fetch warning:', e);
+    }
+  }
   res.json(LIVE_MARKETS);
 });
 
@@ -768,9 +800,10 @@ app.get('/api/markets/quote', (req, res) => {
 app.post('/api/gemini/assistant', async (req, res) => {
   try {
     const { message, history } = req.body;
-    if (!apiKey) {
+    const ai = getGenAI();
+    if (!ai) {
       return res.json({
-        text: "Welcome to Axi AI Assistant! To activate direct live market analysis with real-time Google Search grounding, please configure `GEMINI_API_KEY` in the workspace settings.\n\nIn the meantime, you can explore Forex pairs like EUR/USD, Cryptos like Bitcoin, or indices like the US30 with leverage up to 1:1000 and raw zero spreads!",
+        text: "Welcome to Axi AI Assistant! Standard accounts offer spreads from 0.9 pips, while Pro accounts offer spreads from 0.0 pips with low commission. You can explore Forex pairs like EUR/USD, Cryptos like Bitcoin, or indices like the US30 with leverage up to 1:1000 and raw zero spreads!",
         offline: true
       });
     }
@@ -814,13 +847,6 @@ Use markdown for elegant styling. Keep responses under 220 words. If the user as
 });
 
 
-// Stripe configuration
-const stripeSecret = process.env.STRIPE_SECRET_KEY;
-let stripe = null;
-if (stripeSecret) {
-  stripe = new Stripe(stripeSecret);
-}
-
 // Create Stripe PaymentIntent
 app.post('/api/stripe/create-payment-intent', async (req, res) => {
   const { amount, currency = 'usd', depositId, userId } = req.body;
@@ -829,6 +855,7 @@ app.post('/api/stripe/create-payment-intent', async (req, res) => {
     return res.status(400).json({ error: 'Invalid deposit amount' });
   }
 
+  const stripe = getStripe();
   if (!stripe) {
     return res.status(500).json({ error: 'Stripe is not configured on this server.' });
   }
@@ -853,6 +880,7 @@ app.post('/api/stripe/create-payment-intent', async (req, res) => {
 });
 
 app.post('/api/stripe/create-checkout-session', async (req, res) => {
+  const stripe = getStripe();
   if (!stripe) {
     return res.status(500).json({ error: 'Stripe is not configured. Please add STRIPE_SECRET_KEY to secrets.' });
   }
@@ -926,6 +954,7 @@ app.get('/api/stripe/status', (req, res) => {
     ? 'Disconnected' 
     : (isRecentlyActive ? 'Active' : 'Active');
 
+  const stripe = getStripe();
   res.json({
     configured: !!stripe,
     webhookConfigured: !!process.env.STRIPE_WEBHOOK_SECRET,
@@ -1003,13 +1032,14 @@ app.post('/api/stripe/webhook/toggle-disconnect', (req, res) => {
 });
 
 app.get('/api/stripe/payment-intent/:id', async (req, res) => {
+  const stripe = getStripe();
   if (!stripe) {
     return res.status(500).json({ error: 'Stripe is not configured.' });
   }
   try {
     const paymentIntent = await stripe.paymentIntents.retrieve(req.params.id);
     res.json({ status: paymentIntent.status, amount: paymentIntent.amount / 100, currency: paymentIntent.currency });
-  } catch (error) {
+  } catch (error: any) {
     console.error('Stripe error:', error);
     res.status(500).json({ error: error.message });
   }
