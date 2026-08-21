@@ -118,9 +118,13 @@ export const loadTawkToScript = (config: TawkToConfig, immediate = false) => {
       isScriptLoaded = true;
       if (config.autoOpenOnVisit) {
         try {
-          (window as any).Tawk_API.maximize();
+          (window as any).Tawk_API.maximize?.();
         } catch (e) {}
       }
+    };
+
+    (window as any).Tawk_API.onStatusChange = function (status: string) {
+      // Safely monitor agent availability without throwing uncaught exceptions
     };
 
     (window as any).Tawk_API.onChatMessageVisitor = function (message: any) {
@@ -147,6 +151,13 @@ export const loadTawkToScript = (config: TawkToConfig, immediate = false) => {
     s1.src = scriptSrc;
     s1.charset = 'UTF-8';
     s1.setAttribute('crossorigin', '*');
+
+    // Handle network or embed errors without breaking the host application
+    s1.onerror = function () {
+      isScriptLoading = false;
+      isScriptLoaded = false;
+      console.info('[Tawk.to] Live chat script is unavailable or blocked by network/adblocker.');
+    };
 
     const s0 = document.getElementsByTagName('script')[0];
     if (s0 && s0.parentNode) {
