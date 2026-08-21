@@ -30,7 +30,10 @@ iframe[title*="chat" i],
 iframe[src*="tawk.to" i] {
   max-height: 85vh !important;
   max-width: 420px !important;
-  border-radius: 16px !important;
+  border-radius: 14px !important;
+  box-shadow: 0 12px 32px -4px rgba(0, 0, 0, 0.16), 0 4px 12px -2px rgba(0, 0, 0, 0.08), 0 0 0 1px rgba(0, 0, 0, 0.05) !important;
+  overflow: hidden !important;
+  z-index: 999999 !important;
 }
 
 @media (max-width: 640px) {
@@ -38,9 +41,15 @@ iframe[src*="tawk.to" i] {
   iframe[title*="chat" i],
   iframe[src*="tawk.to" i] {
     max-height: 75vh !important;
-    max-width: calc(100vw - 24px) !important;
-    bottom: 12px !important;
-    right: 12px !important;
+    max-width: calc(100vw - 32px) !important;
+    position: fixed !important;
+    bottom: 16px !important;
+    right: 16px !important;
+    left: auto !important;
+    top: auto !important;
+    border-radius: 14px !important;
+    box-shadow: 0 10px 28px -4px rgba(0, 0, 0, 0.25) !important;
+    z-index: 999999 !important;
   }
 }
 
