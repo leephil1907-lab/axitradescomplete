@@ -1,0 +1,105 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-\\.]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isAdmin() {
+      return isSignedIn() && (
+        request.auth.token.email in [
+          'leephil1907@gmail.com',
+          'admin@axi.com',
+          'axicustomersupport@gmail.com'
+        ] ||
+        request.auth.token.admin == true
+      );
+    }
+
+    function isValidUser(data) {
+      return data.keys().hasAll(['uid', 'email', 'balance', 'liveBalance'])
+        && data.uid is string && data.uid.size() <= 128
+        && data.email is string && data.email.size() <= 255
+        && data.balance is number
+        && data.liveBalance is number;
+    }
+
+    match /users/{userId} {
+      allow read: if isSignedIn() && (request.auth.uid == userId || isAdmin());
+      allow create: if isSignedIn() && (request.auth.uid == userId || isAdmin())
+        && isValidId(userId)
+        && isValidUser(incoming());
+      allow update: if isSignedIn() && (request.auth.uid == userId || isAdmin())
+        && isValidId(userId);
+      allow delete: if isAdmin();
+      
+      match /openPositions/{positionId} {
+        allow read: if isSignedIn() && (request.auth.uid == userId || isAdmin());
+        allow create, update, delete: if isSignedIn() && (request.auth.uid == userId || isAdmin())
+          && isValidId(positionId);
+      }
+      
+      match /closedPositions/{positionId} {
+        allow read: if isSignedIn() && (request.auth.uid == userId || isAdmin());
+        allow create, update, delete: if isSignedIn() && (request.auth.uid == userId || isAdmin())
+          && isValidId(positionId);
+      }
+      
+      match /transactions/{transactionId} {
+        allow read: if isSignedIn() && (request.auth.uid == userId || isAdmin());
+        allow create, update, delete: if isSignedIn() && (request.auth.uid == userId || isAdmin())
+          && isValidId(transactionId);
+      }
+      
+      match /priceAlerts/{alertId} {
+        allow read: if isSignedIn() && (request.auth.uid == userId || isAdmin());
+        allow create, update, delete: if isSignedIn() && (request.auth.uid == userId || isAdmin())
+          && isValidId(alertId);
+      }
+
+      match /paymentMethods/{methodId} {
+        allow read: if isSignedIn() && (request.auth.uid == userId || isAdmin());
+        allow create, update, delete: if isSignedIn() && (request.auth.uid == userId || isAdmin())
+          && isValidId(methodId);
+      }
+
+      match /watchlist/{symbolId} {
+        allow read: if isSignedIn() && (request.auth.uid == userId || isAdmin());
+        allow create, update, delete: if isSignedIn() && (request.auth.uid == userId || isAdmin())
+          && isValidId(symbolId);
+      }
+    }
+
+    match /kyc_submissions/{submissionId} {
+      allow read: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow create: if isSignedIn() && isValidId(submissionId);
+      allow update, delete: if isAdmin();
+    }
+
+    match /config/{configId} {
+      allow read: if true;
+      allow write: if isSignedIn();
+    }
+
+    match /system_config/{configId} {
+      allow read: if true;
+      allow write: if isSignedIn();
+    }
+  }
+}

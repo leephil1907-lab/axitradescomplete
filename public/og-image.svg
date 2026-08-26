@@ -1,0 +1,14 @@
+<svg width="1200" height="630" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="grad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#1A1A1A;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#2A2A2A;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="630" fill="url(#grad)" />
+  <text x="600" y="250" font-family="Arial, sans-serif" font-size="72" font-weight="bold" fill="white" text-anchor="middle">AXI Trading</text>
+  <text x="600" y="330" font-family="Arial, sans-serif" font-size="32" fill="#D51820" text-anchor="middle">Trade Forex, Crypto, Commodities & Indices</text>
+  <text x="600" y="400" font-family="Arial, sans-serif" font-size="24" fill="#9CA3AF" text-anchor="middle">Tight Spreads | Fast Execution | Award-Winning Platforms</text>
+  <rect x="450" y="480" width="300" height="50" rx="25" fill="#D51820" />
+  <text x="600" y="515" font-family="Arial, sans-serif" font-size="20" font-weight="bold" fill="white" text-anchor="middle">Start Trading Today</text>
+</svg>
