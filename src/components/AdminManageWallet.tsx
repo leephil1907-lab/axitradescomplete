@@ -745,10 +745,10 @@ export default function AdminManageWallet({ initialSubTab = 'methods' }: AdminMa
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div className="bg-slate-50 p-5 rounded-xl border border-slate-200 space-y-4">
             <h4 className="font-bold text-slate-800 text-sm border-b border-slate-200 pb-2 flex items-center gap-2">
-              <DollarSign className="w-4 h-4 text-emerald-600" /> Auto-Approval Limit ($)
+              <DollarSign className="w-4 h-4 text-emerald-600" /> Manual Review Threshold ($)
             </h4>
             <p className="text-xs text-slate-500">
-              Deposits under this threshold can be automatically credited upon confirmation. Higher deposits require administrator review.
+              Reference threshold for compliance review. All deposits — regardless of amount — require manual administrator approval before being credited to a trader's live balance. No deposit is ever auto-approved.
             </p>
             <input
               type="number"

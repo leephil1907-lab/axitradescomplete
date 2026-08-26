@@ -1268,7 +1268,20 @@ app.post('/api/users/register', (req, res) => {
   };
 
   if (existingIdx >= 0) {
-    appUsersStore[existingIdx] = { ...appUsersStore[existingIdx], ...userData };
+    // EXISTING user logging back in: preserve admin-controlled fields so a login
+    // sync can never downgrade an Approved/Verified account back to Pending, and
+    // never overwrite an admin-adjusted balance. Only refresh identity/activity.
+    const prev = appUsersStore[existingIdx];
+    appUsersStore[existingIdx] = {
+      ...prev,
+      ...userData,
+      // Admin-controlled fields — always keep the existing value:
+      status: prev.status || userData.status,
+      verificationStatus: prev.verificationStatus || userData.verificationStatus,
+      kycStatus: prev.kycStatus || userData.kycStatus,
+      balance: typeof prev.balance === 'number' ? prev.balance : userData.balance,
+      pnlOverride: prev.pnlOverride ?? userData.pnlOverride ?? null
+    };
   } else {
     appUsersStore.unshift(userData);
 

@@ -62,15 +62,18 @@ export default function LoginView({
         localStorage.removeItem('axi_remembered_email');
       }
 
-      // Sync user with backend server for Admin visibility
+      // Sync user with backend server for Admin visibility.
+      // NOTE: status is intentionally NOT sent here. The server defaults NEW users
+      // to 'Pending' with kycStatus 'NOT_STARTED' so the user must start KYC
+      // themselves and an admin must approve the account. Existing users keep
+      // their admin-set status (server preserves it on re-login).
       fetch('/api/users/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           email: email.trim(),
           name: email.split('@')[0],
-          provider: 'Email Authentication',
-          status: 'Approved'
+          provider: 'Email Authentication'
         })
       }).catch(e => console.warn('Backend login sync notice:', e));
 
@@ -113,8 +116,7 @@ export default function LoginView({
             id: user.uid,
             email: user.email,
             name: user.displayName || user.email.split('@')[0],
-            provider: 'Google SSO Auth',
-            status: 'Approved'
+            provider: 'Google SSO Auth'
           })
         }).catch(e => console.warn('Google user sync notice:', e));
       }
