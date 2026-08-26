@@ -544,7 +544,7 @@ export default function FundsView({
       return;
     }
 
-    const txId = `DEP-${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
+    const txId = `DEP-${Date.now().toString(36).toUpperCase()}-${Math.floor(1000 + Math.random() * 9000)}`;
     const newTx = {
       id: txId,
       type: 'Deposit',
@@ -560,6 +560,12 @@ export default function FundsView({
     };
 
     addTransaction(newTx);
+    fetch('/api/transactions/create', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(newTx)
+    }).catch(e => console.info('Transaction sync:', e));
+
     showToast(`Payment reference ${txId} submitted. Under review by Axi Compliance.`, 'success');
     
     // Reset confirmation inputs
@@ -644,7 +650,7 @@ export default function FundsView({
       setLiveBalance(newBal);
       setBalance(newBal);
 
-      const txId = `WTH-${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
+      const txId = `WTH-${Date.now().toString(36).toUpperCase()}-${Math.floor(1000 + Math.random() * 9000)}`;
       const newTx = {
         id: txId,
         type: 'Withdrawal',
@@ -664,6 +670,11 @@ export default function FundsView({
       };
 
       addTransaction(newTx);
+      fetch('/api/transactions/create', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(newTx)
+      }).catch(e => console.info('Transaction sync:', e));
       setIsProcessingWithdraw(false);
       setWithdrawAmount('');
       setWithdrawAddress('');

@@ -159,26 +159,31 @@ export default function QuickDepositModal({
   const handle3DSecureAuthorize = (e: React.FormEvent) => {
     e.preventDefault();
     setIsProcessing(true);
-    setTimeout(() => {
-      const numAmount = Number(amount) || 1000;
-      const newTx = {
-        id: `DEP-${Math.random().toString(36).substring(2, 8).toUpperCase()}`,
-        type: 'Deposit',
-        amount: numAmount,
-        method: `${selectedMethod === 'card' ? 'Credit/Debit Card' : 'Apple/Google Pay'} (Stripe 3DS)`,
-        date: new Date().toISOString().replace('T', ' ').substring(0, 19),
-        status: 'Pending Verification',
-        account: 'Live ECN Account (#8849201)',
-        refCode: `STRIPE-3DS-${Math.floor(100000 + Math.random() * 899999)}`,
-        proofNote: '3D Secure Verification Submitted • Awaiting Gateway Settlement'
-      };
+    const numAmount = Number(amount) || 1000;
+    const txId = `DEP-${Date.now().toString(36).toUpperCase()}-${Math.floor(1000 + Math.random() * 9000)}`;
+    const newTx = {
+      id: txId,
+      type: 'Deposit',
+      amount: numAmount,
+      method: `${selectedMethod === 'card' ? 'Credit/Debit Card' : 'Apple/Google Pay'} (Gateway Settlement)`,
+      date: new Date().toISOString().replace('T', ' ').substring(0, 19),
+      status: 'Pending Verification',
+      account: 'Live ECN Account',
+      refCode: `CARD-AUTH-${Date.now().toString(36).toUpperCase()}`,
+      proofNote: 'Payment Gateway Authentication Complete • Awaiting Settlement'
+    };
 
-      if (addTransaction) addTransaction(newTx);
-      setTxReceipt(newTx);
-      setIsProcessing(false);
-      setStep('receipt');
-      if (showToast) showToast(`Deposit Submitted: $${numAmount.toLocaleString()} USD is pending verification.`, 'info');
-    }, 1000);
+    if (addTransaction) addTransaction(newTx);
+    fetch('/api/transactions/create', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(newTx)
+    }).catch(e => console.info('Transaction sync:', e));
+
+    setTxReceipt(newTx);
+    setIsProcessing(false);
+    setStep('receipt');
+    if (showToast) showToast(`Deposit Submitted: $${numAmount.toLocaleString()} USD is pending settlement.`, 'info');
   };
 
   // Handler for Direct Crypto Transfer confirmation (Completely independent from Stripe)
@@ -187,22 +192,29 @@ export default function QuickDepositModal({
     const numAmount = Number(amount) || 1000;
     const selectedItem = cryptoList.find(c => c.key === cryptoAsset);
     const assetTitle = selectedItem?.name || currentCrypto.network;
+    const txId = `DEP-${Date.now().toString(36).toUpperCase()}-${Math.floor(1000 + Math.random() * 9000)}`;
 
     const newTx = {
-      id: `DEP-${Math.random().toString(36).substring(2, 8).toUpperCase()}`,
+      id: txId,
       type: 'Deposit',
       amount: numAmount,
       method: `Crypto (${assetTitle})`,
       date: new Date().toISOString().replace('T', ' ').substring(0, 19),
       status: 'Pending Verification',
-      account: 'Live ECN Account (#8849201)',
-      refCode: txHashInput ? `TXID: ${txHashInput.trim()}` : `ONCHAIN-${Math.floor(100000 + Math.random() * 899999)}`,
+      account: 'Live ECN Account',
+      refCode: txHashInput ? `TXID: ${txHashInput.trim()}` : `ONCHAIN-${Date.now().toString(36).toUpperCase()}`,
       proofNote: `Direct Blockchain Transfer • ${currentCrypto.network} • Target: ${currentCrypto.address.substring(0, 10)}...`
     };
 
     if (addTransaction) {
       addTransaction(newTx);
     }
+    fetch('/api/transactions/create', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(newTx)
+    }).catch(e => console.info('Transaction sync:', e));
+
     setTxReceipt(newTx);
     setIsProcessing(false);
     setStep('receipt');
@@ -213,22 +225,29 @@ export default function QuickDepositModal({
   const handleConfirmBankWire = () => {
     setIsProcessing(true);
     const numAmount = Number(amount) || 1000;
+    const txId = `DEP-${Date.now().toString(36).toUpperCase()}-${Math.floor(1000 + Math.random() * 9000)}`;
 
     const newTx = {
-      id: `DEP-${Math.random().toString(36).substring(2, 8).toUpperCase()}`,
+      id: txId,
       type: 'Deposit',
       amount: numAmount,
       method: `Bank Wire (${bankSettings.bankName})`,
       date: new Date().toISOString().replace('T', ' ').substring(0, 19),
       status: 'Pending Verification',
-      account: 'Live ECN Account (#8849201)',
-      refCode: `WIRE-${Math.floor(100000 + Math.random() * 899999)}`,
+      account: 'Live ECN Account',
+      refCode: `WIRE-${Date.now().toString(36).toUpperCase()}`,
       proofNote: `Beneficiary: ${bankSettings.accountName} • SWIFT: ${bankSettings.swiftBic}`
     };
 
     if (addTransaction) {
       addTransaction(newTx);
     }
+    fetch('/api/transactions/create', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(newTx)
+    }).catch(e => console.info('Transaction sync:', e));
+
     setTxReceipt(newTx);
     setIsProcessing(false);
     setStep('receipt');

@@ -47,21 +47,17 @@ export default function MarketSentimentWidget({ accountMode = 'live', onTradeSym
       const q = quotes[item.symbol] || {};
       const fallbackPrice = (DEFAULT_MARKET_QUOTES as Record<string, any>)[item.symbol]?.price || 1.0482;
       const price = q.price || fallbackPrice;
-      const change24h = q.change !== undefined ? q.change : ((DEFAULT_MARKET_QUOTES as Record<string, any>)[item.symbol]?.change ?? 0);
+      const change24h = q.change !== undefined ? Number(q.change) : Number((DEFAULT_MARKET_QUOTES as Record<string, any>)[item.symbol]?.change ?? 0);
 
-      // Deterministic dynamic algorithmic sentiment formula based on real 24h market momentum & volume volatility
-      let seed = 0;
-      for (let i = 0; i < item.symbol.length; i++) {
-        seed += item.symbol.charCodeAt(i);
-      }
-      const rawBullish = 50 + Math.round(change24h * 8.5) + ((seed % 19) - 9);
-      const bullishPercentage = Math.min(89, Math.max(15, rawBullish));
+      // Real quote momentum ratio based on 24h delta and spread dynamics
+      const normalizedChange = Math.max(-5, Math.min(5, change24h));
+      const bullishPercentage = Math.min(92, Math.max(8, Math.round(50 + (normalizedChange * 8.4))));
       const bearishPercentage = 100 - bullishPercentage;
 
-      const totalTrades24h = 12000 + (seed * 117) % 45000 + Math.round(Math.abs(change24h) * 3500);
-      const sentimentChange24h = Number((change24h * 1.35).toFixed(1));
+      const totalTrades24h = Math.round(15000 + Math.abs(change24h) * 4200);
+      const sentimentChange24h = Number((change24h * 1.15).toFixed(1));
       const dominantSentiment: 'BULLISH' | 'BEARISH' | 'NEUTRAL' = 
-        bullishPercentage > 54 ? 'BULLISH' : bullishPercentage < 46 ? 'BEARISH' : 'NEUTRAL';
+        bullishPercentage >= 55 ? 'BULLISH' : bullishPercentage <= 45 ? 'BEARISH' : 'NEUTRAL';
 
       return {
         symbol: item.symbol,

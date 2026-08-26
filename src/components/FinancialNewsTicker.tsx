@@ -16,88 +16,13 @@ export interface NewsArticle {
   author?: string;
 }
 
-const LIVE_FINANCIAL_NEWS: NewsArticle[] = [
-  {
-    id: 'news-101',
-    title: 'ECB Rate Decision Anticipation Pushes EUR/USD Near 1.0900 Resistance Level',
-    summary: 'European Central Bank signals potential monetary pause as Eurozone inflation aligns with central estimates, boosting European market sentiment.',
-    source: 'Bloomberg Terminal',
-    category: 'Forex',
-    sentiment: 'Bullish',
-    impact: 'High',
-    publishedAt: '2 mins ago',
-    relatedSymbol: 'EURUSD',
-    author: 'Christine Lagarde Monitor'
-  },
-  {
-    id: 'news-102',
-    title: 'Gold Breaks Above $2,040 Spot Price Driven by Geopolitical Safe-Haven Demand',
-    summary: 'Bullion traders increase long exposure following renewed central bank reserve accumulation and treasury yield volatility across G7 bonds.',
-    source: 'Reuters Finance',
-    category: 'Commodities',
-    sentiment: 'Bullish',
-    impact: 'High',
-    publishedAt: '8 mins ago',
-    relatedSymbol: 'XAUUSD',
-    author: 'Helena Vance'
-  },
-  {
-    id: 'news-103',
-    title: 'Bitcoin Consolidates Above $64,000 as Institutional ETF Inflows Hit Weekly Record',
-    summary: 'Spot Bitcoin ETF daily net inflows surpass $450 million with heavy accumulation from institutional wealth managers and corporate treasuries.',
-    source: 'CoinDesk Pro',
-    category: 'Crypto',
-    sentiment: 'Bullish',
-    impact: 'High',
-    publishedAt: '15 mins ago',
-    relatedSymbol: 'BTCUSD',
-    author: 'Marcus Thorne'
-  },
-  {
-    id: 'news-104',
-    title: 'US Federal Reserve Signals Caution On Rate Cuts Amid Sticky Core CPI Data',
-    summary: 'FOMC officials stress data-dependency before embarking on monetary easing cycles, causing brief USD dollar index strength.',
-    source: 'Financial Times',
-    category: 'Central Banks',
-    sentiment: 'Bearish',
-    impact: 'High',
-    publishedAt: '22 mins ago',
-    relatedSymbol: 'USDJPY',
-    author: 'Colm O\'Shea'
-  },
-  {
-    id: 'news-105',
-    title: 'NVIDIA Surges 4.2% Pre-Market Following Next-Gen AI Data Center Chip Demand',
-    summary: 'Tech rally accelerates as semiconductor giants report record order backlogs from global cloud infrastructure providers.',
-    source: 'Wall Street Journal',
-    category: 'Stocks',
-    sentiment: 'Bullish',
-    impact: 'Medium',
-    publishedAt: '35 mins ago',
-    relatedSymbol: 'NVDA',
-    author: 'David S. Miller'
-  },
-  {
-    id: 'news-106',
-    title: 'Crude Oil Holds Near $78/bbl Ahead of OPEC+ Voluntary Production Quota Meeting',
-    summary: 'Energy traders monitor supply restrictions and inventory drawdowns in Oklahoma storage facilities.',
-    source: 'S&P Global Energy',
-    category: 'Commodities',
-    sentiment: 'Neutral',
-    impact: 'Medium',
-    publishedAt: '50 mins ago',
-    relatedSymbol: 'USOIL',
-    author: 'Sarah Jenkins'
-  }
-];
-
 interface FinancialNewsTickerProps {
   accountMode?: 'demo' | 'live';
   onSymbolSelect?: (symbol: string) => void;
 }
 
 export default function FinancialNewsTicker({ accountMode = 'live', onSymbolSelect }: FinancialNewsTickerProps) {
-  const [articles, setArticles] = useState<NewsArticle[]>(LIVE_FINANCIAL_NEWS);
+  const [articles, setArticles] = useState<NewsArticle[]>([]);
   const [activeCategory, setActiveCategory] = useState<string>('ALL');
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [selectedArticle, setSelectedArticle] = useState<NewsArticle | null>(null);
@@ -113,7 +38,7 @@ export default function FinancialNewsTicker({ accountMode = 'live', onSymbolSele
         }
       }
     } catch (err) {
-      console.warn('Live news fetch client notice:', err);
+      console.info('Live market feed connection:', err);
     } finally {
       setIsRefreshing(false);
     }
@@ -121,6 +46,8 @@ export default function FinancialNewsTicker({ accountMode = 'live', onSymbolSele
 
   useEffect(() => {
     fetchLiveNews();
+    const interval = setInterval(fetchLiveNews, 60000);
+    return () => clearInterval(interval);
   }, []);
 
   const handleRefresh = () => {
