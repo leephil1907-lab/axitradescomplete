@@ -76,7 +76,6 @@ export default function QuickDepositModal({
   const [clientSecret, setClientSecret] = useState<string | null>(null);
 
   // Card payment processing security
-  const [otpCode, setOtpCode] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
   const [txReceipt, setTxReceipt] = useState<any>(null);
   const [copiedTxId, setCopiedTxId] = useState(false);
@@ -155,35 +154,16 @@ export default function QuickDepositModal({
     }
   };
 
-  // Card 3D Secure fallback handler (only for Card / Apple Pay)
-  const handle3DSecureAuthorize = (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsProcessing(true);
-    const numAmount = Number(amount) || 1000;
-    const txId = `DEP-${Date.now().toString(36).toUpperCase()}-${Math.floor(1000 + Math.random() * 9000)}`;
-    const newTx = {
-      id: txId,
-      type: 'Deposit',
-      amount: numAmount,
-      method: `${selectedMethod === 'card' ? 'Credit/Debit Card' : 'Apple/Google Pay'} (Gateway Settlement)`,
-      date: new Date().toISOString().replace('T', ' ').substring(0, 19),
-      status: 'Pending Verification',
-      account: 'Live ECN Account',
-      refCode: `CARD-AUTH-${Date.now().toString(36).toUpperCase()}`,
-      proofNote: 'Payment Gateway Authentication Complete • Awaiting Settlement'
-    };
-
-    if (addTransaction) addTransaction(newTx);
-    fetch('/api/transactions/create', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(newTx)
-    }).catch(e => console.info('Transaction sync:', e));
-
-    setTxReceipt(newTx);
+  // Real card deposits are processed exclusively via Stripe Checkout / PaymentIntent.
+  // The previous simulated 3D-Secure OTP step has been removed so that no fake payment
+  // transaction can ever be created. When Stripe is not configured the user receives a
+  // clear error and is routed to a real alternative deposit method (Bank Wire / Crypto).
+  const handleStripeUnavailable = () => {
+    if (showToast) {
+      showToast('Card payments are processed securely via Stripe. The Stripe payment gateway is not configured on this server. Please contact support or use Bank Wire / Crypto deposit.', 'error');
+    }
+    setStep('amount_method');
     setIsProcessing(false);
-    setStep('receipt');
-    if (showToast) showToast(`Deposit Submitted: $${numAmount.toLocaleString()} USD is pending settlement.`, 'info');
   };
 
   // Handler for Direct Crypto Transfer confirmation (Completely independent from Stripe)
@@ -284,36 +264,51 @@ export default function QuickDepositModal({
       return;
     }
 
-    // Attempt Stripe Checkout Session ONLY for Card & Apple Pay
+    // Real card / wallet deposits are processed ONLY through Stripe.
+    // No simulated or fallback payment is ever created. If Stripe is unavailable
+    // the user is shown a clear error and returned to the method selection step.
     setIsProcessing(true);
     try {
+      // 1. Preferred path: Stripe Checkout Session (hosted, supports card + Link + ACH)
       const checkoutRes = await fetch('/api/stripe/create-checkout-session', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ amount: numAmount, currency: 'usd', method: selectedMethod })
       });
       const checkoutData = await checkoutRes.json();
-      if (checkoutData.url) {
+      if (checkoutRes.ok && checkoutData.url) {
         if (showToast) showToast('Redirecting to secure Stripe Checkout page...', 'info');
         window.location.href = checkoutData.url;
         return;
       }
 
-      // If checkout session endpoint is not configured, try PaymentIntent
+      // 2. Embedded path: Stripe PaymentIntent + Elements (inline card form)
       const res = await fetch('/api/stripe/create-payment-intent', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ amount: numAmount, currency: 'usd' })
+        body: JSON.stringify({ amount: numAmount, currency: "usd" })
       });
       const data = await res.json();
-      if (data.clientSecret) {
+      if (res.ok && data.clientSecret) {
         setClientSecret(data.clientSecret);
         setStep('card_details');
-      } else {
-        setStep('authenticating');
+        return;
       }
+
+      // 3. Stripe genuinely unavailable -> surface the real error, never fake a payment
+      const serverMsg = checkoutData?.error || data?.error || '';
+      if (showToast) {
+        showToast(
+          serverMsg
+            ? `Stripe payment could not be started: ${serverMsg}. Please use Bank Wire or Crypto deposit, or contact support.`
+            : 'The Stripe card payment gateway is not configured on this server. Please use Bank Wire or Crypto deposit, or contact support.',
+          'error'
+        );
+      }
+      handleStripeUnavailable();
     } catch (e) {
-      setStep('authenticating');
+      if (showToast) showToast('Unable to reach the payment server. Please check your connection and try again, or use Bank Wire / Crypto deposit.', 'error');
+      handleStripeUnavailable();
     } finally {
       setIsProcessing(false);
     }
@@ -803,6 +798,16 @@ export default function QuickDepositModal({
           {/* STEP 4: Stripe Elements Integration (Card Payment Only) */}
           {step === 'card_details' && clientSecret && (
             <div className="space-y-5">
+              {!stripePromise ? (
+                <div className="py-8 text-center space-y-4">
+                  <div className="w-16 h-16 mx-auto bg-red-500/10 text-red-600 border border-red-500/20 rounded-full flex items-center justify-center">
+                    <AlertCircle className="w-8 h-8" />
+                  </div>
+                  <h4 className="text-lg font-black text-slate-900 dark:text-white">Stripe Not Initialized</h4>
+                  <p className="text-xs text-slate-500 max-w-sm mx-auto">The Stripe publishable key (VITE_STRIPE_PUBLISHABLE_KEY) is missing, so the secure card form cannot be displayed. Please use Bank Wire or Crypto deposit, or ask an admin to configure Stripe.</p>
+                  <button onClick={() => setStep('amount_method')} className="bg-slate-900 hover:bg-slate-800 text-white font-extrabold px-4 py-3 rounded-lg text-xs cursor-pointer">Choose Another Method</button>
+                </div>
+              ) : (
               <Elements stripe={stripePromise} options={{ clientSecret, appearance: { theme: 'stripe' } }}>
                 <StripeCheckoutForm 
                    amount={Number(amount)} 
@@ -827,58 +832,37 @@ export default function QuickDepositModal({
                    onCancel={() => setStep('amount_method')}
                 />
               </Elements>
+              )}
             </div>
           )}
 
-          {/* STEP 5: 3D Secure / Bank Authorization Authentication Flow */}
+          {/* STEP 5: Stripe-unavailable / payment error flow */}
           {step === 'authenticating' && (
             <div className="py-8 text-center space-y-5">
-              <div className="relative w-20 h-20 mx-auto flex items-center justify-center">
-                <div className="absolute inset-0 rounded-full border-4 border-slate-200 dark:border-slate-800" />
-                <div className="absolute inset-0 rounded-full border-4 border-red-600 border-t-transparent animate-spin" />
-                <ShieldCheck className="w-8 h-8 text-red-600" />
+              <div className="w-16 h-16 mx-auto bg-red-500/10 text-red-600 border border-red-500/20 rounded-full flex items-center justify-center">
+                <AlertCircle className="w-8 h-8" />
               </div>
-
               <div>
                 <h4 className="text-lg font-black text-slate-900 dark:text-white">
-                  3D Secure Bank Verification
+                  Card Payment Gateway Unavailable
                 </h4>
                 <p className="text-xs text-slate-500 mt-1 max-w-sm mx-auto">
-                  Communicating with issuing bank server via Visa Secure / Mastercard Identity Check...
+                  The Stripe card payment gateway could not be reached or is not configured on this server. Your card has not been charged.
                 </p>
               </div>
-
-              <div className="bg-slate-50 dark:bg-slate-800/60 p-4 rounded-xl border border-slate-200 dark:border-slate-700 max-w-sm mx-auto text-left space-y-3">
-                <div className="flex justify-between text-xs">
-                  <span className="text-slate-500 font-bold">Merchant:</span>
-                  <span className="font-mono font-black text-slate-900 dark:text-white">AXI FINANCIAL MARKETS</span>
-                </div>
-                <div className="flex justify-between text-xs">
-                  <span className="text-slate-500 font-bold">Transaction Amount:</span>
-                  <span className="font-mono font-black text-emerald-600 dark:text-emerald-400">${Number(amount).toLocaleString()} {currency}</span>
-                </div>
-
-                <form onSubmit={handle3DSecureAuthorize} className="pt-2 border-t border-slate-200 dark:border-slate-700 space-y-2">
-                  <label className="text-[11px] font-bold text-slate-500 block">
-                    Enter Bank SMS OTP Verification Code:
-                  </label>
-                  <div className="flex gap-2">
-                    <input
-                      type="text"
-                      value={otpCode}
-                      onChange={(e) => setOtpCode(e.target.value)}
-                      placeholder="123456"
-                      className="flex-1 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 px-3 py-2 rounded-lg font-mono font-black text-center text-sm outline-none focus:border-red-600"
-                    />
-                    <button
-                      type="submit"
-                      disabled={isProcessing}
-                      className="bg-red-600 hover:bg-red-700 text-white font-extrabold px-4 py-2 rounded-lg text-xs cursor-pointer disabled:opacity-50"
-                    >
-                      {isProcessing ? 'Verifying...' : 'Submit OTP'}
-                    </button>
-                  </div>
-                </form>
+              <div className="flex flex-col gap-2 max-w-xs mx-auto">
+                <button
+                  onClick={() => setStep('amount_method')}
+                  className="bg-slate-900 hover:bg-slate-800 text-white font-extrabold px-4 py-3 rounded-lg text-xs cursor-pointer"
+                >
+                  Choose Another Deposit Method
+                </button>
+                <button
+                  onClick={() => setSelectedMethod('wire') || setStep('bank_wire')}
+                  className="bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-200 font-bold px-4 py-3 rounded-lg text-xs cursor-pointer"
+                >
+                  Pay by Bank Wire Instead
+                </button>
               </div>
             </div>
           )}

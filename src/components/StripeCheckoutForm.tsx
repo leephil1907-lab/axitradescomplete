@@ -24,7 +24,9 @@ export function StripeCheckoutForm({ amount, currency, onSuccess, onCancel }: St
     setIsProcessing(true);
     setErrorMessage(null);
 
-    // Elements automatically gathers AddressElement data to attach to the payment request
+    // Elements automatically gathers AddressElement data to attach to the payment request.
+    // redirect: 'if_required' lets Stripe handle 3D-Secure redirects for cards that
+    // require customer authentication, then return here for non-redirect outcomes.
     const { error, paymentIntent } = await stripe.confirmPayment({
       elements,
       confirmParams: {
@@ -34,19 +36,36 @@ export function StripeCheckoutForm({ amount, currency, onSuccess, onCancel }: St
     });
 
     if (error) {
-      setErrorMessage(error.message || 'An unexpected error occurred.');
+      // Stripe declines (insufficient funds, expired card, do_not_honor, etc.) surface here.
+      const msg = error.message || 'Your card could not be charged. Please verify your card details and try again.';
+      setErrorMessage(msg);
       setIsProcessing(false);
     } else if (paymentIntent && paymentIntent.status === 'succeeded') {
       onSuccess({
         id: paymentIntent.id,
-        method: 'Stripe Secure Payment',
+        method: 'Credit/Debit Card (Stripe)',
         amount: (paymentIntent.amount / 100),
         date: new Date().toISOString().replace('T', ' ').substring(0, 19),
-        refCode: paymentIntent.client_secret?.substring(0, 10) || '',
+        refCode: `STRIPE-PI-${paymentIntent.id.slice(-8).toUpperCase()}`,
+      });
+      setIsProcessing(false);
+    } else if (paymentIntent && paymentIntent.status === 'requires_action') {
+      // 3D-Secure / SCA: the customer must complete authentication off-site.
+      // Stripe.js already initiated the redirect when needed; if we are still here the
+      // action could not complete inline. Inform the user without faking a success.
+      setErrorMessage('Additional authentication is required by your bank. Please complete the 3D-Secure verification prompted by your card issuer, then try again.');
+      setIsProcessing(false);
+    } else if (paymentIntent && paymentIntent.status === 'processing') {
+      onSuccess({
+        id: paymentIntent.id,
+        method: 'Credit/Debit Card (Stripe)',
+        amount: (paymentIntent.amount / 100),
+        date: new Date().toISOString().replace('T', ' ').substring(0, 19),
+        refCode: `STRIPE-PI-${paymentIntent.id.slice(-8).toUpperCase()}`,
       });
       setIsProcessing(false);
     } else {
-      setErrorMessage('Payment status: ' + paymentIntent?.status);
+      setErrorMessage('Payment was not completed. Status: ' + (paymentIntent?.status || 'unknown') + '. Please try again or use a different card.');
       setIsProcessing(false);
     }
   };

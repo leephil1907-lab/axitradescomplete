@@ -973,18 +973,16 @@ app.post('/api/stripe/verify-deposit', async (req, res) => {
           refCode = `STRIPE-PI-${pi.id.slice(-8).toUpperCase()}`;
         }
       }
-    } else if (verifiedAmount > 0) {
-      // Fallback verification for demo/sandbox testing
-      verified = true;
-      status = 'succeeded';
+    } else {
+      // Stripe is not configured on this server. Do NOT fabricate a successful deposit.
+      verified = false;
+      status = 'unavailable';
     }
   } catch (err: any) {
     console.warn('Stripe verify-deposit check notice:', err.message);
-    // If stripe call failed due to key error but user came back from deposit flow, allow verification if amount is valid
-    if (verifiedAmount > 0) {
-      verified = true;
-      status = 'pending_settlement';
-    }
+    // A Stripe API failure must not auto-verify a deposit. Mark as pending review only.
+    verified = false;
+    status = 'pending_review';
   }
 
   const txId = `DEP-${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
@@ -1175,26 +1173,7 @@ function writeDataFile(filename: string, data: any) {
 }
 
 // In-memory + File Backed Stores
-let appUsersStore: any[] = readDataFile('users.json', [
-  {
-    id: 'usr_8492',
-    name: 'Alex Thompson',
-    email: 'alex.t@example.com',
-    status: 'Approved',
-    verificationStatus: 'Approved',
-    kycStatus: 'VERIFIED',
-    balance: 24850.75,
-    demoBalance: 50000,
-    pnlPercentage: 34.8,
-    registeredAt: '2026-08-15 09:30',
-    lastActive: 'Active Now',
-    provider: 'Email Auth',
-    accountNo: 'AXI-MT5-8849201',
-    accountType: 'Pro ECN Prime',
-    leverage: '1:500',
-    country: 'United Kingdom'
-  }
-]);
+let appUsersStore: any[] = readDataFile('users.json', []);
 
 let appKycStore: any[] = readDataFile('kyc.json', []);
 let appTransactionsStore: any[] = readDataFile('transactions.json', []);
