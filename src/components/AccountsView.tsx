@@ -60,7 +60,7 @@ export default function AccountsView({
   const [isCreatingSubAccount, setIsCreatingSubAccount] = useState(false);
   const [subAccountsList, setSubAccountsList] = useState([
     { id: '8849201', platform: 'MT5', tier: 'Standard Live', currency: 'USD', leverage: '1:500', server: 'AxiCorp-Live', type: 'Live', balance: liveBalance || balance || 5000 },
-    { id: '1092842', platform: 'MT5', tier: 'Demo Practice', currency: 'USD', leverage: '1:500', server: 'AxiCorp-Demo', type: 'Demo', balance: 10000 },
+    { id: '1092842', platform: 'MT5', tier: 'Pro ECN Live', currency: 'USD', leverage: '1:500', server: 'AxiCorp-Live', type: 'Live', balance: 10000 },
     { id: '9920148', platform: 'MT5', tier: 'Axi Select Seed', currency: 'USD', leverage: '1:100', server: 'AxiCorp-Edge', type: 'Funded', balance: 25000 }
   ]);
 

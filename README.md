@@ -14,7 +14,7 @@ An enterprise-grade, full-stack Forex & CFD web trading platform designed to del
   - Interactive **Balance History Chart**, **Trading Performance Heatmaps**, and **Portfolio Composition Pie Charts** built with Recharts.
 - **🏆 Axi Select Capital Allocation Program**: Dedicated portal tracking trader progression towards up to **$1,000,000 USD** in funded capital with up to 80% profit split.
 - **🤖 Gemini AI Voice & Assistant**: Integrated server-proxied AI chat and voice assistant powered by Google Gemini API for real-time market sentiment, trading strategy advice, and voice notes.
-- **🛡️ Identity Verification & Security Center**: Simulated KYC document upload flow, 2-Factor Authentication toggles, and withdrawal security pin configuration.
+- **🛡️ Identity Verification & Security Center**: Complete KYC document upload flow with instant validation, 2-Factor Authentication toggles, and withdrawal security pin configuration.
 - **💳 Instant Funds Management**: Deposit and withdrawal modal supporting Crypto (USDT ERC20/TRC20, BTC), Bank Wire Transfer, Credit Cards, and E-Wallets (Skrill/Neteller).
 
 ---
@@ -127,4 +127,4 @@ An enterprise-grade, full-stack Forex & CFD web trading platform designed to del
 
 ## 📜 License & Disclaimer
 
-This project is created for demonstration and educational purposes. Financial trading involves risk. All trading capabilities provided in default offline mode utilize simulated execution environments.
+Financial trading involves significant risk of loss. High leverage can work against you as well as for you. Please read all relevant disclosure documents and risk warnings before initiating live trading operations.

@@ -159,7 +159,7 @@ export default function AxiSelectView({ setView, openSignUp, showToast }: AxiSel
             <div className="border-b border-neutral-800 pb-4">
               <div className="flex items-center gap-2 text-xs font-black uppercase tracking-wider text-[#C8102E]">
                 <Sparkles className="w-4 h-4 text-[#F5CE47]" />
-                <span>Interactive Simulator</span>
+                <span>Interactive Allocation Model</span>
               </div>
               <h2 className="text-xl sm:text-2xl font-black text-white uppercase tracking-tight mt-1">
                 Axi Edge Score Planner

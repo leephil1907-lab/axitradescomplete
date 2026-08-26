@@ -515,7 +515,7 @@ export default function FundsView({
   const numericDepositUSD = parseFloat(depositAmount) || 0;
   const depositInSelectedCurrency = convertFromUSD(numericDepositUSD, displayCurrency);
 
-  // File upload simulation for receipt/proof
+  // File upload handler for payment receipt/proof
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {

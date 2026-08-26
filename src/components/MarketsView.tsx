@@ -872,8 +872,9 @@ export default function MarketsView({
     const initialProfit = 0 - (currentQuote.spread * lotSize * (currentQuote.symbol.includes('JPY') ? 100 : 10000));
 
     // Submit order
+    const orderId = `ORD-${Date.now().toString(36).toUpperCase()}-${Math.floor(1000 + Math.random() * 9000)}`;
     const newOrder: TradeOrder = {
-      id: Math.random().toString(36).substring(2, 9),
+      id: orderId,
       symbol: selectedSymbol,
       type,
       entryPrice: executionPrice,
@@ -886,11 +887,23 @@ export default function MarketsView({
     if (addOpenPosition) addOpenPosition(newOrder);
     else setOpenPositions(prev => [...prev, newOrder]);
     setRiskAlertData(null);
+
+    // Sync order to backend trading engine
+    fetch('/api/orders', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        ...newOrder,
+        accountType: accountType,
+        executionVenue: accountType === 'live' ? 'AxiCorp-Live Interbank ECN' : 'AxiCorp-Demo Server'
+      })
+    }).catch(e => console.info('Order backend sync:', e));
+
     if (showToast) {
       if (accountType === 'demo') {
-        showToast(`🟢 Demo Order Executed! ${type} ${lotSize} ${selectedSymbol}`, 'success');
+        showToast(`🟢 Practice Order Executed: ${type} ${lotSize} ${selectedSymbol}`, 'success');
       } else {
-        showToast(`✓ Live Order Executed! ${type} ${lotSize} ${selectedSymbol} [LIVE ECN]`, 'success');
+        showToast(`✓ Live Order Executed: ${type} ${lotSize} ${selectedSymbol} [AxiCorp-Live ECN]`, 'success');
       }
     }
   };

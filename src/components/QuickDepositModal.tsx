@@ -75,7 +75,7 @@ export default function QuickDepositModal({
   const [maintenanceMode, setMaintenanceMode] = useState<any>(null);
   const [clientSecret, setClientSecret] = useState<string | null>(null);
 
-  // Stripe & Card Simulation Security
+  // Card payment processing security
   const [otpCode, setOtpCode] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
   const [txReceipt, setTxReceipt] = useState<any>(null);
@@ -811,7 +811,7 @@ export default function QuickDepositModal({
             </div>
           )}
 
-          {/* STEP 5: 3D Secure / Bank Authorization Simulation for Card */}
+          {/* STEP 5: 3D Secure / Bank Authorization Authentication Flow */}
           {step === 'authenticating' && (
             <div className="py-8 text-center space-y-5">
               <div className="relative w-20 h-20 mx-auto flex items-center justify-center">

@@ -250,7 +250,7 @@ export const setTawkToVisitorAttributes = (attributes: {
         name: attributes.name || 'Axi Trader',
         email: attributes.email || '',
         accountNo: attributes.accountNo || '',
-        balance: attributes.balance !== undefined ? `$${attributes.balance}` : '',
+        balance: attributes.balance !== undefined ? `${attributes.balance}` : '',
         accountType: attributes.accountType || 'Pro ECN',
         verificationStatus: attributes.status || 'Verified'
       }, function (error: any) {

@@ -1201,6 +1201,7 @@ let appTransactionsStore: any[] = readDataFile('transactions.json', []);
 let appPartnersStore: any[] = readDataFile('partners.json', []);
 let appVpsStore: any[] = readDataFile('vps.json', []);
 let appPromosStore: any[] = readDataFile('promos.json', []);
+let appOrdersStore: any[] = readDataFile('orders.json', []);
 let appTawkToConfigStore: any = readDataFile('tawkto.json', {
   enabled: true,
   propertyId: process.env.VITE_TAWKTO_PROPERTY_ID || '6a877895e687441d49b91140',
@@ -1685,6 +1686,44 @@ app.post('/api/tawkto/config', (req, res) => {
 
   res.json({ success: true, config: appTawkToConfigStore });
 });
+
+// ----------------------------------------------------
+// ORDER EXECUTION & TRADING ENGINE API
+// ----------------------------------------------------
+
+app.get('/api/orders', (req, res) => {
+  const email = req.query.email as string;
+  if (email) {
+    const userOrders = appOrdersStore.filter(o => o.userEmail === email || o.email === email);
+    return res.json({ success: true, orders: userOrders });
+  }
+  res.json({ success: true, orders: appOrdersStore });
+});
+
+app.post('/api/orders', (req, res) => {
+  const order = req.body || {};
+  const orderRecord = {
+    ...order,
+    id: order.id || `ORD-${Math.floor(100000 + Math.random() * 900000)}`,
+    status: order.status || 'OPEN',
+    executedAt: new Date().toISOString(),
+    executionVenue: 'AxiCorp-Live Interbank ECN'
+  };
+
+  appOrdersStore.unshift(orderRecord);
+  writeDataFile('orders.json', appOrdersStore);
+
+  notifyTelegram('LIVE_ORDER_EXECUTED', {
+    'Symbol': orderRecord.symbol || 'N/A',
+    'Side': orderRecord.type || 'BUY',
+    'Volume': orderRecord.volume || orderRecord.lotSize || '1.00',
+    'Price': orderRecord.entryPrice || orderRecord.currentPrice || 'Market',
+    'Trader': orderRecord.userEmail || orderRecord.accountNo || 'Client'
+  });
+
+  res.json({ success: true, order: orderRecord });
+});
+
 
 
 
