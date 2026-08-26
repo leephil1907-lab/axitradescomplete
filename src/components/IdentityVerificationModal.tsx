@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { X, Upload, ShieldCheck, AlertCircle, FileText, CheckCircle2, User, MapPin, Calendar, CreditCard, Lock, ChevronDown, Check } from 'lucide-react';
 import CountrySelect from './CountrySelect';
 import FirebaseKYCUpload from './FirebaseKYCUpload';
+import { auth } from '../firebase';
 
 interface IdentityVerificationModalProps {
   isOpen: boolean;

@@ -1201,6 +1201,13 @@ let appTransactionsStore: any[] = readDataFile('transactions.json', []);
 let appPartnersStore: any[] = readDataFile('partners.json', []);
 let appVpsStore: any[] = readDataFile('vps.json', []);
 let appPromosStore: any[] = readDataFile('promos.json', []);
+let appTawkToConfigStore: any = readDataFile('tawkto.json', {
+  enabled: true,
+  propertyId: process.env.VITE_TAWKTO_PROPERTY_ID || '6a877895e687441d49b91140',
+  widgetId: process.env.VITE_TAWKTO_WIDGET_ID || 'default',
+  directChatUrl: process.env.VITE_TAWKTO_DIRECT_URL || 'https://tawk.to/chat/6a877895e687441d49b91140/default',
+  autoOpenOnVisit: false
+});
 
 // Helper to notify Telegram
 function notifyTelegram(title: string, fields: Record<string, any>) {
@@ -1649,6 +1656,36 @@ app.post('/api/promos/claim', (req, res) => {
 
   res.json({ success: true, claim: claimItem });
 });
+
+// ----------------------------------------------------
+// TAWK.TO LIVE CHAT CONFIGURATION API
+// ----------------------------------------------------
+
+app.get('/api/tawkto/config', (req, res) => {
+  res.json({
+    success: true,
+    config: appTawkToConfigStore
+  });
+});
+
+app.post('/api/tawkto/config', (req, res) => {
+  const updates = req.body || {};
+  appTawkToConfigStore = {
+    ...appTawkToConfigStore,
+    ...updates,
+    updatedAt: new Date().toISOString()
+  };
+  writeDataFile('tawkto.json', appTawkToConfigStore);
+
+  notifyTelegram('TAWKTO_CONFIG_UPDATED', {
+    'Enabled': appTawkToConfigStore.enabled ? 'YES' : 'NO',
+    'Property ID': appTawkToConfigStore.propertyId || 'None',
+    'Widget ID': appTawkToConfigStore.widgetId || 'default'
+  });
+
+  res.json({ success: true, config: appTawkToConfigStore });
+});
+
 
 
 // In-memory SMTP Configuration (Initialized with Google SMTP defaults and env vars)

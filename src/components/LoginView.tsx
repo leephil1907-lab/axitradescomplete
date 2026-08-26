@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { ViewType } from '../types';
 import { Eye, EyeOff, ShieldCheck, Lock, AlertCircle, CheckCircle2, ArrowRight, Key, Sparkles, HelpCircle, X, ExternalLink } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import { auth } from '../firebase';
 
 interface LoginViewProps {
   setView: (view: ViewType) => void;

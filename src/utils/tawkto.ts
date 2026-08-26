@@ -5,8 +5,9 @@ export interface TawkToConfig {
   propertyId: string;
   widgetId: string;
   directChatUrl: string;
-  customScript: string;
-  autoOpenOnVisit: boolean;
+  customScript?: string;
+  autoOpenOnVisit?: boolean;
+  autoOpen?: boolean;
 }
 
 const DEFAULT_TAWKTO_CONFIG: TawkToConfig = {
@@ -29,6 +30,7 @@ s0.parentNode.insertBefore(s1,s0);
 </script>
 <!--End of Tawk.to Script-->`,
   autoOpenOnVisit: false,
+  autoOpen: false
 };
 
 export const getTawkToConfig = (): TawkToConfig => {
@@ -38,17 +40,37 @@ export const getTawkToConfig = (): TawkToConfig => {
       const parsed = JSON.parse(saved);
       return { 
         ...DEFAULT_TAWKTO_CONFIG, 
-        ...parsed,
-        autoOpenOnVisit: false // Keep widget compact and minimal on page load
+        ...parsed
       };
     }
   } catch (e) {
     console.warn('Failed to parse saved Tawk.to config:', e);
   }
   return {
-    ...DEFAULT_TAWKTO_CONFIG,
-    autoOpenOnVisit: false
+    ...DEFAULT_TAWKTO_CONFIG
   };
+};
+
+// Async fetch from backend server
+export const fetchBackendTawkToConfig = async (): Promise<TawkToConfig | null> => {
+  try {
+    const res = await fetch('/api/tawkto/config');
+    if (res.ok) {
+      const data = await res.json();
+      if (data && data.config && data.config.propertyId) {
+        const merged: TawkToConfig = {
+          ...getTawkToConfig(),
+          ...data.config
+        };
+        safeStorage.setItem('axi_tawkto_config', JSON.stringify(merged));
+        window.dispatchEvent(new CustomEvent('axi_tawkto_config_updated', { detail: merged }));
+        return merged;
+      }
+    }
+  } catch (e) {
+    console.info('Backend tawkto config check skipped:', e);
+  }
+  return null;
 };
 
 export const saveTawkToConfig = (updates: Partial<TawkToConfig>): TawkToConfig => {
@@ -69,18 +91,32 @@ export const saveTawkToConfig = (updates: Partial<TawkToConfig>): TawkToConfig =
     }
   }
 
+  // Update directChatUrl if not explicitly customized
+  if (updated.propertyId && (!updated.directChatUrl || updated.directChatUrl.includes('tawk.to/chat/'))) {
+    updated.directChatUrl = `https://tawk.to/chat/${updated.propertyId}/${updated.widgetId || 'default'}`;
+  }
+
   safeStorage.setItem('axi_tawkto_config', JSON.stringify(updated));
   window.dispatchEvent(new CustomEvent('axi_tawkto_config_updated', { detail: updated }));
+
+  // Also sync to backend API
+  fetch('/api/tawkto/config', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(updated)
+  }).catch(e => console.warn('Syncing tawkto config to backend:', e));
+
+  // Trigger script injection immediately
+  loadTawkToScript(updated, true);
+
   return updated;
 };
 
-// Script loader state & deferred execution tracking
+// Script loader state
 let isScriptLoading = false;
 let isScriptLoaded = false;
-let deferredTimeoutId: any = null;
-let interactionListenersAttached = false;
 
-export const loadTawkToScript = (config: TawkToConfig, immediate = false) => {
+export const loadTawkToScript = (config: TawkToConfig, immediate = true) => {
   if (typeof window === 'undefined' || typeof document === 'undefined') return;
 
   if (!config.enabled || !config.propertyId) {
@@ -94,128 +130,78 @@ export const loadTawkToScript = (config: TawkToConfig, immediate = false) => {
   const widgetId = config.widgetId ? config.widgetId.trim() : 'default';
   const scriptSrc = `https://embed.tawk.to/${propId}/${widgetId}`;
 
-  // Check if this script is already present and loaded
+  // Check if this script is already present
   const existingScript = document.getElementById('tawkto-script') as HTMLScriptElement | null;
   if (existingScript) {
-    if (existingScript.src === scriptSrc) {
-      isScriptLoaded = true;
-      return; // Already attached with correct ID
+    if (existingScript.src === scriptSrc && isScriptLoaded) {
+      try {
+        (window as any).Tawk_API?.showWidget?.();
+      } catch (e) {}
+      return;
     }
     existingScript.remove();
     isScriptLoaded = false;
+    isScriptLoading = false;
   }
 
-  const executeLoad = () => {
-    if (isScriptLoaded || document.getElementById('tawkto-script')) return;
-    isScriptLoading = true;
+  isScriptLoading = true;
 
-    (window as any).Tawk_API = (window as any).Tawk_API || {};
-    (window as any).Tawk_LoadStart = (window as any).Tawk_LoadStart || new Date();
+  (window as any).Tawk_API = (window as any).Tawk_API || {};
+  (window as any).Tawk_LoadStart = (window as any).Tawk_LoadStart || new Date();
 
-    // Configure callbacks & direct event listeners for real-time notifications
-    (window as any).Tawk_API.onLoad = function () {
-      isScriptLoading = false;
-      isScriptLoaded = true;
-      if (config.autoOpenOnVisit) {
-        try {
-          (window as any).Tawk_API.maximize?.();
-        } catch (e) {}
+  // Configure callbacks
+  (window as any).Tawk_API.onLoad = function () {
+    isScriptLoading = false;
+    isScriptLoaded = true;
+    try {
+      (window as any).Tawk_API?.showWidget?.();
+      if (config.autoOpenOnVisit || config.autoOpen) {
+        (window as any).Tawk_API?.maximize?.();
       }
-    };
-
-    (window as any).Tawk_API.onStatusChange = function (status: string) {
-      // Safely monitor agent availability without throwing uncaught exceptions
-    };
-
-    (window as any).Tawk_API.onChatMessageVisitor = function (message: any) {
-      try {
-        const msgText = typeof message === 'string' ? message : message?.text || 'Visitor sent a message';
-        const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-        safeStorage.setItem('axi_tawk_latest_visitor_msg', JSON.stringify({ text: msgText, time, timestamp: Date.now() }));
-        window.dispatchEvent(new CustomEvent('axi_tawk_visitor_message', { detail: { text: msgText, time } }));
-      } catch (e) {}
-    };
-
-    (window as any).Tawk_API.onChatMessageAgent = function (message: any) {
-      try {
-        const msgText = typeof message === 'string' ? message : message?.text || 'Agent reply';
-        const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-        safeStorage.setItem('axi_tawk_latest_agent_msg', JSON.stringify({ text: msgText, time, timestamp: Date.now() }));
-        window.dispatchEvent(new CustomEvent('axi_tawk_agent_message', { detail: { text: msgText, time } }));
-      } catch (e) {}
-    };
-
-    const s1 = document.createElement('script');
-    s1.id = 'tawkto-script';
-    s1.async = true;
-    s1.src = scriptSrc;
-    s1.charset = 'UTF-8';
-    s1.setAttribute('crossorigin', '*');
-
-    // Handle network or embed errors without breaking the host application
-    s1.onerror = function () {
-      isScriptLoading = false;
-      isScriptLoaded = false;
-      console.info('[Tawk.to] Live chat script is unavailable or blocked by network/adblocker.');
-    };
-
-    const s0 = document.getElementsByTagName('script')[0];
-    if (s0 && s0.parentNode) {
-      s0.parentNode.insertBefore(s1, s0);
-    } else {
-      document.head.appendChild(s1);
-    }
+    } catch (e) {}
   };
 
-  // Immediate loading requested (e.g. user clicked live chat button or admin update)
-  if (immediate) {
-    if (deferredTimeoutId) {
-      clearTimeout(deferredTimeoutId);
-      deferredTimeoutId = null;
-    }
-    executeLoad();
-    return;
-  }
-
-  // Deferred loading strategy: Wait for page load and idle phase to prioritize FCP/LCP
-  const scheduleDeferredLoad = () => {
-    if (deferredTimeoutId) clearTimeout(deferredTimeoutId);
-
-    const triggerIdleLoad = () => {
-      if ('requestIdleCallback' in window) {
-        (window as any).requestIdleCallback(() => executeLoad(), { timeout: 3000 });
-      } else {
-        setTimeout(executeLoad, 1200);
-      }
-    };
-
-    // Trigger after a 2-second buffer past initial page render
-    deferredTimeoutId = setTimeout(triggerIdleLoad, 2000);
-
-    // Also trigger on first passive user interaction if it occurs before timeout
-    if (!interactionListenersAttached) {
-      interactionListenersAttached = true;
-      const onUserInteraction = () => {
-        ['click', 'touchstart', 'keydown', 'scroll'].forEach((event) => {
-          window.removeEventListener(event, onUserInteraction);
-        });
-        if (deferredTimeoutId) {
-          clearTimeout(deferredTimeoutId);
-          deferredTimeoutId = null;
-        }
-        triggerIdleLoad();
-      };
-
-      ['click', 'touchstart', 'keydown', 'scroll'].forEach((event) => {
-        window.addEventListener(event, onUserInteraction, { once: true, passive: true });
-      });
-    }
+  (window as any).Tawk_API.onChatMessageVisitor = function (message: any) {
+    try {
+      const msgText = typeof message === 'string' ? message : message?.text || 'Visitor sent a message';
+      const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      safeStorage.setItem('axi_tawk_latest_visitor_msg', JSON.stringify({ text: msgText, time, timestamp: Date.now() }));
+      window.dispatchEvent(new CustomEvent('axi_tawk_visitor_message', { detail: { text: msgText, time } }));
+    } catch (e) {}
   };
 
-  if (document.readyState === 'complete') {
-    scheduleDeferredLoad();
+  (window as any).Tawk_API.onChatMessageAgent = function (message: any) {
+    try {
+      const msgText = typeof message === 'string' ? message : message?.text || 'Agent reply';
+      const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      safeStorage.setItem('axi_tawk_latest_agent_msg', JSON.stringify({ text: msgText, time, timestamp: Date.now() }));
+      window.dispatchEvent(new CustomEvent('axi_tawk_agent_message', { detail: { text: msgText, time } }));
+    } catch (e) {}
+  };
+
+  const s1 = document.createElement('script');
+  s1.id = 'tawkto-script';
+  s1.async = true;
+  s1.src = scriptSrc;
+  s1.charset = 'UTF-8';
+  s1.setAttribute('crossorigin', '*');
+
+  s1.onload = () => {
+    isScriptLoading = false;
+    isScriptLoaded = true;
+  };
+
+  s1.onerror = () => {
+    isScriptLoading = false;
+    isScriptLoaded = false;
+    console.info('[Tawk.to] Live chat script is unavailable or blocked by network.');
+  };
+
+  const s0 = document.getElementsByTagName('script')[0];
+  if (s0 && s0.parentNode) {
+    s0.parentNode.insertBefore(s1, s0);
   } else {
-    window.addEventListener('load', scheduleDeferredLoad, { once: true });
+    document.head.appendChild(s1);
   }
 };
 
@@ -241,16 +227,9 @@ export const openTawkToChat = () => {
   }
 
   // Fallback to direct chat URL if available
-  if (config.directChatUrl) {
-    window.open(config.directChatUrl, 'TawkToChat', 'width=450,height=650,toolbar=no,menubar=no');
-    return true;
-  } else if (config.propertyId) {
-    const directUrl = `https://tawk.to/chat/${config.propertyId}/${config.widgetId || 'default'}`;
-    window.open(directUrl, 'TawkToChat', 'width=450,height=650,toolbar=no,menubar=no');
-    return true;
-  }
-
-  return false;
+  const directUrl = config.directChatUrl || `https://tawk.to/chat/${config.propertyId || '6a877895e687441d49b91140'}/${config.widgetId || 'default'}`;
+  window.open(directUrl, 'TawkToChat', 'width=450,height=680,toolbar=no,menubar=no,scrollbars=yes,resizable=yes');
+  return true;
 };
 
 export const setTawkToVisitorAttributes = (attributes: {
@@ -289,3 +268,4 @@ export const setTawkToVisitorAttributes = (attributes: {
     console.warn('[Tawk.to] Error setting visitor attributes:', e);
   }
 };
+

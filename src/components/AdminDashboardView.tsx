@@ -1016,14 +1016,7 @@ export default function AdminDashboardView({
       } : null);
     }
 
-    // 2. Sync with backend REST API
-    fetch(`/api/users/${targetId}/pnl`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ pnlPercentage: rawVal, pnlOverride: config })
-    }).catch(e => console.warn('Backend PnL override sync:', e));
-
-    // 3. Sync to local storage utility for live dashboard event triggers
+    // 2. Sync to local storage utility for live dashboard event triggers
     const config: PnlOverrideConfig = {
       enabled: true,
       pnlPercentage: rawVal,
@@ -1033,6 +1026,13 @@ export default function AdminDashboardView({
       customAccountNotes: `Administrative P&L Percentage set to ${rawVal >= 0 ? '+' : ''}${rawVal}%`,
       updatedAt: new Date().toISOString()
     };
+
+    // 3. Sync with backend REST API
+    fetch(`/api/users/${targetId}/pnl`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ pnlPercentage: rawVal, pnlOverride: config })
+    }).catch(e => console.warn('Backend PnL override sync:', e));
 
     setPnlOverrideForUser(targetId, config);
     if (targetEmail) {
