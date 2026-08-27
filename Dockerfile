@@ -11,11 +11,12 @@ COPY package*.json ./
 # Install all dependencies (including devDependencies for Vite and esbuild)
 RUN npm ci
 
-# Copy full application codebase
+# Copy full application codebase (includes .env.production with public VITE_* build vars)
 COPY . .
 
-# Build Vite static assets and bundle server.ts -> dist/server.cjs
-RUN npm run build
+# Build Vite static assets (loads .env.production for VITE_* build-time vars)
+# and bundle server.ts -> dist/server.cjs
+RUN NODE_ENV=production npm run build
 
 # Stage 2: Production Runtime
 FROM node:20-alpine AS runner
