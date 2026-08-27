@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { MessageSquare, ShieldCheck, ExternalLink, Headset, Sparkles } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import AxiLogo from './AxiLogo';
 import { 
   getTawkToConfig, 
   loadTawkToScript, 
@@ -105,6 +106,9 @@ export default function TawkToWidget({ currentUser }: TawkToWidgetProps) {
             className="bg-slate-900 text-white border border-slate-700 shadow-2xl rounded-2xl p-4 max-w-xs mb-1"
           >
             <div className="flex items-center gap-2 mb-1.5">
+              <div className="w-5 h-5 rounded-full bg-[#E3000F] flex items-center justify-center overflow-hidden shrink-0">
+                <AxiLogo variant="white" size="sm" className="h-3 w-auto" />
+              </div>
               <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
               <span className="text-xs font-black uppercase text-emerald-400">Axi Live Officer Online</span>
             </div>
@@ -137,8 +141,8 @@ export default function TawkToWidget({ currentUser }: TawkToWidgetProps) {
         aria-label="Open Axi Live Support Chat"
       >
         <div className="relative flex items-center justify-center">
-          <div className="w-9 h-9 rounded-full bg-[#E3000F] flex items-center justify-center text-white font-black text-xs shadow-md">
-            <MessageSquare className="w-4 h-4 fill-white text-white" />
+          <div className="w-9 h-9 rounded-full bg-[#E3000F] flex items-center justify-center text-white font-black text-xs shadow-md overflow-hidden">
+            <AxiLogo variant="white" size="sm" className="h-5 w-auto" />
           </div>
           <span className="absolute -top-0.5 -right-0.5 w-3 h-3 bg-emerald-400 border-2 border-slate-950 rounded-full animate-ping" />
           <span className="absolute -top-0.5 -right-0.5 w-3 h-3 bg-emerald-500 border-2 border-slate-950 rounded-full" />

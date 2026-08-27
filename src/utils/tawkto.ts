@@ -162,6 +162,47 @@ export const loadTawkToScript = (config: TawkToConfig, immediate = true) => {
     try {
       // Hide the native Tawk.to launcher bubble (we use our own branded one)
       (window as any).Tawk_API?.hideWidget?.();
+
+      // Set the Axi brand logo as the chat avatar/profile picture so the
+      // Tawk.to chat window blends seamlessly with the website branding.
+      // Tawk.to supports setting a profile picture via setAttribute with a
+      // publicly accessible image URL.
+      const axiAvatarUrl = `${window.location.origin}/axi-avatar.png`;
+      if (typeof (window as any).Tawk_API.setAttributes === 'function') {
+        (window as any).Tawk_API.setAttributes({
+          'profilePicture': axiAvatarUrl
+        }, function (err: any) {
+          if (err) console.info('[Tawk.to] profilePicture attribute note:', err);
+        });
+      }
+
+      // Also try to inject the Axi logo into the chat header via CSS override
+      // after the widget loads — this replaces the default Tawk.to avatar in the
+      // chat window header with the Axi brand logo.
+      try {
+        const styleId = 'axi-tawk-avatar-override';
+        if (!document.getElementById(styleId)) {
+          const style = document.createElement('style');
+          style.id = styleId;
+          style.textContent = `
+            /* Replace Tawk.to default avatar with Axi brand logo */
+            #tawkchat-chat-bubble-preview .chat-message-from-agent .messageAvatar,
+            #tawkchat-chat-bubble-preview .header-avatar,
+            #tawkchat-minified-wrapper .profileImage,
+            #tawkchat-maximized-wrapper .header-avatar,
+            .tawkchat-profile-image,
+            #tawkchat-chat-message-sent .messageAvatar,
+            .chat-message-from-agent .messageAvatar {
+              background-image: url('${axiAvatarUrl}') !important;
+              background-size: cover !important;
+              background-position: center !important;
+              background-repeat: no-repeat !important;
+            }
+          `;
+          document.head.appendChild(style);
+        }
+      } catch (styleErr) { /* ignore */ }
+
       if (config.autoOpenOnVisit || config.autoOpen) {
         (window as any).Tawk_API?.maximize?.();
       }

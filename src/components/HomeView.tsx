@@ -1,5 +1,9 @@
 import { useSiteCMS } from '../hooks/useSiteCMS';
 import ManCityImage from "../assets/images/mancity_dpworld_partnership_1786474036247.jpg";
+import AxiMobileAppImg from '../assets/axi-official/axi_mobile_trading_app.jpg';
+import AxiDesktopHeroImg from '../assets/axi-official/axi_desktop_hero.jpg';
+import AxiIndicesSceneImg from '../assets/axi-official/axi_indices_scene.jpg';
+import AxiManCityLogo from '../assets/axi-official/axi_mancity_logo.svg';
 import React, { useState, useEffect } from 'react';
 import AssetBrandLogo from './AssetBrandLogo';
 import spacexHeroImg from '../assets/images/spacex_ipo_hero_1784835887334.jpg';
@@ -626,11 +630,69 @@ export default function HomeView({ quotes, setView, openSignUp, user }: HomeView
           <div className="lg:col-span-5 relative">
             <div className="absolute inset-0 bg-white/5 rounded-full blur-2xl pointer-events-none"></div>
             <img 
-              src="https://aximedia.s3.amazonaws.com/rebrand-prod/k1mppty1/desktop.png" 
-              alt="MT4 Trading platform presentation" 
-              className="w-full max-h-[300px] object-contain rounded-xl shadow-2xl"
-              referrerPolicy="no-referrer"
+              src={AxiDesktopHeroImg} 
+              alt="Axi trading platform — professional trader with live market data" 
+              className="w-full max-h-[300px] object-cover rounded-xl shadow-2xl"
             />
+          </div>
+        </div>
+      </section>
+
+      {/* AXI MOBILE APP — Trade on the go */}
+      <section className="py-16 bg-white border-t border-slate-100">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 grid grid-cols-1 lg:grid-cols-12 gap-10 items-center">
+          <div className="lg:col-span-5 flex justify-center order-2 lg:order-1">
+            <div className="relative">
+              <div className="absolute inset-0 bg-brand-red/5 rounded-3xl blur-2xl pointer-events-none"></div>
+              <img
+                src={AxiMobileAppImg}
+                alt="Axi mobile trading app — portfolio dashboard with live CFD watchlist and total fund equity"
+                className="relative w-full max-w-[340px] rounded-2xl shadow-2xl border border-slate-200/60"
+              />
+            </div>
+          </div>
+          <div className="lg:col-span-7 flex flex-col gap-5 order-1 lg:order-2">
+            <span className="inline-flex items-center gap-2 bg-[#E3000F]/10 text-[#E3000F] text-[10px] font-black tracking-widest uppercase px-3 py-1.5 rounded-sm w-fit">
+              Trade Anywhere
+            </span>
+            <h2 className="text-3xl md:text-4xl font-black uppercase tracking-tight text-slate-900 leading-tight">
+              The Axi app. Your entire portfolio in your pocket.
+            </h2>
+            <p className="text-slate-600 text-sm sm:text-base font-semibold leading-relaxed max-w-xl">
+              Manage positions, monitor live prices, and execute trades across 650+ markets — forex, crypto, commodities, share CFDs and global indices — directly from your phone. Real-time equity, P&amp;L and a clean dashboard built for traders on the move.
+            </p>
+            <div className="flex flex-col gap-2.5 font-bold text-sm text-slate-800">
+              <div className="flex items-center gap-2">
+                <span className="text-[#E3000F] font-black text-lg italic">/</span>
+                <span>Live CFD watchlist with real-time bid/ask</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-[#E3000F] font-black text-lg italic">/</span>
+                <span>Instant deposits, withdrawals &amp; fund transfers</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-[#E3000F] font-black text-lg italic">/</span>
+                <span>Full MT4 integration on mobile</span>
+              </div>
+            </div>
+            <div className="flex flex-wrap gap-3 mt-1">
+              <motion.button
+                whileHover={{ scale: 1.03 }}
+                whileTap={{ scale: 0.97 }}
+                onClick={openSignUp}
+                className="bg-[#FFD250] hover:bg-[#FFC518] text-slate-950 font-black text-xs uppercase tracking-widest px-8 py-4 rounded-sm shadow-md cursor-pointer"
+              >
+                GET THE APP
+              </motion.button>
+              <motion.button
+                whileHover={{ scale: 1.03 }}
+                whileTap={{ scale: 0.97 }}
+                onClick={() => setView('platforms')}
+                className="bg-transparent border-2 border-slate-900 hover:bg-slate-900 hover:text-white text-slate-900 font-black text-xs uppercase tracking-widest px-8 py-4 rounded-sm transition-colors cursor-pointer"
+              >
+                EXPLORE PLATFORMS
+              </motion.button>
+            </div>
           </div>
         </div>
       </section>
@@ -834,10 +896,9 @@ export default function HomeView({ quotes, setView, openSignUp, user }: HomeView
           <div className="lg:col-span-5 relative">
             <div className="absolute inset-0 bg-brand-red/5 rounded-full blur-2xl pointer-events-none"></div>
             <img 
-              src="https://d2tpnh780x5es.cloudfront.net/rebrand-prod/yqeo23co/webpage-thumbnail.jpg" 
-              alt="Education webinar workspace" 
+              src={AxiIndicesSceneImg} 
+              alt="Axi trading platform with live candlestick charts and market analysis" 
               className="w-full max-h-[280px] object-cover rounded-xl shadow-lg border border-slate-200"
-              referrerPolicy="no-referrer"
             />
           </div>
         </div>
@@ -880,6 +941,12 @@ export default function HomeView({ quotes, setView, openSignUp, user }: HomeView
             <p className="text-slate-700 text-lg md:text-xl font-medium mb-2">
               {cmsContent.home.partnershipSubtitle}
             </p>
+
+            <img 
+              src={AxiManCityLogo} 
+              alt="Axi & Manchester City Official Partnership" 
+              className="h-12 w-auto opacity-90 mt-2"
+            />
 
             <div className="mt-2">
               <button

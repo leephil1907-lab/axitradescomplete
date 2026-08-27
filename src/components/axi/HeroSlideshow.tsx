@@ -59,14 +59,12 @@ export default function HeroSlideshow() {
   const [currentIndex, setCurrentIndex] = useState(0);
 
   const activeSlides = [...SLIDES];
-  if (cmsContent) {
-    // Only override title & CTA from CMS admin settings.
-    // We intentionally do NOT override the subtitle here, because the hero
-    // slide images now carry their own marketing text — forcing a CMS subtitle
-    // would create duplicate text on top of the image.
+  // The hero slide images now carry their own marketing text, so we do NOT
+  // overlay any title or subtitle. Only the CTA button is shown.
+  // We still respect the CMS CTA text for slide 0 if the admin has customized it.
+  if (cmsContent && cmsContent.home.ctaText) {
     activeSlides[0] = {
       ...activeSlides[0],
-      title: cmsContent.home.heroTitle,
       cta: cmsContent.home.ctaText
     };
   }
@@ -248,52 +246,19 @@ export default function HeroSlideshow() {
             <div className="absolute inset-0 bg-gradient-to-t from-slate-950/85 via-slate-950/30 to-slate-950/10 md:bg-gradient-to-r md:from-slate-950/80 md:via-slate-950/30 md:to-transparent" />
           </div>
 
-          {/* Foreground Text & Action - Perfectly aligned with max-w-7xl px-4 sm:px-6 lg:px-8 grid */}
-          <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full h-full flex items-center">
-            <div className="flex flex-col max-w-xl md:max-w-2xl text-left py-12 md:py-20">
-              <motion.div
-                initial={{ opacity: 0, y: 15 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.5, delay: 0.1 }}
-                className="inline-flex items-center gap-2 mb-4 self-start"
-              >
-                <span className="bg-[#E3000F] text-white text-[10px] sm:text-xs font-black tracking-widest uppercase px-3 py-1 rounded-sm shadow-sm">
-                  AXI EDGE
-                </span>
-                <span className="text-xs font-bold text-slate-300 tracking-wider uppercase hidden sm:inline">
-                  Award-Winning Global Broker
-                </span>
-              </motion.div>
-
-              <motion.h1 
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.6, delay: 0.2 }}
-                className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-black tracking-tight leading-[1.08] mb-5 text-white drop-shadow-[0_2px_8px_rgba(0,0,0,0.85)]"
-              >
-                {currentSlide.title}
-              </motion.h1>
-              
-              {currentSlide.subtitle ? (
-                <motion.p
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.6, delay: 0.35 }}
-                  className="text-base sm:text-lg md:text-xl font-medium mb-8 leading-relaxed max-w-xl text-slate-200 drop-shadow-[0_1px_6px_rgba(0,0,0,0.8)]"
-                >
-                  {currentSlide.subtitle}
-                </motion.p>
-              ) : (
-                <div className="mb-8" />
-              )}
-              
+          {/* Foreground CTA only — the slide images carry their own marketing text,
+              so we do NOT overlay a duplicate title/subtitle. Only the CTA button
+              is rendered, positioned at the bottom-left so it integrates cleanly
+              with the baked-in image content. */}
+          <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full h-full flex items-end">
+            <div className="flex flex-col text-left pb-20 md:pb-24">
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.6, delay: 0.5 }}
+                transition={{ duration: 0.6, delay: 0.4 }}
                 className="flex items-center gap-4 flex-wrap"
               >
-                <button 
+                <button
                   className="bg-[#FFD250] hover:bg-[#FFC518] text-slate-950 text-xs sm:text-sm font-black uppercase tracking-widest px-8 py-4 rounded-sm transition-all shadow-xl hover:scale-105 cursor-pointer active:scale-95"
                 >
                   {currentSlide.cta}
