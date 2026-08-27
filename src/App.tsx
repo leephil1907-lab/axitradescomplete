@@ -507,7 +507,7 @@ export default function App() {
   };
 
   return (
-    <div className={`min-h-screen transition-colors duration-700 ease-in-out ${isDarkMode ? 'dark bg-slate-950 text-slate-100' : 'bg-brand-light text-slate-850'} flex flex-col font-sans selection:bg-brand-red selection:text-white`}>
+    <div className={`min-h-screen w-full overflow-x-hidden transition-colors duration-700 ease-in-out ${isDarkMode ? 'dark bg-slate-950 text-slate-100' : 'bg-brand-light text-slate-850'} flex flex-col font-sans selection:bg-brand-red selection:text-white`}>
       
       {/* Universal Responsive Header */}
       {currentView !== 'login' && <Header 

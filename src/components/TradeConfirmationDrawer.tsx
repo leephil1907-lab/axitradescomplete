@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { X, CheckCircle2, AlertCircle, ArrowUpRight, ArrowDownRight, Zap, ShieldCheck, DollarSign, Layers, Percent, Sliders, Users } from 'lucide-react';
+import { X, CheckCircle2, AlertCircle, ArrowUpRight, ArrowDownRight, Zap, ShieldCheck, DollarSign, Layers, Percent, Sliders, Users, Loader2 } from 'lucide-react';
 
 export interface TradeOrderSummary {
   symbol: string;
@@ -41,6 +41,42 @@ export default function TradeConfirmationDrawer({
   const [takeProfitPrice, setTakeProfitPrice] = useState<string>('');
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
 
+  // Live market sentiment (fetched from backend — no fabricated data)
+  const [sentiment, setSentiment] = useState<{
+    live: boolean;
+    long: number | null;
+    short: number | null;
+    activePositions?: number | null;
+    source?: string;
+    note?: string;
+    loading: boolean;
+  }>({ live: false, long: null, short: null, activePositions: null, source: '', note: '', loading: true });
+
+  useEffect(() => {
+    if (!orderData?.symbol) return;
+    let cancelled = false;
+    setSentiment(s => ({ ...s, loading: true }));
+    fetch(`/api/sentiment/${encodeURIComponent(orderData.symbol)}`)
+      .then(r => r.json())
+      .then(j => {
+        if (cancelled) return;
+        setSentiment({
+          live: !!j?.live,
+          long: j?.long ?? null,
+          short: j?.short ?? null,
+          activePositions: j?.activePositions ?? null,
+          source: j?.source || '',
+          note: j?.note || '',
+          loading: false,
+        });
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setSentiment({ live: false, long: null, short: null, activePositions: null, source: '', note: '', loading: false });
+      });
+    return () => { cancelled = true; };
+  }, [orderData?.symbol]);
+
   // Sync state when orderData changes
   useEffect(() => {
     if (orderData) {
@@ -64,27 +100,6 @@ export default function TradeConfirmationDrawer({
 
   const isBuy = orderData.type === 'BUY';
   const priceDigits = orderData.symbol.includes('JPY') ? 2 : orderData.symbol.includes('USD') && !orderData.symbol.includes('BTC') && !orderData.symbol.includes('XAU') ? 5 : 2;
-  
-  // Calculate Market Sentiment ratio (Long vs Short)
-  const getSymbolSentiment = (sym: string) => {
-    switch (sym) {
-      case 'BTCUSD': return { long: 74, short: 26, activePositions: 18420 };
-      case 'ETHUSD': return { long: 68, short: 32, activePositions: 12150 };
-      case 'SOLUSD': return { long: 79, short: 21, activePositions: 8940 };
-      case 'XRPUSD': return { long: 62, short: 38, activePositions: 6510 };
-      case 'EURUSD': return { long: 58, short: 42, activePositions: 24890 };
-      case 'GBPUSD': return { long: 53, short: 47, activePositions: 16420 };
-      case 'USDJPY': return { long: 39, short: 61, activePositions: 19800 };
-      case 'AUDUSD': return { long: 61, short: 39, activePositions: 9140 };
-      case 'XAUUSD': return { long: 82, short: 18, activePositions: 31200 };
-      case 'USOUSD': return { long: 66, short: 34, activePositions: 7850 };
-      case 'US30': return { long: 71, short: 29, activePositions: 14200 };
-      case 'SPX500': return { long: 75, short: 25, activePositions: 15900 };
-      default: return { long: 64, short: 36, activePositions: 11200 };
-    }
-  };
-
-  const sentiment = getSymbolSentiment(orderData.symbol);
   
   // Calculate estimated required margin
   const levRatio = parseInt(leverage.split(':')[1] || '1000', 10);
@@ -197,43 +212,62 @@ export default function TradeConfirmationDrawer({
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-1.5 text-xs font-black text-slate-900 dark:text-white">
                   <Users className="w-4 h-4 text-[#E3000F]" />
-                  <span>Broker Market Sentiment</span>
+                  <span>Market Sentiment</span>
                 </div>
-                <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300">
-                  {sentiment.activePositions.toLocaleString()} Positions
+                <span className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded-full ${
+                  sentiment.live
+                    ? 'bg-emerald-100 dark:bg-emerald-500/20 text-emerald-700 dark:text-emerald-400'
+                    : 'bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300'
+                }`}>
+                  {sentiment.loading ? 'Loading…' : sentiment.live ? (sentiment.source || 'Live') : 'Unavailable'}
                 </span>
               </div>
 
-              {/* Long vs Short Percentage Bar */}
-              <div className="space-y-1">
-                <div className="flex justify-between items-center text-xs font-extrabold font-mono">
-                  <span className="text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
-                    <ArrowUpRight className="w-3.5 h-3.5" /> {sentiment.long}% LONG
-                  </span>
-                  <span className="text-rose-600 dark:text-rose-400 flex items-center gap-1">
-                    {sentiment.short}% SHORT <ArrowDownRight className="w-3.5 h-3.5" />
-                  </span>
+              {sentiment.loading ? (
+                <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400 py-2">
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" /> Fetching live sentiment…
                 </div>
+              ) : sentiment.live && sentiment.long != null && sentiment.short != null ? (
+                <>
+                  {/* Long vs Short Percentage Bar */}
+                  <div className="space-y-1">
+                    <div className="flex justify-between items-center text-xs font-extrabold font-mono">
+                      <span className="text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
+                        <ArrowUpRight className="w-3.5 h-3.5" /> {sentiment.long}% LONG
+                      </span>
+                      <span className="text-rose-600 dark:text-rose-400 flex items-center gap-1">
+                        {sentiment.short}% SHORT <ArrowDownRight className="w-3.5 h-3.5" />
+                      </span>
+                    </div>
 
-                {/* Dual Progress Ratio Bar */}
-                <div className="h-2.5 w-full bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden flex">
-                  <div 
-                    style={{ width: `${sentiment.long}%` }} 
-                    className="bg-emerald-500 transition-all duration-500 rounded-l-full" 
-                  />
-                  <div 
-                    style={{ width: `${sentiment.short}%` }} 
-                    className="bg-rose-500 transition-all duration-500 rounded-r-full" 
-                  />
+                    {/* Dual Progress Ratio Bar */}
+                    <div className="h-2.5 w-full bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden flex">
+                      <div 
+                        style={{ width: `${sentiment.long}%` }} 
+                        className="bg-emerald-500 transition-all duration-500 rounded-l-full" 
+                      />
+                      <div 
+                        style={{ width: `${sentiment.short}%` }} 
+                        className="bg-rose-500 transition-all duration-500 rounded-r-full" 
+                      />
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between text-[11px] text-slate-500 dark:text-slate-400 pt-0.5">
+                    <span>{sentiment.source ? 'Est. directional bias' : 'Platform Trader Positioning'}</span>
+                    <span className="font-bold text-slate-800 dark:text-slate-200">
+                      {sentiment.long >= 60 ? '🔥 Bullish Bias' : sentiment.long <= 40 ? '⚡ Bearish Bias' : '⚖️ Neutral Distribution'}
+                    </span>
+                  </div>
+                  {sentiment.note && (
+                    <p className="text-[10px] text-slate-400 dark:text-slate-500 leading-relaxed pt-1">{sentiment.note}</p>
+                  )}
+                </>
+              ) : (
+                <div className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed py-1">
+                  Live broker sentiment is currently unavailable. No fabricated positioning data is shown — only real, provider-backed sentiment is displayed when a data feed is connected.
                 </div>
-              </div>
-
-              <div className="flex items-center justify-between text-[11px] text-slate-500 dark:text-slate-400 pt-0.5">
-                <span>Platform Trader Positioning</span>
-                <span className="font-bold text-slate-800 dark:text-slate-200">
-                  {sentiment.long >= 60 ? '🔥 Bullish Community Bias' : sentiment.long <= 40 ? '⚡ Bearish Community Bias' : '⚖️ Neutral Distribution'}
-                </span>
-              </div>
+              )}
             </div>
 
             {/* Parameter 1: Volume (Lots) */}

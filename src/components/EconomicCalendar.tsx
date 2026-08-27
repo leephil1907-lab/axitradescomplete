@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { 
   Calendar as CalendarIcon, 
   Clock, 
@@ -15,7 +15,9 @@ import {
   Info, 
   CheckCircle2, 
   Sparkles,
-  Zap
+  Zap,
+  Loader2,
+  RefreshCw
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { ViewType } from '../types';
@@ -24,7 +26,7 @@ export interface EconomicEvent {
   id: string;
   time: string; // e.g. "13:30"
   date: string; // e.g. "2026-08-19"
-  dayLabel: 'Today' | 'Tomorrow' | 'This Week' | 'Next Week';
+  dayLabel?: 'Today' | 'Tomorrow' | 'This Week' | 'Next Week' | string;
   currency: string;
   country: string;
   countryFlag: string;
@@ -38,171 +40,32 @@ export interface EconomicEvent {
   historicalTrend?: 'bullish' | 'bearish' | 'neutral';
 }
 
-const SAMPLE_ECONOMIC_EVENTS: EconomicEvent[] = [
-  {
-    id: 'eco_1',
-    time: '13:30 UTC',
-    date: '2026-08-18',
-    dayLabel: 'Today',
-    currency: 'USD',
-    country: 'United States',
-    countryFlag: '🇺🇸',
-    title: 'Core Consumer Price Index (CPI) YoY',
-    impact: 'HIGH',
-    actual: '2.8%',
-    forecast: '2.9%',
-    previous: '3.1%',
-    affectedSymbols: ['EURUSD', 'GBPUSD', 'USDJPY', 'XAUUSD', 'US500'],
-    description: 'Measures changes in the price of goods and services purchased by consumers, excluding volatile food and energy. A lower reading indicates cooling inflation, heavily impacting Federal Reserve interest rate policy.',
-    historicalTrend: 'bullish'
-  },
-  {
-    id: 'eco_2',
-    time: '15:00 UTC',
-    date: '2026-08-18',
-    dayLabel: 'Today',
-    currency: 'USD',
-    country: 'United States',
-    countryFlag: '🇺🇸',
-    title: 'ISM Manufacturing PMI',
-    impact: 'HIGH',
-    actual: '51.4',
-    forecast: '50.2',
-    previous: '49.8',
-    affectedSymbols: ['US500', 'US30', 'USDJPY', 'XAUUSD'],
-    description: 'Purchasing Managers Index surveying supply executives in manufacturing. Readings above 50.0 signal economic expansion and industrial momentum.',
-    historicalTrend: 'bullish'
-  },
-  {
-    id: 'eco_3',
-    time: '09:00 UTC',
-    date: '2026-08-18',
-    dayLabel: 'Today',
-    currency: 'EUR',
-    country: 'Eurozone',
-    countryFlag: '🇪🇺',
-    title: 'Eurozone Harmonized Index of Consumer Prices (HICP) YoY',
-    impact: 'HIGH',
-    actual: '2.1%',
-    forecast: '2.2%',
-    previous: '2.4%',
-    affectedSymbols: ['EURUSD', 'EURGBP', 'EURJPY', 'GER40'],
-    description: 'Key benchmark of inflation across the 20 Eurozone nations utilized by the European Central Bank (ECB) Governing Council for monetary policy target determination.',
-    historicalTrend: 'neutral'
-  },
-  {
-    id: 'eco_4',
-    time: '19:00 UTC',
-    date: '2026-08-19',
-    dayLabel: 'Tomorrow',
-    currency: 'USD',
-    country: 'United States',
-    countryFlag: '🇺🇸',
-    title: 'Federal Open Market Committee (FOMC) Rate Decision',
-    impact: 'HIGH',
-    forecast: '4.75%',
-    previous: '5.00%',
-    affectedSymbols: ['EURUSD', 'USDJPY', 'GBPUSD', 'XAUUSD', 'BTCUSD', 'US500'],
-    description: 'The Federal Reserve sets the primary federal funds target benchmark rate. Significant volatility occurs across Forex, Equities, and Precious Metals upon policy statement and press conference delivery.',
-    historicalTrend: 'bearish'
-  },
-  {
-    id: 'eco_5',
-    time: '07:00 UTC',
-    date: '2026-08-19',
-    dayLabel: 'Tomorrow',
-    currency: 'GBP',
-    country: 'United Kingdom',
-    countryFlag: '🇬🇧',
-    title: 'UK Gross Domestic Product (GDP) MoM',
-    impact: 'HIGH',
-    forecast: '0.3%',
-    previous: '0.1%',
-    affectedSymbols: ['GBPUSD', 'EURGBP', 'GBPJPY', 'UK100'],
-    description: 'Total market value of all goods and services produced in the UK. Higher reading reflects economic resilience and strengthens the British Pound.',
-    historicalTrend: 'bullish'
-  },
-  {
-    id: 'eco_6',
-    time: '01:30 UTC',
-    date: '2026-08-19',
-    dayLabel: 'Tomorrow',
-    currency: 'AUD',
-    country: 'Australia',
-    countryFlag: '🇦🇺',
-    title: 'RBA Employment Change & Unemployment Rate',
-    impact: 'HIGH',
-    forecast: '3.9%',
-    previous: '4.0%',
-    affectedSymbols: ['AUDUSD', 'AUDJPY', 'EURAUD', 'AUS200'],
-    description: 'Number of employed individuals during the prior month and civilian unemployment percentage. Critical indicator for the Reserve Bank of Australia cash rate trajectory.',
-    historicalTrend: 'bullish'
-  },
-  {
-    id: 'eco_7',
-    time: '12:30 UTC',
-    date: '2026-08-20',
-    dayLabel: 'This Week',
-    currency: 'USD',
-    country: 'United States',
-    countryFlag: '🇺🇸',
-    title: 'Initial Jobless Claims (Weekly)',
-    impact: 'MEDIUM',
-    forecast: '215K',
-    previous: '223K',
-    affectedSymbols: ['EURUSD', 'USDJPY', 'US500'],
-    description: 'Weekly measure of individuals filing for first-time state unemployment insurance. Gauges labor market conditions and employment tightness.',
-    historicalTrend: 'neutral'
-  },
-  {
-    id: 'eco_8',
-    time: '13:30 UTC',
-    date: '2026-08-21',
-    dayLabel: 'This Week',
-    currency: 'CAD',
-    country: 'Canada',
-    countryFlag: '🇨🇦',
-    title: 'Bank of Canada Core Retail Sales MoM',
-    impact: 'MEDIUM',
-    forecast: '0.4%',
-    previous: '-0.2%',
-    affectedSymbols: ['USDCAD', 'CADJPY', 'EURCAD'],
-    description: 'Excludes volatile automotive sales to assess foundational Canadian retail consumer spending momentum and domestic demand.',
-    historicalTrend: 'bullish'
-  },
-  {
-    id: 'eco_9',
-    time: '03:00 UTC',
-    date: '2026-08-21',
-    dayLabel: 'This Week',
-    currency: 'JPY',
-    country: 'Japan',
-    countryFlag: '🇯🇵',
-    title: 'Bank of Japan (BoJ) Monetary Policy Statement & Target Rate',
-    impact: 'HIGH',
-    forecast: '0.25%',
-    previous: '0.10%',
-    affectedSymbols: ['USDJPY', 'EURJPY', 'GBPJPY', 'JP225'],
-    description: 'The Bank of Japan policy statement outlining yield curve control guidelines, quantitative asset purchases, and interbank overnight lending rate adjustments.',
-    historicalTrend: 'bullish'
-  },
-  {
-    id: 'eco_10',
-    time: '13:30 UTC',
-    date: '2026-08-25',
-    dayLabel: 'Next Week',
-    currency: 'USD',
-    country: 'United States',
-    countryFlag: '🇺🇸',
-    title: 'US Non-Farm Payrolls (NFP) & Average Hourly Earnings',
-    impact: 'HIGH',
-    forecast: '175K',
-    previous: '185K',
-    affectedSymbols: ['EURUSD', 'USDJPY', 'GBPUSD', 'XAUUSD', 'US500', 'US30'],
-    description: 'The marquee global economic data release measuring change in total non-farm payroll employees during the prior month. Triggers the highest intraday volatility across FX & commodities.',
-    historicalTrend: 'neutral'
-  }
-];
+// Country flag emoji + friendly country name lookup keyed by ISO currency.
+const CURRENCY_META: Record<string, { flag: string; country: string; symbols: string[] }> = {
+  USD: { flag: '🇺🇸', country: 'United States', symbols: ['EURUSD', 'GBPUSD', 'USDJPY', 'XAUUSD', 'US500'] },
+  EUR: { flag: '🇪🇺', country: 'Eurozone', symbols: ['EURUSD', 'EURGBP', 'EURJPY', 'GER40'] },
+  GBP: { flag: '🇬🇧', country: 'United Kingdom', symbols: ['GBPUSD', 'EURGBP', 'GBPJPY', 'UK100'] },
+  JPY: { flag: '🇯🇵', country: 'Japan', symbols: ['USDJPY', 'EURJPY', 'GBPJPY', 'JP225'] },
+  AUD: { flag: '🇦🇺', country: 'Australia', symbols: ['AUDUSD', 'AUDJPY', 'EURAUD', 'AUS200'] },
+  CAD: { flag: '🇨🇦', country: 'Canada', symbols: ['USDCAD', 'CADJPY', 'EURCAD'] },
+  CHF: { flag: '🇨🇭', country: 'Switzerland', symbols: ['USDCHF', 'EURCHF', 'GBPCHF'] },
+  CNY: { flag: '🇨🇳', country: 'China', symbols: ['USDCNH', 'CN50'] },
+  NZD: { flag: '🇳🇿', country: 'New Zealand', symbols: ['NZDUSD', 'NZDJPY', 'EURNZD'] },
+};
+
+function deriveDayLabel(dateStr: string): string {
+  if (!dateStr) return 'This Week';
+  const d = new Date(dateStr + (dateStr.length <= 10 ? 'T00:00:00Z' : ''));
+  if (isNaN(d.getTime())) return 'This Week';
+  const now = new Date();
+  const todayMid = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+  const diffDays = Math.round((d.getTime() - todayMid.getTime()) / (24 * 60 * 60 * 1000));
+  if (diffDays === 0) return 'Today';
+  if (diffDays === 1) return 'Tomorrow';
+  if (diffDays >= 2 && diffDays <= 6) return 'This Week';
+  if (diffDays >= 7 && diffDays <= 13) return 'Next Week';
+  return diffDays < 0 ? 'Past' : 'Upcoming';
+}
 
 interface EconomicCalendarProps {
   setView?: (view: ViewType) => void;
@@ -218,6 +81,59 @@ export default function EconomicCalendar({ setView, showToast, standalone = fals
   const [expandedEventId, setExpandedEventId] = useState<string | null>(null);
   const [activeAlerts, setActiveAlerts] = useState<Record<string, boolean>>({});
 
+  // Live economic calendar state (no hardcoded/sample data).
+  const [events, setEvents] = useState<EconomicEvent[]>([]);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [live, setLive] = useState<boolean>(false);
+  const [source, setSource] = useState<string>('');
+  const [error, setError] = useState<string>('');
+
+  const fetchEvents = async () => {
+    setLoading(true);
+    setError('');
+    try {
+      const r = await fetch('/api/economic-calendar');
+      if (!r.ok) throw new Error(`Server responded ${r.status}`);
+      const j = (await r.json()) as any;
+      const raw: any[] = Array.isArray(j?.events) ? j.events : [];
+      const normalized: EconomicEvent[] = raw.map((e: any) => {
+        const meta = CURRENCY_META[String(e.currency || '').toUpperCase()];
+        const dayLabel = deriveDayLabel(e.date);
+        return {
+          id: e.id || `eco_${Math.random().toString(36).slice(2)}`,
+          time: e.time || 'All Day',
+          date: e.date || '',
+          dayLabel,
+          currency: String(e.currency || '').toUpperCase(),
+          country: meta?.country || e.country || e.currency || '',
+          countryFlag: meta?.flag || e.countryFlag || '🌐',
+          title: e.title || 'Economic Release',
+          impact: (e.impact as 'HIGH' | 'MEDIUM' | 'LOW') || 'LOW',
+          actual: e.actual || undefined,
+          forecast: e.forecast || '—',
+          previous: e.previous || '—',
+          affectedSymbols: Array.isArray(e.affectedSymbols) && e.affectedSymbols.length
+            ? e.affectedSymbols
+            : (meta?.symbols || []),
+          description: e.description || e.title || 'Economic release with potential market impact.',
+        };
+      });
+      setEvents(normalized);
+      setLive(Boolean(j?.live));
+      setSource(String(j?.source || ''));
+    } catch (e) {
+      setError('Unable to load the live economic calendar right now.');
+      setEvents([]);
+      setLive(false);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchEvents();
+  }, []);
+
   const toggleAlert = (eventId: string, eventTitle: string) => {
     setActiveAlerts(prev => {
       const isSet = !!prev[eventId];
@@ -232,7 +148,7 @@ export default function EconomicCalendar({ setView, showToast, standalone = fals
   };
 
   const filteredEvents = useMemo(() => {
-    return SAMPLE_ECONOMIC_EVENTS.filter(evt => {
+    return events.filter(evt => {
       if (activeTimeframe !== 'ALL' && evt.dayLabel !== activeTimeframe) return false;
       if (selectedCurrency !== 'ALL' && evt.currency !== selectedCurrency) return false;
       if (selectedImpact !== 'ALL' && evt.impact !== selectedImpact) return false;
@@ -246,11 +162,18 @@ export default function EconomicCalendar({ setView, showToast, standalone = fals
       }
       return true;
     });
-  }, [activeTimeframe, selectedCurrency, selectedImpact, searchQuery]);
+  }, [events, activeTimeframe, selectedCurrency, selectedImpact, searchQuery]);
 
   const highImpactCount = useMemo(() => {
-    return SAMPLE_ECONOMIC_EVENTS.filter(e => e.impact === 'HIGH').length;
-  }, []);
+    return events.filter(e => e.impact === 'HIGH').length;
+  }, [events]);
+
+  // Derive the list of currencies actually present in the live data.
+  const availableCurrencies = useMemo(() => {
+    const set = new Set<string>();
+    events.forEach(e => e.currency && set.add(e.currency));
+    return ['ALL', ...Array.from(set).sort()];
+  }, [events]);
 
   return (
     <div className={`w-full ${standalone ? 'py-8' : ''}`}>
@@ -260,8 +183,8 @@ export default function EconomicCalendar({ setView, showToast, standalone = fals
         <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
           <div>
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-red-500/20 text-red-400 border border-red-500/30 text-xs font-black uppercase tracking-wider mb-3">
-              <span className="w-2 h-2 rounded-full bg-brand-red animate-pulse"></span>
-              Live Interbank Macro Calendar
+              <span className={`w-2 h-2 rounded-full ${live ? 'bg-emerald-400 animate-pulse' : 'bg-slate-500'}`}></span>
+              {live ? 'Live Interbank Macro Calendar' : 'Economic Calendar'}
             </div>
             <h1 className="text-2xl sm:text-4xl font-black tracking-tight text-white mb-2">
               Economic Calendar & Market Catalysts
@@ -274,10 +197,22 @@ export default function EconomicCalendar({ setView, showToast, standalone = fals
           <div className="flex flex-row md:flex-col items-center md:items-end gap-3 bg-slate-800/80 backdrop-blur-xs p-4 rounded-2xl border border-slate-700/60 shrink-0">
             <div className="text-left md:text-right">
               <span className="text-[11px] font-extrabold uppercase tracking-wider text-slate-400 block">High Impact Catalysts</span>
-              <span className="text-2xl font-black text-brand-yellow">{highImpactCount} Critical Events</span>
+              <span className="text-2xl font-black text-brand-yellow">{loading ? '—' : `${highImpactCount} Event${highImpactCount === 1 ? '' : 's'}`}</span>
             </div>
-            <div className="text-[11px] text-emerald-400 font-bold flex items-center gap-1">
-              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span> Live Real-Time Feed
+            <div className="text-[11px] font-bold flex items-center gap-1.5">
+              {live ? (
+                <span className="text-emerald-400 flex items-center gap-1">
+                  <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span> Live Feed{source ? ` · ${source}` : ''}
+                </span>
+              ) : loading ? (
+                <span className="text-slate-400 flex items-center gap-1">
+                  <Loader2 className="w-3 h-3 animate-spin" /> Loading…
+                </span>
+              ) : (
+                <span className="text-amber-400 flex items-center gap-1">
+                  <span className="w-2 h-2 rounded-full bg-amber-400"></span> Feed unavailable
+                </span>
+              )}
             </div>
           </div>
         </div>
@@ -303,16 +238,26 @@ export default function EconomicCalendar({ setView, showToast, standalone = fals
             ))}
           </div>
 
-          {/* Quick Search */}
-          <div className="relative w-full sm:w-64">
-            <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-            <input 
-              type="text" 
-              placeholder="Search event, currency, symbol..."
-              value={searchQuery}
-              onChange={e => setSearchQuery(e.target.value)}
-              className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-9 pr-3 py-1.5 text-xs text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-brand-red focus:bg-white transition"
-            />
+          {/* Quick Search + Refresh */}
+          <div className="flex items-center gap-2 w-full sm:w-auto">
+            <div className="relative flex-1 sm:w-64">
+              <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+              <input 
+                type="text" 
+                placeholder="Search event, currency, symbol..."
+                value={searchQuery}
+                onChange={e => setSearchQuery(e.target.value)}
+                className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-9 pr-3 py-1.5 text-xs text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-brand-red focus:bg-white transition"
+              />
+            </div>
+            <button
+              onClick={fetchEvents}
+              disabled={loading}
+              title="Refresh live events"
+              className="p-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-600 transition cursor-pointer disabled:opacity-50"
+            >
+              <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+            </button>
           </div>
         </div>
 
@@ -323,7 +268,7 @@ export default function EconomicCalendar({ setView, showToast, standalone = fals
             <span className="text-[11px] font-extrabold uppercase text-slate-500 mr-1 flex items-center gap-1">
               <Globe className="w-3.5 h-3.5" /> Currency:
             </span>
-            {['ALL', 'USD', 'EUR', 'GBP', 'JPY', 'AUD', 'CAD'].map(curr => (
+            {availableCurrencies.slice(0, 8).map(curr => (
               <button
                 key={curr}
                 onClick={() => setSelectedCurrency(curr)}
@@ -345,9 +290,7 @@ export default function EconomicCalendar({ setView, showToast, standalone = fals
             </span>
             <button
               onClick={() => setSelectedImpact('ALL')}
-              className={`px-2.5 py-1 rounded-lg text-xs font-bold transition cursor-pointer ${
-                selectedImpact === 'ALL' ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-600'
-              }`}
+              className={`px-2.5 py-1 rounded-lg text-xs font-bold transition cursor-pointer ${selectedImpact === 'ALL' ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-600'}`}
             >
               All
             </button>
@@ -373,7 +316,25 @@ export default function EconomicCalendar({ setView, showToast, standalone = fals
 
       {/* Events Table / List */}
       <div className="bg-white border border-slate-200 rounded-2xl shadow-xs overflow-hidden">
-        {filteredEvents.length === 0 ? (
+        {loading ? (
+          <div className="py-20 text-center text-slate-500">
+            <Loader2 className="w-8 h-8 mx-auto text-brand-red animate-spin mb-3" />
+            <p className="font-bold text-base text-slate-700">Loading live economic events…</p>
+            <p className="text-xs text-slate-400 mt-1">Fetching real-time macro releases from the data provider.</p>
+          </div>
+        ) : error && events.length === 0 ? (
+          <div className="py-16 text-center text-slate-500">
+            <AlertCircle className="w-10 h-10 mx-auto text-amber-400 mb-3" />
+            <p className="font-bold text-base text-slate-700">{error}</p>
+            <p className="text-xs text-slate-400 mt-1">The live calendar feed is temporarily unavailable. Tap refresh to retry.</p>
+            <button
+              onClick={fetchEvents}
+              className="mt-4 inline-flex items-center gap-1.5 bg-brand-red hover:bg-red-700 text-white font-bold text-xs px-4 py-2 rounded-xl transition cursor-pointer"
+            >
+              <RefreshCw className="w-3.5 h-3.5" /> Retry now
+            </button>
+          </div>
+        ) : filteredEvents.length === 0 ? (
           <div className="py-16 text-center text-slate-500">
             <AlertCircle className="w-10 h-10 mx-auto text-slate-300 mb-3" />
             <p className="font-bold text-base text-slate-700">No economic events match your filter criteria.</p>

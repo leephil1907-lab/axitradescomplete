@@ -259,7 +259,7 @@ export default function AdminDashboardView({
     return [];
   });
 
-  const handleApproveKYC = (docItem: any, creditAmountBonus: number = 1000) => {
+  const handleApproveKYC = (docItem: any, creditAmountBonus: number = 0) => {
     safeStorage.setItem('axi_kyc_status', 'verified');
     const updatedDocs = kycDocs.map(d => d.id === docItem.id ? { ...d, status: 'Approved' } : d);
     setKycDocs(updatedDocs);
@@ -273,9 +273,9 @@ export default function AdminDashboardView({
       body: JSON.stringify({ id: docItem.id || docItem.refCode, creditAmountBonus })
     }).catch(e => console.warn('Backend KYC approve sync:', e));
 
-    if (creditAmountBonus > 0) {
-      setLiveBalance(prev => prev + creditAmountBonus);
-    }
+    // NOTE: Balance is NOT auto-credited on KYC approval.
+    // Admin must manually credit the user via Manual Credit or Deposit approval.
+    // The optional bonus is only sent to the server for record-keeping.
 
     const payload = {
       id: `email_${Date.now()}`,
@@ -290,8 +290,8 @@ export default function AdminDashboardView({
     };
 
     window.dispatchEvent(new CustomEvent('axi_email_trigger', { detail: payload }));
-    logAuditAction('KYC Verification', docItem.user || docItem.userEmail, `Approved identity documents (+ ${creditAmountBonus.toLocaleString()} bonus)`);
-    showToast(`✅ ACCOUNT VERIFIED: Approved documents for ${docItem.user}. Live trading balance credited +${creditAmountBonus.toLocaleString()}!`, 'success');
+    logAuditAction('KYC Verification', docItem.user || docItem.userEmail, `Approved identity documents${creditAmountBonus > 0 ? ` (bonus of $${creditAmountBonus.toLocaleString()} recorded for manual credit)` : ''}`);
+    showToast(`✅ ACCOUNT VERIFIED: Approved documents for ${docItem.user}.${creditAmountBonus > 0 ? ` Bonus $${creditAmountBonus.toLocaleString()} recorded — credit manually via Manual Credit.` : ' No balance auto-credit.'}`, 'success');
   };
 
   const handleRejectKYC = (docItem: any) => {
@@ -327,13 +327,6 @@ export default function AdminDashboardView({
   const pendingWithdrawalsList = transactions.filter(t => (t.type === 'Withdrawal' || t.type === 'Payout') && (t.status === 'Pending Verification' || t.status === 'Pending' || t.status === 'Pending Admin Instructions' || t.status === 'Under Review'));
   const pendingWithdrawalsVol = pendingWithdrawalsList.reduce((acc, t) => acc + (Number(t.amount) || 0), 0);
 
-  const stats = [
-    { label: 'Total Active Traders', value: '14,235', change: '+12%', positive: true, icon: Users },
-    { label: 'Daily Trading Volume', value: '$84.2M', change: '+5.4%', positive: true, icon: BarChart4 },
-    { label: 'Pending Deposits Alert', value: `${pendingDeposits.length}`, change: pendingDeposits.length > 0 ? 'Requires Action' : 'All Clear', positive: pendingDeposits.length === 0, icon: DollarSign },
-    { label: 'System Health', value: '99.99%', change: 'Optimal', positive: true, icon: Activity }
-  ];
-
   // Default Registered Users Directory (Loaded dynamically from database / registrations)
   const defaultUsersList: any[] = [];
 
@@ -356,79 +349,48 @@ export default function AdminDashboardView({
   // Selected User Account Details Modal State
   const [selectedUserDetailModal, setSelectedUserDetailModal] = useState<any | null>(null);
 
-  // Partner / IB Applications State
+  // Partner / IB Applications State (starts empty — populated from server /api/partners/list)
   const [partnerApplications, setPartnerApplications] = useState<any[]>(() => {
     const saved = safeStorage.getItem('axi_partner_applications');
     if (saved) {
-      try { return JSON.parse(saved); } catch (e) {}
+      try {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) return parsed;
+      } catch (e) {}
     }
-    return [
-      {
-        appId: 'IB-AXI-781924',
-        partnerType: 'IB',
-        fullName: 'David Sterling',
-        email: 'd.sterling@fxcapital.co.uk',
-        phone: '+44 7911 123456',
-        country: 'United Kingdom',
-        companyName: 'Sterling Alpha FX',
-        telegramHandle: '@sterlingfx',
-        estimatedMonthlyLots: '500 - 1,000 Lots',
-        marketingChannels: 'Trading Academy & Telegram (12,000 members)',
-        payoutMethod: 'Crypto USDT (TRC20)',
-        status: 'Pending Review',
-        createdAt: '2026-08-19 14:22 UTC'
-      }
-    ];
+    return [];
   });
 
   useEffect(() => {
     safeStorage.setItem('axi_partner_applications', JSON.stringify(partnerApplications));
   }, [partnerApplications]);
 
-  // Forex VPS Provisioning Requests State
+  // Forex VPS Provisioning Requests State (starts empty — populated from server /api/vps/list)
   const [vpsRequests, setVpsRequests] = useState<any[]>(() => {
     const saved = safeStorage.getItem('axi_vps_requests');
     if (saved) {
-      try { return JSON.parse(saved); } catch (e) {}
+      try {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) return parsed;
+      } catch (e) {}
     }
-    return [
-      {
-        vpsRef: 'VPS-AXI-948201',
-        selectedTier: 'Ultra Low-Latency ECN VPS',
-        accountNumber: 'AXI-MT5-882910',
-        clientName: 'Arthur Morgan',
-        clientEmail: 'a.morgan@tradex.com',
-        serverLocation: 'London (LD4 Equinix Data Center)',
-        platform: 'MetaTrader 5 (MT5)',
-        eaStrategyName: 'Neural Scalper v4 Arbitrage EA',
-        status: 'Pending Provisioning',
-        createdAt: '2026-08-20 08:15 UTC'
-      }
-    ];
+    return [];
   });
 
   useEffect(() => {
     safeStorage.setItem('axi_vps_requests', JSON.stringify(vpsRequests));
   }, [vpsRequests]);
 
-  // Promotions & Bonus Claims State
+  // Promotions & Bonus Claims State (starts empty — populated from server /api/promos/list)
   const [promoClaims, setPromoClaims] = useState<any[]>(() => {
     const saved = safeStorage.getItem('axi_promo_claims');
     if (saved) {
-      try { return JSON.parse(saved); } catch (e) {}
+      try {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) return parsed;
+      } catch (e) {}
     }
-    return [
-      {
-        claimId: 'PRM-AXI-519203',
-        promoTitle: '50% Welcome Deposit Bonus',
-        accountNumber: 'AXI-MT5-882910',
-        clientName: 'Arthur Morgan',
-        clientEmail: 'a.morgan@tradex.com',
-        bonusAmount: 1500,
-        status: 'Pending Approval',
-        createdAt: '2026-08-20 09:30 UTC'
-      }
-    ];
+    return [];
   });
 
   useEffect(() => {
@@ -439,6 +401,81 @@ export default function AdminDashboardView({
   useEffect(() => {
     safeStorage.setItem('axi_registered_users', JSON.stringify(recentUsers));
   }, [recentUsers]);
+
+  // Pending Stripe Deposits State (fetched from /api/deposits/pending — admin manually credits)
+  const [stripePendingDeposits, setStripePendingDeposits] = useState<any[]>([]);
+  const [creditingDepositId, setCreditingDepositId] = useState<string | null>(null);
+
+  const fetchStripePendingDeposits = async () => {
+    try {
+      const res = await fetch('/api/deposits/pending');
+      if (res.ok) {
+        const data = await res.json();
+        if (data.deposits && Array.isArray(data.deposits)) {
+          setStripePendingDeposits(data.deposits.filter((d: any) => !d.creditedByAdmin && !d.dismissed));
+        }
+      }
+    } catch (e) { console.warn('Fetch stripe pending deposits:', e); }
+  };
+
+  useEffect(() => {
+    fetchStripePendingDeposits();
+    const interval = setInterval(fetchStripePendingDeposits, 5000);
+    return () => clearInterval(interval);
+  }, []);
+
+  // Credit a pending Stripe deposit to the user's balance via server API
+  const handleCreditStripeDeposit = async (deposit: any) => {
+    const creditAmount = Number(deposit.amount) || 0;
+    if (creditAmount <= 0) {
+      showToast('Invalid deposit amount.', 'error');
+      return;
+    }
+    setCreditingDepositId(deposit.id);
+    try {
+      const res = await fetch('/api/deposits/credit', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: deposit.id, amount: creditAmount })
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        // Update local recentUsers so directory reflects new balance
+        const creditedUser = data.user;
+        if (creditedUser) {
+          setRecentUsers(users => users.map(u =>
+            (u.email === creditedUser.email || u.id === creditedUser.id) ? { ...u, balance: creditedUser.balance } : u
+          ));
+        }
+        logAuditAction('Deposit Clearance', creditedUser ? `${creditedUser.name} (${creditedUser.email})` : deposit.id, `Credited Stripe payment $${creditAmount.toLocaleString()} (Ref: ${deposit.stripeRef || deposit.id})`);
+        showToast(`✅ Credited $${creditAmount.toLocaleString()} to ${creditedUser?.name || creditedUser?.email || 'user'}. Balance updated.`, 'success');
+        fetchStripePendingDeposits();
+      } else {
+        showToast(`❌ ${data.error || 'Failed to credit deposit'}`, 'error');
+      }
+    } catch (e: any) {
+      showToast(`Error crediting deposit: ${e.message}`, 'error');
+    } finally {
+      setCreditingDepositId(null);
+    }
+  };
+
+  // Dismiss a pending Stripe deposit without crediting
+  const handleDismissStripeDeposit = async (deposit: any) => {
+    try {
+      const res = await fetch('/api/deposits/dismiss', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: deposit.id, reason: 'Dismissed by admin' })
+      });
+      if (res.ok) {
+        showToast(`Deposit ${deposit.id} dismissed.`, 'info');
+        fetchStripePendingDeposits();
+      }
+    } catch (e: any) {
+      showToast(`Error dismissing deposit: ${e.message}`, 'error');
+    }
+  };
 
   // Real-time Firestore Users Listener (Captures all website registrations seamlessly)
   useEffect(() => {
@@ -500,9 +537,11 @@ export default function AdminDashboardView({
     }
   }, []);
 
-  // Keep current active trader balance synchronized in recentUsers
+  // Keep admin's own live balance in sync (no fake hardcoded user references)
   useEffect(() => {
-    setRecentUsers(users => users.map(u => (u.id === 'usr_8492' || u.email === 'alex.t@example.com' || u.email === 'trader@axi.com') ? { ...u, balance: liveBalance } : u));
+    // liveBalance is the admin panel's global display balance; we no longer
+    // force it onto any specific fake user. User balances are managed per-user
+    // via the Users Directory / Manual Credit / Deposit approval flows.
   }, [liveBalance]);
 
   // Sync users, KYC, and applications from backend server and storage events
@@ -612,12 +651,12 @@ export default function AdminDashboardView({
 
   // Filtering state
   const [userSearchQuery, setUserSearchQuery] = useState('');
-  const [targetUserIdForManual, setTargetUserIdForManual] = useState<string>('usr_8492');
+  const [targetUserIdForManual, setTargetUserIdForManual] = useState<string>('');
 
   // Manual P&L Override State
   const [userPnlInputs, setUserPnlInputs] = useState<Record<string, string>>({});
   const [savingPnlUserId, setSavingPnlUserId] = useState<string | null>(null);
-  const [pnlOverrideUserSelected, setPnlOverrideUserSelected] = useState<string>('usr_8492');
+  const [pnlOverrideUserSelected, setPnlOverrideUserSelected] = useState<string>('');
 
   // Custom User Adjustment Modal State
   const [adjustModalUser, setAdjustModalUser] = useState<any | null>(null);
@@ -752,7 +791,48 @@ export default function AdminDashboardView({
   const saveBotConfig = (newConfig: any) => {
     setBotConfig(newConfig);
     safeStorage.setItem('axi_admin_bot_config', JSON.stringify(newConfig));
+    // Persist to server
+    fetch('/api/admin/bot-config', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(newConfig)
+    }).catch(e => console.warn('Server bot config sync:', e));
     showToast('🤖 Bot configuration updated successfully.', 'success');
+  };
+
+  // Global Trading Bot Settings State (persisted to server)
+  const [tradingBotSettings, setTradingBotSettings] = useState(() => {
+    const saved = safeStorage.getItem('axi_admin_trading_bot_settings');
+    if (saved) {
+      try { return JSON.parse(saved); } catch (e) {}
+    }
+    return {
+      automatedTradingEnabled: true,
+      maxBotLeverage: '1:500',
+      circuitBreakerEnabled: true,
+      circuitBreakerThreshold: 15
+    };
+  });
+
+  useEffect(() => {
+    fetch('/api/admin/trading-bot-settings')
+      .then(res => res.json())
+      .then(data => {
+        if (data.success && data.settings) {
+          setTradingBotSettings(prev => ({ ...prev, ...data.settings }));
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  const saveTradingBotSettings = () => {
+    safeStorage.setItem('axi_admin_trading_bot_settings', JSON.stringify(tradingBotSettings));
+    fetch('/api/admin/trading-bot-settings', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(tradingBotSettings)
+    }).catch(e => console.warn('Server trading bot settings sync:', e));
+    showToast('Global trading bot settings saved to server.', 'success');
   };
 
   // Investment Plans State
@@ -771,7 +851,13 @@ export default function AdminDashboardView({
   const saveInvestmentPlans = (plans: any[]) => {
     setInvestmentPlans(plans);
     safeStorage.setItem('axi_admin_investment_plans', JSON.stringify(plans));
-    showToast('📈 Investment plans updated.', 'success');
+    // Persist to server
+    fetch('/api/admin/investment-plans', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ plans })
+    }).catch(e => console.warn('Server investment plans sync:', e));
+    showToast('📈 Investment plans updated & saved to server.', 'success');
   };
 
   // Admin Change Password State
@@ -799,7 +885,28 @@ export default function AdminDashboardView({
     const updated = tradingPairs.map(p => p.id === id ? { ...p, active: !p.active } : p);
     setTradingPairs(updated);
     safeStorage.setItem('axi_admin_trading_pairs', JSON.stringify(updated));
-    showToast('Trading pair status toggled.', 'info');
+    // Persist to server
+    fetch('/api/admin/trading-pairs', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ pairs: updated })
+    }).catch(e => console.warn('Server trading pairs sync:', e));
+    showToast('Trading pair status toggled & saved to server.', 'info');
+  };
+
+  const updatePairField = (id: string, field: string, value: any) => {
+    const updated = tradingPairs.map(p => p.id === id ? { ...p, [field]: value } : p);
+    setTradingPairs(updated);
+    safeStorage.setItem('axi_admin_trading_pairs', JSON.stringify(updated));
+  };
+
+  const saveTradingPairsToServer = () => {
+    fetch('/api/admin/trading-pairs', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ pairs: tradingPairs })
+    }).catch(e => console.warn('Server trading pairs sync:', e));
+    showToast('Trading pairs saved to server.', 'success');
   };
 
   // Manage Currency State
@@ -817,18 +924,92 @@ export default function AdminDashboardView({
     ];
   });
 
+  const updateCurrencyField = (code: string, field: string, value: any) => {
+    const updated = currencies.map(c => c.code === code ? { ...c, [field]: value } : c);
+    setCurrencies(updated);
+    safeStorage.setItem('axi_admin_currencies', JSON.stringify(updated));
+  };
+
+  const saveCurrenciesToServer = () => {
+    fetch('/api/admin/currencies', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ currencies })
+    }).catch(e => console.warn('Server currencies sync:', e));
+    safeStorage.setItem('axi_admin_currencies', JSON.stringify(currencies));
+    showToast('Currency rates saved to server.', 'success');
+  };
+
   // Copy Traders State
   const [masterTraders, setMasterTraders] = useState(() => {
     const saved = safeStorage.getItem('axi_admin_copy_traders');
     if (saved) {
       try { return JSON.parse(saved); } catch (e) {}
     }
-    return [
-      { id: 'm1', name: 'Alex "The Alpha" Vance', winRate: '94.2%', copiers: 1240, roi30d: '+42.8%', risk: 'Medium', active: true },
-      { id: 'm2', name: 'Sarah "Quant" Lin', winRate: '89.6%', copiers: 890, roi30d: '+31.5%', risk: 'Low', active: true },
-      { id: 'm3', name: 'Marco "FxPro" Silva', winRate: '91.0%', copiers: 650, roi30d: '+58.2%', risk: 'High', active: true }
-    ];
+    return [];
   });
+
+  // Copy trader form state
+  const [newTraderName, setNewTraderName] = useState('');
+  const [newTraderWinRate, setNewTraderWinRate] = useState('');
+  const [newTraderRoi, setNewTraderRoi] = useState('');
+  const [newTraderCopiers, setNewTraderCopiers] = useState('');
+  const [newTraderRisk, setNewTraderRisk] = useState('Medium');
+
+  useEffect(() => {
+    fetch('/api/admin/copy-traders')
+      .then(res => res.json())
+      .then(data => {
+        if (data.success && Array.isArray(data.traders) && data.traders.length > 0) {
+          setMasterTraders(data.traders);
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  const persistCopyTraders = (traders: any[]) => {
+    setMasterTraders(traders);
+    safeStorage.setItem('axi_admin_copy_traders', JSON.stringify(traders));
+    fetch('/api/admin/copy-traders', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ traders })
+    }).catch(e => console.warn('Server copy traders sync:', e));
+  };
+
+  const handleAddCopyTrader = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newTraderName.trim() || !newTraderWinRate || !newTraderRoi) {
+      showToast('Please fill in trader name, win rate, and ROI.', 'error');
+      return;
+    }
+    const newTrader = {
+      id: `ct-${Date.now()}`,
+      name: newTraderName.trim(),
+      winRate: `${newTraderWinRate}%`,
+      roi30d: `${newTraderRoi}%`,
+      copiers: newTraderCopiers || '0',
+      risk: newTraderRisk,
+      featured: true,
+      addedAt: new Date().toISOString()
+    };
+    persistCopyTraders([...masterTraders, newTrader]);
+    setNewTraderName(''); setNewTraderWinRate(''); setNewTraderRoi(''); setNewTraderCopiers(''); setNewTraderRisk('Medium');
+    showToast(`✅ Master trader ${newTrader.name} added & saved to server.`, 'success');
+  };
+
+  const handleToggleTraderFeature = (id: string) => {
+    const updated = masterTraders.map(t => t.id === id ? { ...t, featured: !t.featured } : t);
+    persistCopyTraders(updated);
+    showToast('Master trader featured status updated.', 'info');
+  };
+
+  const handleRemoveCopyTrader = (id: string) => {
+    const updated = masterTraders.filter(t => t.id !== id);
+    persistCopyTraders(updated);
+    fetch(`/api/admin/copy-traders/${id}`, { method: 'DELETE' }).catch(() => {});
+    showToast('Master trader removed.', 'info');
+  };
 
   const handleQuickAdjustUserBalance = (userId: string, amount: number, customReason: string = 'Admin Balance Top-up / Deduction') => {
     let targetEmail = '';
@@ -841,10 +1022,6 @@ export default function AdminDashboardView({
         targetName = u.name;
         const newBal = Math.max(0, u.balance + amount);
         calculatedNewBal = newBal;
-
-        if (u.id === 'usr_8492' || u.email === 'alex.t@example.com' || u.email === 'trader@axi.com') {
-          setLiveBalance(newBal);
-        }
         return { ...u, balance: newBal };
       }
       return u;
@@ -904,10 +1081,6 @@ export default function AdminDashboardView({
         targetEmail = u.email;
         targetName = u.name;
         const exactVal = Math.max(0, targetBalance);
-
-        if (u.id === 'usr_8492' || u.email === 'alex.t@example.com' || u.email === 'trader@axi.com') {
-          setLiveBalance(exactVal);
-        }
         return { ...u, balance: exactVal };
       }
       return u;
@@ -963,7 +1136,6 @@ export default function AdminDashboardView({
       if (u.id === userId) {
         const delta = u.balance * (percentage / 100);
         const newBal = Math.max(0, u.balance + delta);
-        if (u.id === 'usr_8492') setLiveBalance(newBal);
         return { ...u, balance: newBal };
       }
       return u;
@@ -1222,15 +1394,47 @@ export default function AdminDashboardView({
     }
   };
 
-  const handleApproveDeposit = (dep: any) => {
+  const handleApproveDeposit = async (dep: any) => {
     updateTransactionStatus(dep.id, 'Approved');
-    if (dep.type === 'Deposit') {
-      setLiveBalance(liveBalance + dep.amount);
+
+    // Determine target user for this deposit
+    const targetUser = recentUsers.find(u =>
+      u.email === dep.userEmail || u.email === dep.email || u.id === dep.userId
+    );
+    const creditAmount = Number(dep.amount) || 0;
+
+    // Credit the SPECIFIC user's balance via the server API (not global setLiveBalance)
+    if (dep.type !== 'Withdrawal' && creditAmount > 0) {
+      try {
+        const res = await fetch('/api/users/' + encodeURIComponent(targetUser?.id || dep.userId || dep.userEmail || dep.email || ''), {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ balance: (targetUser?.balance ?? 0) + creditAmount, reason: 'Deposit approval credit' })
+        });
+        if (res.ok) {
+          // Update local recentUsers state so the directory reflects the new balance
+          setRecentUsers(users => users.map(u =>
+            (u.email === dep.userEmail || u.email === dep.email || u.id === dep.userId)
+              ? { ...u, balance: (u.balance ?? 0) + creditAmount }
+              : u
+          ));
+        }
+      } catch (e) {
+        console.warn('Server balance credit sync:', e);
+      }
+
+      // Also reflect in Firestore if we have the user
+      if (targetUser) {
+        try {
+          const userDocRef = doc(db, 'users', targetUser.id);
+          await setDoc(userDocRef, { liveBalance: (targetUser.balance ?? 0) + creditAmount, updatedAt: Date.now() }, { merge: true });
+        } catch (e) { console.warn('Firestore balance sync:', e); }
+      }
     }
     
     const payload = {
       id: `email_${Date.now()}`,
-      recipientEmail: dep.userEmail || 'trader@axi.com',
+      recipientEmail: dep.userEmail || dep.email || 'trader@axi.com',
       recipientName: dep.user || 'Trader Client',
       txId: dep.id,
       txType: dep.type || 'Deposit',
@@ -1244,15 +1448,14 @@ export default function AdminDashboardView({
 
     window.dispatchEvent(new CustomEvent('axi_email_trigger', { detail: payload }));
     logAuditAction('Deposit Clearance', dep.user || dep.userEmail || dep.id, `Approved transaction #${dep.id} (${dep.type || 'Deposit'}) of ${(dep.amount || 0).toLocaleString()} USD via ${dep.method || 'Gateway'}`);
-    showToast(`📧 EMAIL DISPATCHED: "Transaction #${dep.id} APPROVED" sent to ${payload.recipientEmail}`, 'success');
+    showToast(`✅ Deposit #${dep.id} APPROVED & credited $${(dep.amount || 0).toLocaleString()} to user. Email sent to ${payload.recipientEmail}`, 'success');
   };
 
   const handleRejectDeposit = (dep: any) => {
     updateTransactionStatus(dep.id, 'Rejected');
 
-    if (dep.type === 'Withdrawal') {
-      setLiveBalance(liveBalance + dep.amount);
-    }
+    // NOTE: For withdrawals, use handleRejectWithdrawal which refunds the specific user.
+    // This handler is for deposit rejections only — no balance change needed.
 
     const payload = {
       id: `email_${Date.now()}`,
@@ -1278,6 +1481,84 @@ export default function AdminDashboardView({
     updateTransactionStatus(dep.id, 'Proof Requested');
     logAuditAction('Compliance Override', dep.user || dep.userEmail || dep.id, `Requested additional compliance proof for transaction #${dep.id}`, 'Flagged');
     showToast(`⚠️ Requested additional proof for deposit ${dep.id}. User alerted.`, 'info');
+  };
+
+  // Withdrawal approval — marks withdrawal as Approved/Processed.
+  // Balance was already deducted at withdrawal request time (FundsView), so no credit/debit here.
+  const handleApproveWithdrawal = async (dep: any) => {
+    updateTransactionStatus(dep.id, 'Approved');
+
+    const payload = {
+      id: `email_${Date.now()}`,
+      recipientEmail: dep.userEmail || dep.email || 'trader@axi.com',
+      recipientName: dep.user || 'Trader Client',
+      txId: dep.id,
+      txType: 'Withdrawal',
+      type: 'Withdrawal',
+      amount: Math.abs(dep.amount || 0),
+      status: 'Approved',
+      timestamp: new Date().toISOString().replace('T', ' ').substring(0, 16) + ' UTC',
+      method: dep.method || 'Bank Wire / Card',
+      refCode: dep.refCode
+    };
+
+    window.dispatchEvent(new CustomEvent('axi_email_trigger', { detail: payload }));
+    logAuditAction('Deposit Clearance', dep.user || dep.userEmail || dep.id, `Approved withdrawal #${dep.id} of ${Math.abs(dep.amount || 0).toLocaleString()} USD via ${dep.method || 'Gateway'}`);
+    showToast(`✅ Withdrawal #${dep.id} APPROVED & marked as processed. Funds dispatched to user. Email sent to ${payload.recipientEmail}`, 'success');
+  };
+
+  // Withdrawal rejection — refunds the SPECIFIC user's balance (reversing the request-time deduction).
+  const handleRejectWithdrawal = async (dep: any) => {
+    updateTransactionStatus(dep.id, 'Rejected');
+
+    // Refund the specific user's balance
+    const refundAmount = Math.abs(Number(dep.amount) || 0);
+    const targetUser = recentUsers.find(u =>
+      u.email === dep.userEmail || u.email === dep.email || u.id === dep.userId
+    );
+
+    if (refundAmount > 0 && targetUser) {
+      try {
+        const res = await fetch('/api/users/' + encodeURIComponent(targetUser.id || dep.userId || dep.userEmail || dep.email || ''), {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ balance: (targetUser.balance ?? 0) + refundAmount, reason: 'Withdrawal rejected - funds refunded' })
+        });
+        if (res.ok) {
+          setRecentUsers(users => users.map(u =>
+            (u.email === dep.userEmail || u.email === dep.email || u.id === dep.userId)
+              ? { ...u, balance: (u.balance ?? 0) + refundAmount }
+              : u
+          ));
+        }
+      } catch (e) {
+        console.warn('Server withdrawal refund sync:', e);
+      }
+
+      try {
+        const userDocRef = doc(db, 'users', targetUser.id);
+        await setDoc(userDocRef, { liveBalance: (targetUser.balance ?? 0) + refundAmount, updatedAt: Date.now() }, { merge: true });
+      } catch (e) { console.warn('Firestore withdrawal refund sync:', e); }
+    }
+
+    const payload = {
+      id: `email_${Date.now()}`,
+      recipientEmail: dep.userEmail || dep.email || 'trader@axi.com',
+      recipientName: dep.user || 'Trader Client',
+      txId: dep.id,
+      txType: 'Withdrawal',
+      type: 'Withdrawal',
+      amount: Math.abs(dep.amount || 0),
+      status: 'Rejected',
+      timestamp: new Date().toISOString().replace('T', ' ').substring(0, 16) + ' UTC',
+      method: dep.method || 'Bank Wire / Card',
+      refCode: dep.refCode,
+      reason: 'Withdrawal request declined. Funds have been refunded to your account balance.'
+    };
+
+    window.dispatchEvent(new CustomEvent('axi_email_trigger', { detail: payload }));
+    logAuditAction('Deposit Clearance', dep.user || dep.userEmail || dep.id, `Rejected withdrawal #${dep.id} of ${Math.abs(dep.amount || 0).toLocaleString()} USD — funds refunded`, 'Rejected');
+    showToast(`📭 Withdrawal #${dep.id} REJECTED. $${refundAmount.toLocaleString()} refunded to user balance. Email sent to ${payload.recipientEmail}`, 'info');
   };
 
   const handleManualCredit = (e: React.FormEvent) => {
@@ -2065,7 +2346,7 @@ export default function AdminDashboardView({
                 <div className="bg-[#00a65a] text-white rounded-lg shadow-md overflow-hidden flex flex-col justify-between">
                   <div className="p-5 flex justify-between items-center">
                     <div>
-                      <div className="text-4xl font-black">{recentUsers.length > 0 ? recentUsers.length : 102}</div>
+                      <div className="text-4xl font-black">{recentUsers.length}</div>
                       <div className="text-sm font-medium mt-1">Active Users</div>
                     </div>
                     <Users className="w-12 h-12 opacity-30" />
@@ -2083,7 +2364,7 @@ export default function AdminDashboardView({
                 <div className="bg-[#00c0ef] text-white rounded-lg shadow-md overflow-hidden flex flex-col justify-between">
                   <div className="p-5 flex justify-between items-center">
                     <div>
-                      <div className="text-4xl font-black">{kycDocs.filter(d => d.status !== 'Approved').length || 38}</div>
+                      <div className="text-4xl font-black">{kycDocs.filter(d => d.status !== 'Approved').length}</div>
                       <div className="text-sm font-medium mt-1">Pending Verification</div>
                     </div>
                     <ShieldCheck className="w-12 h-12 opacity-30" />
@@ -2101,7 +2382,7 @@ export default function AdminDashboardView({
                 <div className="bg-[#f39c12] text-white rounded-lg shadow-md overflow-hidden flex flex-col justify-between">
                   <div className="p-5 flex justify-between items-center">
                     <div>
-                      <div className="text-4xl font-black">{transactions.filter(t => t.type === 'Deposit' && (t.status === 'Pending Verification' || t.status === 'Pending' || t.status === 'Under Review')).length}</div>
+                      <div className="text-4xl font-black">{transactions.filter(t => t.type === 'Deposit' && (t.status === 'Pending Verification' || t.status === 'Pending' || t.status === 'Under Review' || t.status === 'Pending Admin Credit')).length + stripePendingDeposits.length}</div>
                       <div className="text-sm font-medium mt-1">Pending Deposits</div>
                     </div>
                     <ArrowDownToLine className="w-12 h-12 opacity-30" />
@@ -2364,6 +2645,72 @@ export default function AdminDashboardView({
                 </div>
               </div>
 
+              {/* Pending Stripe Deposits — Admin Manual Credit Panel */}
+              <div className="bg-gradient-to-br from-amber-50 to-orange-50 border-2 border-amber-300 rounded-xl p-5 space-y-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <DollarSign className="w-5 h-5 text-amber-700" />
+                    <h3 className="text-sm font-black text-amber-900 uppercase tracking-wider">Pending Stripe Card Payments — Manual Credit Required</h3>
+                  </div>
+                  <span className="text-[10px] font-black uppercase bg-amber-600 text-white px-3 py-1 rounded-full">
+                    {stripePendingDeposits.length} Pending
+                  </span>
+                </div>
+                <p className="text-xs text-amber-800">
+                  These Stripe card payments have been collected but <strong>not yet credited</strong> to user balances. Click <strong>Credit User</strong> to add the exact paid amount to the user's trading balance. Stripe never touches user balances — only admin does.
+                </p>
+                {stripePendingDeposits.length === 0 ? (
+                  <div className="bg-white border border-amber-200 rounded-lg p-4 text-center text-xs text-slate-500">
+                    ✓ No pending Stripe deposits. All received card payments have been credited.
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto bg-white border border-amber-200 rounded-lg">
+                    <table className="w-full text-left border-collapse">
+                      <thead>
+                        <tr className="bg-amber-100 border-b border-amber-200 text-[10px] text-amber-800 uppercase tracking-wider">
+                          <th className="p-3 font-bold">Deposit ID</th>
+                          <th className="p-3 font-bold">User</th>
+                          <th className="p-3 font-bold">Stripe Ref</th>
+                          <th className="p-3 font-bold">Amount</th>
+                          <th className="p-3 font-bold">Method</th>
+                          <th className="p-3 font-bold">Received</th>
+                          <th className="p-3 text-right font-bold">Admin Action</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {stripePendingDeposits.map(dep => (
+                          <tr key={dep.id} className="border-b border-amber-100 hover:bg-amber-50/50">
+                            <td className="p-3 text-[10px] font-mono font-bold text-slate-700">{dep.id}</td>
+                            <td className="p-3 text-xs font-bold text-slate-900">{dep.userEmail || dep.user?.email || 'Unknown'}</td>
+                            <td className="p-3 text-[10px] font-mono text-slate-600">{dep.stripeRef || 'N/A'}</td>
+                            <td className="p-3 text-sm font-black font-mono text-emerald-700">${(Number(dep.amount) || 0).toFixed(2)}</td>
+                            <td className="p-3 text-xs text-slate-600">{dep.method || 'Stripe Card'}</td>
+                            <td className="p-3 text-[10px] text-slate-500">{dep.receivedAt || dep.createdAt || '—'}</td>
+                            <td className="p-3 text-right whitespace-nowrap">
+                              <div className="flex items-center justify-end gap-2">
+                                <button
+                                  onClick={() => handleCreditStripeDeposit(dep)}
+                                  disabled={creditingDepositId === dep.id}
+                                  className="bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-400 text-white text-[10px] font-bold px-3 py-1.5 rounded flex items-center gap-1 transition cursor-pointer disabled:cursor-not-allowed"
+                                >
+                                  <CheckCircle2 className="w-3 h-3" /> {creditingDepositId === dep.id ? 'Crediting...' : 'Credit User'}
+                                </button>
+                                <button
+                                  onClick={() => handleDismissStripeDeposit(dep)}
+                                  className="bg-slate-100 hover:bg-slate-200 text-slate-600 text-[10px] font-bold px-2 py-1.5 rounded transition cursor-pointer"
+                                >
+                                  Dismiss
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+
               {/* Search & Filter Bar */}
               <div className="flex flex-col sm:flex-row gap-3">
                 <div className="flex-1 relative">
@@ -2601,7 +2948,7 @@ export default function AdminDashboardView({
                       })
                       .length === 0 ? (
                       <tr>
-                        <td colSpan={7} className="p-8 text-center text-slate-500">No deposit/withdrawal requests match your filters.</td>
+                        <td colSpan={7} className="p-8 text-center text-slate-500">No withdrawal requests match your filters.</td>
                       </tr>
                     ) : (
                       transactions
@@ -2652,10 +2999,10 @@ export default function AdminDashboardView({
                             {(dep.status === 'Pending Verification' || dep.status === 'Pending' || dep.status === 'Pending Admin Instructions' || dep.status === 'Proof Requested') ? (
                               <div className="flex items-center justify-end gap-2">
                                 <button 
-                                  onClick={() => handleApproveDeposit(dep)}
+                                  onClick={() => handleApproveWithdrawal(dep)}
                                   className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold px-3 py-1.5 rounded flex items-center gap-1 shadow-sm transition"
                                 >
-                                  <CheckCircle2 className="w-3.5 h-3.5" /> Approve & Credit
+                                  <CheckCircle2 className="w-3.5 h-3.5" /> Approve Withdrawal
                                 </button>
                                 <button 
                                   onClick={() => handleRequestProof(dep)}
@@ -2664,7 +3011,7 @@ export default function AdminDashboardView({
                                   Ask Proof
                                 </button>
                                 <button 
-                                  onClick={() => handleRejectDeposit(dep)}
+                                  onClick={() => handleRejectWithdrawal(dep)}
                                   className="bg-rose-50 hover:bg-rose-100 text-rose-700 text-xs font-bold px-2.5 py-1.5 rounded transition"
                                 >
                                   Reject
@@ -3640,7 +3987,12 @@ export default function AdminDashboardView({
                     <h4 className="font-bold text-slate-800 text-sm">Automated Trading Service Status</h4>
                     <p className="text-xs text-slate-500">Allow users to activate automated trading bots on their accounts.</p>
                   </div>
-                  <input type="checkbox" defaultChecked className="w-5 h-5 text-indigo-600 rounded cursor-pointer" />
+                  <input
+                    type="checkbox"
+                    checked={tradingBotSettings.automatedTradingEnabled}
+                    onChange={e => setTradingBotSettings(prev => ({ ...prev, automatedTradingEnabled: e.target.checked }))}
+                    className="w-5 h-5 text-indigo-600 rounded cursor-pointer"
+                  />
                 </div>
 
                 <div className="flex items-center justify-between p-4 bg-white rounded-lg border border-slate-200">
@@ -3648,23 +4000,45 @@ export default function AdminDashboardView({
                     <h4 className="font-bold text-slate-800 text-sm">Max Bot Leverage Limit</h4>
                     <p className="text-xs text-slate-500">Cap max leverage used by bots on retail accounts.</p>
                   </div>
-                  <select className="border border-slate-300 rounded px-3 py-1.5 text-xs font-bold">
+                  <select
+                    value={tradingBotSettings.maxBotLeverage}
+                    onChange={e => setTradingBotSettings(prev => ({ ...prev, maxBotLeverage: e.target.value }))}
+                    className="border border-slate-300 rounded px-3 py-1.5 text-xs font-bold"
+                  >
                     <option value="1:100">1:100</option>
                     <option value="1:200">1:200</option>
-                    <option value="1:500" defaultValue="1:500">1:500 (Max)</option>
+                    <option value="1:500">1:500 (Max)</option>
                   </select>
                 </div>
 
                 <div className="flex items-center justify-between p-4 bg-white rounded-lg border border-slate-200">
                   <div>
                     <h4 className="font-bold text-slate-800 text-sm">Emergency Market Circuit Breaker</h4>
-                    <p className="text-xs text-slate-500">Automatically pause all bots if daily drawdown exceeds 15%.</p>
+                    <p className="text-xs text-slate-500">Automatically pause all bots if daily drawdown exceeds {tradingBotSettings.circuitBreakerThreshold}%.</p>
                   </div>
-                  <input type="checkbox" defaultChecked className="w-5 h-5 text-indigo-600 rounded cursor-pointer" />
+                  <input
+                    type="checkbox"
+                    checked={tradingBotSettings.circuitBreakerEnabled}
+                    onChange={e => setTradingBotSettings(prev => ({ ...prev, circuitBreakerEnabled: e.target.checked }))}
+                    className="w-5 h-5 text-indigo-600 rounded cursor-pointer"
+                  />
                 </div>
 
-                <button 
-                  onClick={() => showToast('Global trading bot settings saved.', 'success')}
+                <div className="flex items-center justify-between p-4 bg-white rounded-lg border border-slate-200">
+                  <div>
+                    <h4 className="font-bold text-slate-800 text-sm">Circuit Breaker Drawdown Threshold (%)</h4>
+                    <p className="text-xs text-slate-500">Set the daily drawdown percentage that triggers the circuit breaker.</p>
+                  </div>
+                  <input
+                    type="number"
+                    value={tradingBotSettings.circuitBreakerThreshold}
+                    onChange={e => setTradingBotSettings(prev => ({ ...prev, circuitBreakerThreshold: Number(e.target.value) }))}
+                    className="border border-slate-300 rounded px-3 py-1.5 text-xs font-bold w-20 text-center"
+                  />
+                </div>
+
+                <button
+                  onClick={saveTradingBotSettings}
                   className="bg-slate-900 hover:bg-slate-800 text-white font-bold px-6 py-2.5 rounded-lg text-sm transition cursor-pointer"
                 >
                   Save Global Bot Settings
@@ -3744,8 +4118,8 @@ export default function AdminDashboardView({
                 <p className="text-xs text-slate-500 mt-1">Update administrator password for security compliance.</p>
               </div>
 
-              <form 
-                onSubmit={e => {
+              <form
+                onSubmit={async e => {
                   e.preventDefault();
                   if (!currentPassword || !newPassword || !confirmPassword) {
                     showToast('Please fill out all password fields.', 'error');
@@ -3755,10 +4129,28 @@ export default function AdminDashboardView({
                     showToast('New passwords do not match.', 'error');
                     return;
                   }
-                  showToast('🔐 Admin password updated successfully!', 'success');
-                  setCurrentPassword('');
-                  setNewPassword('');
-                  setConfirmPassword('');
+                  if (newPassword.length < 6) {
+                    showToast('New password must be at least 6 characters.', 'error');
+                    return;
+                  }
+                  try {
+                    const res = await fetch('/api/admin/change-password', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ currentPassword, newPassword })
+                    });
+                    const data = await res.json();
+                    if (res.ok && data.success) {
+                      showToast('🔐 Admin password updated successfully on server!', 'success');
+                      setCurrentPassword('');
+                      setNewPassword('');
+                      setConfirmPassword('');
+                    } else {
+                      showToast(`❌ ${data.error || 'Failed to update password'}`, 'error');
+                    }
+                  } catch (err: any) {
+                    showToast(`Error: ${err.message}`, 'error');
+                  }
                 }}
                 className="bg-slate-50 border border-slate-200 rounded-xl p-6 max-w-md space-y-4"
               >
@@ -3831,15 +4223,35 @@ export default function AdminDashboardView({
                       <tr key={p.id} className="border-b border-slate-100 hover:bg-slate-50">
                         <td className="p-4 font-bold text-slate-900 text-sm font-mono">{p.symbol}</td>
                         <td className="p-4 text-xs text-slate-600">{p.category}</td>
-                        <td className="p-4 text-xs font-mono font-bold text-slate-800">{p.spreadPips}</td>
-                        <td className="p-4 text-xs font-mono font-bold text-slate-800">{p.leverage}</td>
+                        <td className="p-4 text-xs font-mono font-bold text-slate-800">
+                          <input
+                            type="number"
+                            step="0.01"
+                            value={p.spreadPips}
+                            onChange={e => updatePairField(p.id, 'spreadPips', Number(e.target.value))}
+                            className="border border-slate-300 rounded px-2 py-1 text-xs w-20 text-right"
+                          />
+                        </td>
+                        <td className="p-4 text-xs font-mono font-bold text-slate-800">
+                          <select
+                            value={p.leverage}
+                            onChange={e => updatePairField(p.id, 'leverage', e.target.value)}
+                            className="border border-slate-300 rounded px-2 py-1 text-xs"
+                          >
+                            <option value="1:20">1:20</option>
+                            <option value="1:50">1:50</option>
+                            <option value="1:100">1:100</option>
+                            <option value="1:200">1:200</option>
+                            <option value="1:500">1:500</option>
+                          </select>
+                        </td>
                         <td className="p-4">
                           <span className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded ${p.active ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'}`}>
                             {p.active ? 'Active' : 'Disabled'}
                           </span>
                         </td>
                         <td className="p-4 text-right">
-                          <button 
+                          <button
                             onClick={() => togglePairStatus(p.id)}
                             className="text-xs font-bold text-indigo-600 hover:underline cursor-pointer"
                           >
@@ -3850,6 +4262,14 @@ export default function AdminDashboardView({
                     ))}
                   </tbody>
                 </table>
+              </div>
+              <div className="flex justify-end">
+                <button
+                  onClick={saveTradingPairsToServer}
+                  className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold px-6 py-2.5 rounded-lg text-sm transition cursor-pointer flex items-center gap-2"
+                >
+                  <Save className="w-4 h-4" /> Save Trading Pairs
+                </button>
               </div>
             </motion.div>
           )}
@@ -3877,8 +4297,23 @@ export default function AdminDashboardView({
                     {currencies.map(c => (
                       <tr key={c.code} className="border-b border-slate-100 hover:bg-slate-50">
                         <td className="p-4 font-bold text-slate-900 text-sm">{c.name} ({c.code})</td>
-                        <td className="p-4 font-bold font-mono text-slate-800">{c.symbol}</td>
-                        <td className="p-4 font-mono text-xs font-bold text-slate-700">{c.rateToUsd}</td>
+                        <td className="p-4 font-bold font-mono text-slate-800">
+                          <input
+                            type="text"
+                            value={c.symbol}
+                            onChange={e => updateCurrencyField(c.code, 'symbol', e.target.value)}
+                            className="border border-slate-300 rounded px-2 py-1 text-xs w-16 text-center"
+                          />
+                        </td>
+                        <td className="p-4 font-mono text-xs font-bold text-slate-700">
+                          <input
+                            type="number"
+                            step="0.0001"
+                            value={c.rateToUsd}
+                            onChange={e => updateCurrencyField(c.code, 'rateToUsd', Number(e.target.value))}
+                            className="border border-slate-300 rounded px-2 py-1 text-xs w-24 text-right"
+                          />
+                        </td>
                         <td className="p-4">
                           {c.isBase ? (
                             <span className="text-[10px] font-bold uppercase bg-blue-100 text-blue-800 px-2.5 py-1 rounded">Primary Base</span>
@@ -3890,6 +4325,14 @@ export default function AdminDashboardView({
                     ))}
                   </tbody>
                 </table>
+              </div>
+              <div className="flex justify-end">
+                <button
+                  onClick={saveCurrenciesToServer}
+                  className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-6 py-2.5 rounded-lg text-sm transition cursor-pointer flex items-center gap-2"
+                >
+                  <Save className="w-4 h-4" /> Save Currency Rates
+                </button>
               </div>
             </motion.div>
           )}
@@ -3903,12 +4346,49 @@ export default function AdminDashboardView({
                 <p className="text-xs text-slate-500 mt-1">Approve, feature, or review Master Traders for copy trading platform.</p>
               </div>
 
+              {/* Add Master Trader Form */}
+              <form onSubmit={handleAddCopyTrader} className="bg-slate-50 border border-slate-200 rounded-xl p-5 grid grid-cols-1 md:grid-cols-5 gap-3 items-end">
+                <div>
+                  <label className="text-[10px] font-bold text-slate-600 uppercase block mb-1">Trader Name</label>
+                  <input type="text" value={newTraderName} onChange={e => setNewTraderName(e.target.value)} placeholder="e.g. Marcus Chen" className="w-full border border-slate-300 rounded-lg p-2 text-xs" />
+                </div>
+                <div>
+                  <label className="text-[10px] font-bold text-slate-600 uppercase block mb-1">Win Rate (%)</label>
+                  <input type="number" step="0.1" value={newTraderWinRate} onChange={e => setNewTraderWinRate(e.target.value)} placeholder="e.g. 87.5" className="w-full border border-slate-300 rounded-lg p-2 text-xs" />
+                </div>
+                <div>
+                  <label className="text-[10px] font-bold text-slate-600 uppercase block mb-1">30-Day ROI (%)</label>
+                  <input type="number" step="0.1" value={newTraderRoi} onChange={e => setNewTraderRoi(e.target.value)} placeholder="e.g. 42.3" className="w-full border border-slate-300 rounded-lg p-2 text-xs" />
+                </div>
+                <div>
+                  <label className="text-[10px] font-bold text-slate-600 uppercase block mb-1">Copiers / Risk</label>
+                  <div className="flex gap-2">
+                    <input type="number" value={newTraderCopiers} onChange={e => setNewTraderCopiers(e.target.value)} placeholder="Copiers" className="w-1/2 border border-slate-300 rounded-lg p-2 text-xs" />
+                    <select value={newTraderRisk} onChange={e => setNewTraderRisk(e.target.value)} className="w-1/2 border border-slate-300 rounded-lg p-2 text-xs">
+                      <option>Low</option><option>Medium</option><option>High</option>
+                    </select>
+                  </div>
+                </div>
+                <button type="submit" className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs px-4 py-2.5 rounded-lg flex items-center justify-center gap-1.5 transition cursor-pointer">
+                  <PlusCircle className="w-4 h-4" /> Add Trader
+                </button>
+              </form>
+
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                {masterTraders.map(trader => (
+                {masterTraders.length === 0 ? (
+                  <div className="col-span-full flex flex-col items-center justify-center text-center py-10 px-4 border border-dashed border-slate-200 rounded-xl bg-slate-50/50">
+                    <Users className="w-8 h-8 text-slate-300 mb-3" />
+                    <h4 className="text-sm font-bold text-slate-700 mb-1">No master traders onboarded yet</h4>
+                    <p className="text-xs text-slate-500 max-w-md leading-relaxed">
+                      Use the form above to add verified master traders. All traders are persisted to the server.
+                    </p>
+                  </div>
+                ) : (
+                  masterTraders.map(trader => (
                   <div key={trader.id} className="bg-white border border-slate-200 rounded-xl p-5 space-y-3 relative shadow-xs">
                     <div className="flex justify-between items-start">
                       <h3 className="font-bold text-slate-900 text-sm">{trader.name}</h3>
-                      <span className="text-[10px] font-bold uppercase bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded">
+                      <span className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded ${trader.featured !== false ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-100 text-slate-500'}`}>
                         {trader.winRate} Win
                       </span>
                     </div>
@@ -3917,18 +4397,26 @@ export default function AdminDashboardView({
                       <p><strong>30-Day ROI:</strong> <span className="text-emerald-600 font-bold">{trader.roi30d}</span></p>
                       <p><strong>Total Copiers:</strong> {trader.copiers}</p>
                       <p><strong>Risk Index:</strong> {trader.risk}</p>
+                      <p><strong>Featured:</strong> {trader.featured !== false ? 'Yes' : 'No'}</p>
                     </div>
 
                     <div className="pt-2 border-t border-slate-100 flex justify-end gap-2">
-                      <button 
-                        onClick={() => showToast(`Master Trader ${trader.name} status updated.`, 'info')}
+                      <button
+                        onClick={() => handleToggleTraderFeature(trader.id)}
                         className="text-xs font-bold text-indigo-600 hover:underline cursor-pointer"
                       >
-                        Manage Settings
+                        {trader.featured !== false ? 'Unfeature' : 'Feature'}
+                      </button>
+                      <button
+                        onClick={() => handleRemoveCopyTrader(trader.id)}
+                        className="text-xs font-bold text-rose-600 hover:underline cursor-pointer"
+                      >
+                        Remove
                       </button>
                     </div>
                   </div>
-                ))}
+                  ))
+                )}
               </div>
             </motion.div>
           )}
@@ -3937,7 +4425,7 @@ export default function AdminDashboardView({
               <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                 <div>
                   <h2 className="text-xl font-bold text-slate-900">Manual Portfolio Adjustment</h2>
-                  <p className="text-xs text-slate-500">Stimulate user portfolio balance by manually adjusting their live trading capital.</p>
+                  <p className="text-xs text-slate-500">Adjust a user's portfolio balance by manually setting their live trading capital.</p>
                 </div>
                 <div className="bg-slate-100 text-slate-700 text-sm font-bold px-4 py-2 rounded-lg border border-slate-200 font-mono">
                   Global Live Balance: ${liveBalance.toLocaleString(undefined, { minimumFractionDigits: 2 })}
@@ -4009,7 +4497,7 @@ export default function AdminDashboardView({
                   <h2 className="text-xl font-bold text-slate-900 flex items-center gap-2">
                     <ShieldCheck className="w-5 h-5 text-emerald-600" /> Submitted User Documents & Verification Review
                   </h2>
-                  <p className="text-xs text-slate-500 mt-1">Review government IDs and utility bills submitted by traders. Approving updates user status to Verified Account and triggers live trading balance update.</p>
+                  <p className="text-xs text-slate-500 mt-1">Review government IDs and utility bills submitted by traders. Approving updates user status to Verified Account. Balance is NOT auto-credited — use Manual Credit or Deposit approval to credit funds.</p>
                 </div>
                 <span className="text-xs font-bold bg-amber-100 text-amber-900 border border-amber-300 px-3 py-1.5 rounded-full">
                   {kycDocs.filter(d => d.status === 'Under Review').length} Pending Documents
@@ -4054,10 +4542,10 @@ export default function AdminDashboardView({
                         {docItem.status === 'Under Review' ? (
                           <>
                             <button
-                              onClick={() => handleApproveKYC(docItem, 1000)}
+                              onClick={() => handleApproveKYC(docItem, 0)}
                               className="flex-1 lg:flex-initial bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs uppercase tracking-wider px-4 py-2.5 rounded-lg transition flex items-center justify-center gap-1.5 shadow-xs cursor-pointer"
                             >
-                              <CheckCircle2 className="w-4 h-4" /> Approve & Update Live Balance
+                              <CheckCircle2 className="w-4 h-4" /> Approve Verification
                             </button>
                             <button
                               onClick={() => handleRejectKYC(docItem)}

@@ -1,4 +1,5 @@
 import { safeStorage } from '../utils/storage';
+import { auth } from '../firebase';
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { subscribePaymentConfig, subscribeSystemConfigWallets, defaultCryptoWallets, defaultBankSettings } from '../services/paymentConfigService';
@@ -269,11 +270,16 @@ export default function QuickDepositModal({
     // the user is shown a clear error and returned to the method selection step.
     setIsProcessing(true);
     try {
+      // Identify the logged-in user so the webhook / verify-deposit flow can
+      // credit the correct account balance once Stripe confirms the charge.
+      const currentUser = auth.currentUser;
+      const userId = currentUser?.uid || currentUser?.email || '';
+      const depositId = `DEP-${Date.now()}`;
       // 1. Preferred path: Stripe Checkout Session (hosted, supports card + Link + ACH)
       const checkoutRes = await fetch('/api/stripe/create-checkout-session', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ amount: numAmount, currency: 'usd', method: selectedMethod })
+        body: JSON.stringify({ amount: numAmount, currency: 'usd', method: selectedMethod, userId, depositId })
       });
       const checkoutData = await checkoutRes.json();
       if (checkoutRes.ok && checkoutData.url) {
@@ -286,7 +292,7 @@ export default function QuickDepositModal({
       const res = await fetch('/api/stripe/create-payment-intent', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ amount: numAmount, currency: "usd" })
+        body: JSON.stringify({ amount: numAmount, currency: "usd", userId, depositId })
       });
       const data = await res.json();
       if (res.ok && data.clientSecret) {

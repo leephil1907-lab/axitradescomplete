@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { 
   Users, Trophy, TrendingUp, ShieldCheck, ArrowUpRight, CheckCircle2, 
   AlertCircle, DollarSign, Filter, Search, Award, Sparkles, Sliders, 
-  RefreshCw, Check, X, ShieldAlert, Play, StopCircle, Eye, Layers, ChevronRight
+  RefreshCw, Check, X, ShieldAlert, Play, StopCircle, Eye, Layers, ChevronRight, Loader2
 } from 'lucide-react';
 import { TradeOrder, DisplayCurrency } from '../types';
 import { sendTelegramAlert } from '../utils/telegram';
@@ -37,143 +37,8 @@ export interface LeaderboardTrader {
   }[];
 }
 
-export const LEADERBOARD_MASTERS: LeaderboardTrader[] = [
-  {
-    id: 'trader-alexandre',
-    rank: 1,
-    name: 'Alexandre G. (AlgoFX)',
-    handle: '@Alexandre_AlphaFX',
-    avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
-    country: 'France',
-    countryFlag: '🇫🇷',
-    badge: 'Master Funded Trader',
-    roiYear: 284.5,
-    winRate: 86.4,
-    copiers: 4120,
-    riskScore: 3,
-    maxDrawdown: -5.2,
-    allocatedCapitalTotal: '$2.45M',
-    strategy: 'Quantitative EUR/USD Trend Momentum & Breakouts',
-    assetFocus: 'EURUSD, XAUUSD, GBPUSD',
-    monthlyPerformance: [14.2, 11.5, 18.3, -1.8, 22.1, 15.4, 19.8, 12.0, 21.4, 25.8, 14.1, 18.9],
-    openPositions: [
-      { symbol: 'EURUSD', type: 'BUY', volume: 1.00, entryPrice: 1.0845, floatingPnL: 210.00, stopLoss: 1.0800, takeProfit: 1.0950 },
-      { symbol: 'XAUUSD', type: 'BUY', volume: 0.30, entryPrice: 2338.20, floatingPnL: 450.00, stopLoss: 2320.00, takeProfit: 2380.00 },
-    ],
-  },
-  {
-    id: 'trader-marcus',
-    rank: 2,
-    name: 'Marcus Vance',
-    handle: '@Quant_Vance',
-    avatarUrl: 'https://images.unsplash.com/photo-1560250097-0b93528c311a?w=150&auto=format&fit=crop&q=80',
-    country: 'United States',
-    countryFlag: '🇺🇸',
-    badge: 'Top ROI 2026',
-    roiYear: 412.8,
-    winRate: 91.5,
-    copiers: 5890,
-    riskScore: 5,
-    maxDrawdown: -9.8,
-    allocatedCapitalTotal: '$3.82M',
-    strategy: 'AI High-Frequency Algorithmic Scalping & Arbitrage',
-    assetFocus: 'BTCUSD, USDJPY, US30',
-    monthlyPerformance: [28.1, 21.5, 34.2, 16.0, 31.6, -4.2, 36.4, 24.0, 32.8, 41.1, 22.2, 30.5],
-    openPositions: [
-      { symbol: 'BTCUSD', type: 'BUY', volume: 0.20, entryPrice: 66800, floatingPnL: 940.00, stopLoss: 65000, takeProfit: 71000 },
-      { symbol: 'USDJPY', type: 'BUY', volume: 1.50, entryPrice: 150.90, floatingPnL: 310.00, stopLoss: 149.80, takeProfit: 153.00 },
-    ],
-  },
-  {
-    id: 'trader-sven',
-    rank: 3,
-    name: 'Sven K.',
-    handle: '@Sven_DaxSwing',
-    avatarUrl: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&auto=format&fit=crop&q=80',
-    country: 'Germany',
-    countryFlag: '🇩🇪',
-    badge: 'Pro CFD Scalper',
-    roiYear: 198.4,
-    winRate: 82.1,
-    copiers: 2840,
-    riskScore: 2,
-    maxDrawdown: -4.1,
-    allocatedCapitalTotal: '$1.60M',
-    strategy: 'European Market Open Breakouts & Index Momentum',
-    assetFocus: 'GER40, EURUSD, XAUUSD',
-    monthlyPerformance: [9.5, 11.2, 14.0, 8.8, 16.2, 12.1, 14.5, 10.9, 15.4, 18.0, 13.8, 14.2],
-    openPositions: [
-      { symbol: 'GBPUSD', type: 'BUY', volume: 0.80, entryPrice: 1.2670, floatingPnL: 180.00, stopLoss: 1.2610, takeProfit: 1.2780 },
-    ],
-  },
-  {
-    id: 'trader-sofia',
-    rank: 4,
-    name: 'Sofia Al-Mansoor',
-    handle: '@Sofia_Commodities',
-    avatarUrl: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=150&auto=format&fit=crop&q=80',
-    country: 'United Arab Emirates',
-    countryFlag: '🇦🇪',
-    badge: 'Gold & Energy Master',
-    roiYear: 328.1,
-    winRate: 84.6,
-    copiers: 3150,
-    riskScore: 4,
-    maxDrawdown: -7.5,
-    allocatedCapitalTotal: '$2.90M',
-    strategy: 'Crude Oil & Spot Gold Supply-Demand Zone Trading',
-    assetFocus: 'XAUUSD, USOUSD, Brent',
-    monthlyPerformance: [21.0, 16.2, 28.5, -3.1, 29.0, 18.4, 26.2, 19.5, 27.1, 33.0, 17.6, 24.8],
-    openPositions: [
-      { symbol: 'XAUUSD', type: 'BUY', volume: 0.50, entryPrice: 2332.00, floatingPnL: 820.00, stopLoss: 2315.00, takeProfit: 2375.00 },
-      { symbol: 'USOUSD', type: 'BUY', volume: 2.00, entryPrice: 77.40, floatingPnL: 290.00, stopLoss: 75.50, takeProfit: 81.00 },
-    ],
-  },
-  {
-    id: 'trader-yuki',
-    rank: 5,
-    name: 'Yuki Takahashi',
-    handle: '@Yuki_TokyoCarry',
-    avatarUrl: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=150&auto=format&fit=crop&q=80',
-    country: 'Japan',
-    countryFlag: '🇯🇵',
-    badge: 'Low Risk Specialist',
-    roiYear: 164.2,
-    winRate: 88.9,
-    copiers: 1980,
-    riskScore: 2,
-    maxDrawdown: -3.6,
-    allocatedCapitalTotal: '$1.15M',
-    strategy: 'Asia-Pacific USD/JPY Carry Trade & Mean Reversion',
-    assetFocus: 'USDJPY, AUDJPY, Nikkei 225',
-    monthlyPerformance: [8.1, 9.5, 10.8, 7.2, 12.4, 11.0, 12.8, 9.4, 13.0, 14.5, 11.2, 12.6],
-    openPositions: [
-      { symbol: 'USDJPY', type: 'BUY', volume: 1.00, entryPrice: 151.10, floatingPnL: 240.00, stopLoss: 150.00, takeProfit: 153.50 },
-    ],
-  },
-  {
-    id: 'trader-elena',
-    rank: 6,
-    name: 'Elena Rostova',
-    handle: '@Elena_SpainFX',
-    avatarUrl: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150&auto=format&fit=crop&q=80',
-    country: 'Spain',
-    countryFlag: '🇪🇸',
-    badge: 'Incubator Leader',
-    roiYear: 142.1,
-    winRate: 79.5,
-    copiers: 1420,
-    riskScore: 3,
-    maxDrawdown: -6.1,
-    allocatedCapitalTotal: '$890K',
-    strategy: 'Forex Majors Range Breakouts & High Pip Efficiency',
-    assetFocus: 'EURUSD, GBPUSD, AUDUSD',
-    monthlyPerformance: [10.2, 8.4, 13.1, 6.5, 14.8, 9.8, 12.2, 8.9, 13.6, 15.2, 11.0, 13.5],
-    openPositions: [
-      { symbol: 'AUDUSD', type: 'BUY', volume: 0.75, entryPrice: 0.6580, floatingPnL: 115.00, stopLoss: 0.6530, takeProfit: 0.6670 },
-    ],
-  }
-];
+export const LEADERBOARD_MASTERS: LeaderboardTrader[] = [];
+
 
 interface CopiedTraderRecord {
   traderId: string;
@@ -211,6 +76,30 @@ export default function CopyTradeSection({
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedTraderForModal, setSelectedTraderForModal] = useState<LeaderboardTrader | null>(null);
 
+  // Verified master traders — fetched live from the backend leaderboard store.
+  // No fabricated/premade traders are ever shown; the list is empty until real
+  // verified traders are added by the admin team.
+  const [traders, setTraders] = useState<LeaderboardTrader[]>([]);
+  const [tradersLoading, setTradersLoading] = useState<boolean>(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    const loadTraders = () => {
+      setTradersLoading(true);
+      fetch('/api/leaderboard')
+        .then(r => r.ok ? r.json() : null)
+        .then(j => {
+          if (cancelled) return;
+          const list: LeaderboardTrader[] = Array.isArray(j?.traders) ? j.traders : [];
+          setTraders(list);
+          setTradersLoading(false);
+        })
+        .catch(() => { if (!cancelled) { setTraders([]); setTradersLoading(false); } });
+    };
+    loadTraders();
+    return () => { cancelled = true; };
+  }, []);
+
   // Copy modal settings
   const [allocationAmount, setAllocationAmount] = useState<number>(1000);
   const [lotMultiplier, setLotMultiplier] = useState<number>(1.0);
@@ -236,7 +125,7 @@ export default function CopyTradeSection({
   }, [copiedTraders]);
 
   // Filtered leaderboard
-  const filteredTraders = LEADERBOARD_MASTERS.filter(t => {
+  const filteredTraders = traders.filter(t => {
     if (selectedAssetFilter === 'Forex' && !t.assetFocus.includes('EUR') && !t.assetFocus.includes('GBP') && !t.assetFocus.includes('JPY')) return false;
     if (selectedAssetFilter === 'Gold/Commodities' && !t.assetFocus.includes('XAU') && !t.assetFocus.includes('USO') && !t.assetFocus.includes('Brent')) return false;
     if (selectedAssetFilter === 'Crypto' && !t.assetFocus.includes('BTC') && !t.assetFocus.includes('ETH')) return false;
@@ -393,7 +282,7 @@ export default function CopyTradeSection({
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
             {copiedTraders.map(record => {
-              const master = LEADERBOARD_MASTERS.find(m => m.id === record.traderId);
+              const master = traders.find(m => m.id === record.traderId);
               return (
                 <div key={record.traderId} className="bg-white dark:bg-slate-900 border border-emerald-500/30 rounded-xl p-3 flex items-center justify-between shadow-xs">
                   <div className="flex items-center gap-3">
@@ -460,6 +349,27 @@ export default function CopyTradeSection({
       </div>
 
       {/* Leaderboard Cards Grid */}
+      {tradersLoading ? (
+        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-12 text-center shadow-xs">
+          <Loader2 className="w-8 h-8 mx-auto text-[#E3000F] animate-spin mb-3" />
+          <p className="font-bold text-sm text-slate-700 dark:text-slate-200">Loading verified master traders…</p>
+          <p className="text-xs text-slate-400 mt-1">Fetching the live Axi copy-trading leaderboard.</p>
+        </div>
+      ) : filteredTraders.length === 0 ? (
+        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-10 sm:p-14 text-center shadow-xs">
+          <div className="w-14 h-14 mx-auto rounded-2xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center mb-4">
+            <Trophy className="w-7 h-7 text-slate-400" />
+          </div>
+          <h3 className="text-base font-black text-slate-900 dark:text-white mb-2">
+            {traders.length === 0 ? 'No verified master traders available yet' : 'No traders match your filters'}
+          </h3>
+          <p className="text-xs text-slate-500 dark:text-slate-400 max-w-md mx-auto leading-relaxed">
+            {traders.length === 0
+              ? 'The Axi copy-trading leaderboard is populated only with real, compliance-verified master traders. Once verified traders are onboarded and approved by the admin team, they will appear here with their live track records for you to mirror.'
+              : 'Try selecting "All" categories or clearing your search term to see all available verified traders.'}
+          </p>
+        </div>
+      ) : (
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {filteredTraders.map(trader => {
           const copied = isTraderCopied(trader.id);
@@ -588,6 +498,7 @@ export default function CopyTradeSection({
           );
         })}
       </div>
+      )}
 
       {/* Copy Trade Modal */}
       <AnimatePresence>

@@ -165,38 +165,39 @@ class LiveMarketFeedService {
 
   private startCryptoWebSocket() {
     try {
-      // Connect to Binance multi-ticker WebSocket for zero-latency live crypto market pricing
-      const streams = [
-        'btcusdt@ticker',
-        'ethusdt@ticker',
-        'solusdt@ticker',
-        'xrpusdt@ticker',
-        'dogeusdt@ticker',
-        'adausdt@ticker',
-        'bnbusdt@ticker',
-        'avaxusdt@ticker',
-        'dotusdt@ticker',
-        'linkusdt@ticker',
-        'ltcusdt@ticker',
-        'trxusdt@ticker',
-        'tonusdt@ticker',
-        'nearusdt@ticker',
-        'suiusdt@ticker',
-        'shibusdt@ticker',
-        'pepeusdt@ticker'
-      ].join('/');
-
-      const wsUrl = `wss://stream.binance.com:9443/ws/${streams}`;
+      // Connect to Coinbase Exchange WebSocket for zero-latency live crypto pricing.
+      // Binance WS is geo-restricted in many hosting regions; Coinbase is globally
+      // accessible and returns accurate real-time last-price ticks.
+      const wsUrl = `wss://ws-feed.exchange.coinbase.com`;
       this.ws = new WebSocket(wsUrl);
+
+      const subProducts = [
+        'BTC-USD', 'ETH-USD', 'SOL-USD', 'XRP-USD', 'DOGE-USD', 'ADA-USD',
+        'BNB-USD', 'AVAX-USD', 'DOT-USD', 'LINK-USD', 'LTC-USD', 'TRX-USD',
+        'TON-USD', 'NEAR-USD', 'SUI-USD', 'SHIB-USD', 'PEPE-USD'
+      ];
+
+      this.ws.onopen = () => {
+        try {
+          this.ws?.send(JSON.stringify({
+            type: 'subscribe',
+            product_ids: subProducts,
+            channels: ['ticker']
+          }));
+        } catch (e) { /* ignore */ }
+      };
 
       this.ws.onmessage = (event) => {
         try {
           const data = JSON.parse(event.data);
-          if (data && data.s && data.c) {
-            const rawSym = data.s; // e.g. BTCUSDT
-            const appSym = rawSym.replace('USDT', 'USD');
-            const price = parseFloat(data.c);
-            const changePercent = parseFloat(data.P || data.p || '0');
+          // Coinbase ticker channel emits { type:'ticker', product_id:'BTC-USD', price:'...', ... }
+          if (data && data.type === 'ticker' && data.product_id && data.price) {
+            const rawSym = data.product_id; // e.g. BTC-USD
+            const appSym = rawSym.replace('-', '').replace('USD', 'USD'); // BTCUSD
+            const price = parseFloat(data.price);
+            // Coinbase ticker includes 24h open via 'open_24h' when available
+            const open24 = parseFloat(data.open_24h || '0');
+            const changePercent = open24 > 0 ? Number((((price - open24) / open24) * 100).toFixed(2)) : 0;
 
             if (price > 0 && this.currentQuotes[appSym]) {
               const oldPrice = this.currentQuotes[appSym].price;
@@ -213,7 +214,7 @@ class LiveMarketFeedService {
                 this.currentQuotes[appSym] = {
                   ...this.currentQuotes[appSym],
                   price,
-                  change: Number(changePercent.toFixed(2)),
+                  change: changePercent,
                   lastUpdated: Date.now(),
                   stale: false,
                   status: 'live',
@@ -229,7 +230,7 @@ class LiveMarketFeedService {
       };
 
       this.ws.onerror = () => {
-        // Fall back gracefully to REST polling
+        // Fall back gracefully to REST polling (server Kraken/Coinbase endpoint)
       };
 
       this.ws.onclose = () => {

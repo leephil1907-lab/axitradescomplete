@@ -168,16 +168,64 @@ app.post('/api/stripe/webhook', express.raw({ type: 'application/json' }), async
     }
   };
 
+  // Helper: record a completed Stripe payment for admin review.
+  // IMPORTANT: Stripe does NOT credit the user balance automatically. The payment
+  // is received into the merchant Stripe balance, and the admin is notified so the
+  // admin can manually credit the exact paid amount to the user's account.
+  const recordPaymentForAdmin = (email: string, amountUsd: number, refCode: string, method: string) => {
+    if (!email || amountUsd <= 0) return;
+    // Record a pending deposit entry for the admin to review & manually approve
+    const pendingDeposits = readDataFile<any[]>('pendingDeposits.json', []);
+    const entry = {
+      id: refCode,
+      userEmail: email,
+      user: appUsersStore.find(u => u.email.toLowerCase() === email.toLowerCase()),
+      amount: amountUsd,
+      method,
+      status: 'Payment Received — Awaiting Admin Credit',
+      stripeRef: refCode,
+      receivedAt: new Date().toISOString(),
+      creditedByAdmin: false
+    };
+    // Avoid duplicates by refCode
+    if (!pendingDeposits.find(d => d.id === refCode)) {
+      pendingDeposits.unshift(entry);
+      writeDataFile('pendingDeposits.json', pendingDeposits);
+    }
+    notifyTelegram(`💰 <b>STRIPE PAYMENT RECEIVED</b>\nAmount: $${amountUsd.toFixed(2)} USD\nMethod: ${method}\nUser: ${email}\nRef: ${refCode}\n\n✅ Funds received into Stripe balance.\n⚠️ ACTION REQUIRED: Admin must manually credit this amount to the user's account balance from the Admin Dashboard.`);
+  };
+
   switch (event.type) {
     case 'payment_intent.succeeded':
       const paymentIntent = event.data.object;
       console.log(`✅ PaymentIntent for ${paymentIntent.amount} was successful!`);
-      notifyTelegram(`💰 <b>PAYMENT RECEIVED</b>\nAmount: $${(paymentIntent.amount / 100).toFixed(2)} ${paymentIntent.currency.toUpperCase()}\nStatus: Success\n\nPlease manually update the user balance from the admin dashboard.`);
+      {
+        const piAmount = (paymentIntent.amount || 0) / 100;
+        const piCurrency = (paymentIntent.currency || 'usd').toUpperCase();
+        const piUserId = paymentIntent.metadata?.userId || '';
+        const piRef = `STRIPE-PI-${String(paymentIntent.id || '').slice(-8).toUpperCase()}`;
+        // Try to find user by metadata userId, then by receipt email
+        const piUser = piUserId ? appUsersStore.find(u => u.id === piUserId || u.email.toLowerCase() === piUserId.toLowerCase()) : null;
+        const piEmail = piUser?.email || paymentIntent.receipt_email || '';
+        if (piEmail) recordPaymentForAdmin(piEmail, piAmount, piRef, 'Card (PaymentIntent)');
+        else notifyTelegram(`💰 <b>STRIPE PAYMENT RECEIVED</b>\nAmount: $${piAmount.toFixed(2)} ${piCurrency}\nRef: ${piRef}\n\n⚠️ No matching user found — admin must verify manually and credit the correct account.`);
+      }
       break;
     case 'checkout.session.completed':
       const session = event.data.object;
       console.log(`✅ Checkout Session ${session.id} completed successfully!`);
-      notifyTelegram(`🛒 <b>CHECKOUT COMPLETED</b>\nAmount Total: $${(session.amount_total / 100).toFixed(2)} ${session.currency?.toUpperCase() || 'USD'}\nCustomer Details: ${session.customer_details?.email || 'N/A'}\n\nPlease manually update the user balance from the admin dashboard.`);
+      {
+        const csAmount = (session.amount_total || 0) / 100;
+        const csCurrency = (session.currency || 'usd').toUpperCase();
+        const csUserId = session.metadata?.userId || '';
+        const csEmail = session.customer_details?.email || session.metadata?.userEmail || '';
+        const csRef = `STRIPE-CS-${String(session.id || '').slice(-8).toUpperCase()}`;
+        // Find user by metadata userId or customer email
+        const csUser = csUserId ? appUsersStore.find(u => u.id === csUserId || u.email.toLowerCase() === csUserId.toLowerCase()) : null;
+        const finalEmail = csUser?.email || csEmail || '';
+        if (finalEmail) recordPaymentForAdmin(finalEmail, csAmount, csRef, 'Card (Checkout)');
+        else notifyTelegram(`💰 <b>STRIPE CHECKOUT COMPLETED</b>\nAmount: $${csAmount.toFixed(2)} ${csCurrency}\nRef: ${csRef}\n\n⚠️ No matching user found — admin must verify manually and credit the correct account.`);
+      }
       break;
     default:
       console.log(`Received Stripe event type ${event.type}`);
@@ -452,64 +500,91 @@ async function updateLiveMarkets() {
   const finnhubKey = process.env.FINNHUB_API_KEY;
   const now = Date.now();
 
-  // 1. Fetch Real-time Crypto quotes from public Binance REST API
+  // 1. Fetch Real-time Crypto quotes — Kraken (primary) + Coinbase (fallback).
+  //    Binance public API is geo-restricted in many hosting regions, so we use
+  //    Kraken's public ticker which returns accurate live last-price + 24h open
+  //    for all major USD pairs in a single request.
+  const cryptoUpdated = new Set<string>();
   try {
-    const symbolsJson = JSON.stringify(Object.keys(BINANCE_MAPPING));
-    const res = await fetch(`https://api.binance.com/api/v3/ticker/24hr?symbols=${encodeURIComponent(symbolsJson)}`, {
+    const krakenPairs = 'XBTUSD,ETHUSD,SOLUSD,XRPUSD,ADAUSD,DOGEUSD,LTCUSD,LINKUSD,DOTUSD,AVAXUSD,BNBUSD,TRXUSD,TONUSD,NEARUSD,SUIUSD,SHIBUSD,PEPEUSD';
+    const res = await fetch(`https://api.kraken.com/0/public/Ticker?pair=${krakenPairs}`, {
       headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)' },
-      signal: AbortSignal.timeout(3500)
+      signal: AbortSignal.timeout(4000)
     });
     if (res.ok) {
-      const cryptoData: any[] = await res.json();
-      for (const item of cryptoData) {
-        const sym = BINANCE_MAPPING[item.symbol];
-        if (sym && LIVE_MARKETS[sym]) {
-          const price = parseFloat(item.lastPrice);
-          const change = parseFloat(item.priceChangePercent);
+      const data: any = await res.json();
+      const result = data?.result || {};
+      // Kraken returns mangled pair names (XXBTZUSD etc.) — map by normalising
+      const krakenToInternal: Record<string, string> = {
+        'XXBTZUSD': 'BTCUSD', 'XBTUSD': 'BTCUSD',
+        'XETHZUSD': 'ETHUSD', 'ETHUSD': 'ETHUSD',
+        'SOLUSD': 'SOLUSD', 'XXRPZUSD': 'XRPUSD', 'XRPUSD': 'XRPUSD',
+        'ADAUSD': 'ADAUSD', 'XDGUSD': 'DOGEUSD', 'DOGEUSD': 'DOGEUSD',
+        'XLTCZUSD': 'LTCUSD', 'LTCUSD': 'LTCUSD', 'LINKUSD': 'LINKUSD',
+        'DOTUSD': 'DOTUSD', 'AVAXUSD': 'AVAXUSD', 'BNBUSD': 'BNBUSD',
+        'TRXUSD': 'TRXUSD', 'TONUSD': 'TONUSD', 'NEARUSD': 'NEARUSD',
+        'SUIUSD': 'SUIUSD', 'SHIBUSD': 'SHIBUSD', 'PEPEUSD': 'PEPEUSD'
+      };
+      for (const [krakenSym, ticker] of Object.entries(result)) {
+        const sym = krakenToInternal[krakenSym];
+        if (sym && LIVE_MARKETS[sym] && ticker) {
+          const t = ticker as any;
+          const price = parseFloat(t.c?.[0] || '0');   // last trade price
+          const open24 = parseFloat(t.o || '0');        // 24h open
           if (!isNaN(price) && price > 0) {
+            const change = open24 > 0 ? Number((((price - open24) / open24) * 100).toFixed(2)) : 0;
             LIVE_MARKETS[sym].price = price;
-            LIVE_MARKETS[sym].change = Number(change.toFixed(2));
+            LIVE_MARKETS[sym].change = change;
             LIVE_MARKETS[sym].bidDiff = - (price * 0.0001);
             LIVE_MARKETS[sym].askDiff = (price * 0.0001);
             LIVE_MARKETS[sym].spread = Number((price * 0.0002).toFixed(4));
             LIVE_MARKETS[sym].lastUpdated = now;
             LIVE_MARKETS[sym].stale = false;
             LIVE_MARKETS[sym].status = 'live';
-            LIVE_MARKETS[sym].source = 'Binance Spot API';
+            LIVE_MARKETS[sym].source = 'Kraken Live Spot';
+            cryptoUpdated.add(sym);
           }
         }
-      }
-      if (!activeMarketProviders.includes('Binance Spot API')) {
-        activeMarketProviders.push('Binance Spot API');
       }
     }
   } catch (err) {
-    // Secondary fallback: CoinCap Public API
-    try {
-      const ccRes = await fetch('https://api.coincap.io/v2/assets?limit=25', { signal: AbortSignal.timeout(3000) });
-      if (ccRes.ok) {
-        const ccData: any = await ccRes.json();
-        const map: Record<string, string> = {
-          'bitcoin': 'BTCUSD', 'ethereum': 'ETHUSD', 'solana': 'SOLUSD', 'ripple': 'XRPUSD',
-          'dogecoin': 'DOGEUSD', 'binance-coin': 'BNBUSD', 'cardano': 'ADAUSD', 'avalanche-2': 'AVAXUSD'
-        };
-        for (const asset of ccData?.data || []) {
-          const sym = map[asset.id];
-          if (sym && LIVE_MARKETS[sym]) {
-            const price = parseFloat(asset.priceUsd);
-            const change = parseFloat(asset.changePercent24Hr);
-            if (!isNaN(price) && price > 0) {
-              LIVE_MARKETS[sym].price = price;
-              LIVE_MARKETS[sym].change = Number(change.toFixed(2));
-              LIVE_MARKETS[sym].lastUpdated = now;
-              LIVE_MARKETS[sym].stale = false;
-              LIVE_MARKETS[sym].status = 'live';
-              LIVE_MARKETS[sym].source = 'CoinCap Real-Time API';
-            }
+    // Kraken failed — fall through to Coinbase single-pair fallback below
+  }
+
+  // Coinbase fallback for any crypto symbol not yet updated (or if Kraken failed)
+  if (cryptoUpdated.size < Object.keys(BINANCE_MAPPING).length) {
+    const coinbasePairs: Record<string, string> = {
+      'BTCUSD': 'BTC-USD', 'ETHUSD': 'ETH-USD', 'SOLUSD': 'SOL-USD', 'XRPUSD': 'XRP-USD',
+      'ADAUSD': 'ADA-USD', 'DOGEUSD': 'DOGE-USD', 'LTCUSD': 'LTC-USD', 'LINKUSD': 'LINK-USD',
+      'DOTUSD': 'DOT-USD', 'AVAXUSD': 'AVAX-USD', 'BNBUSD': 'BNB-USD', 'TRXUSD': 'TRX-USD',
+      'TONUSD': 'TON-USD', 'NEARUSD': 'NEAR-USD', 'SUIUSD': 'SUI-USD', 'MATICUSD': 'MATIC-USD'
+    };
+    for (const [internalSym, cbPair] of Object.entries(coinbasePairs)) {
+      if (cryptoUpdated.has(internalSym) || !LIVE_MARKETS[internalSym]) continue;
+      try {
+        const cbRes = await fetch(`https://api.coinbase.com/v2/prices/${cbPair}/spot`, {
+          signal: AbortSignal.timeout(2500)
+        });
+        if (cbRes.ok) {
+          const cbData: any = await cbRes.json();
+          const price = parseFloat(cbData?.data?.amount || '0');
+          if (!isNaN(price) && price > 0) {
+            LIVE_MARKETS[internalSym].price = price;
+            LIVE_MARKETS[internalSym].bidDiff = - (price * 0.0001);
+            LIVE_MARKETS[internalSym].askDiff = (price * 0.0001);
+            LIVE_MARKETS[internalSym].spread = Number((price * 0.0002).toFixed(4));
+            LIVE_MARKETS[internalSym].lastUpdated = now;
+            LIVE_MARKETS[internalSym].stale = false;
+            LIVE_MARKETS[internalSym].status = 'live';
+            LIVE_MARKETS[internalSym].source = 'Coinbase Live Spot';
+            cryptoUpdated.add(internalSym);
           }
         }
-      }
-    } catch (e2) {}
+      } catch (e3) { /* skip individual pair */ }
+    }
+  }
+  if (cryptoUpdated.size > 0 && !activeMarketProviders.includes('Kraken Live Spot')) {
+    activeMarketProviders.push('Kraken Live Spot');
   }
 
   // 2. Fetch Live Interbank Forex Rates from open.er-api.com (zero auth required, 100% real live global exchange rates)
@@ -687,6 +762,191 @@ app.get('/api/markets/status', (req, res) => {
   });
 });
 
+// ---------------------------------------------------------------------------
+// Economic Calendar — live data only, no hardcoded/sample events.
+// Primary source: Finnhub /calendar/economic (free tier, requires API key).
+// Secondary source: investing.com economic-calendar JSON API (public).
+// If neither is reachable the endpoint returns an empty list with a clear
+// `live` flag so the client never displays fabricated/sample data.
+// ---------------------------------------------------------------------------
+let economicCalendarCache: { data: any[]; fetchedAt: number } = { data: [], fetchedAt: 0 };
+
+function mapFinnhubImpact(impact: string): 'HIGH' | 'MEDIUM' | 'LOW' {
+  const v = (impact || '').toLowerCase();
+  if (v.includes('high') || v === '3' || v === 'high impact') return 'HIGH';
+  if (v.includes('medium') || v === '2' || v === 'medium impact') return 'MEDIUM';
+  return 'LOW';
+}
+
+async function fetchFinnhubEconomicCalendar(): Promise<any[]> {
+  const key = process.env.FINNHUB_API_KEY;
+  if (!key) return [];
+  const today = new Date();
+  const to = new Date(today.getTime() + 14 * 24 * 60 * 60 * 1000);
+  const fmt = (d: Date) => d.toISOString().slice(0, 10);
+  const url = `https://finnhub.io/api/v1/calendar/economic?from=${fmt(today)}&to=${fmt(to)}&token=${key}`;
+  const r = await fetch(url);
+  if (!r.ok) throw new Error(`Finnhub eco calendar ${r.status}`);
+  const j = (await r.json()) as any;
+  const events = Array.isArray(j?.economicCalendar) ? j.economicCalendar : Array.isArray(j?.events) ? j.events : [];
+  return events.map((e: any, i: number) => ({
+    id: `fh_${e.country || 'xx'}_${e.time || ''}_${i}`,
+    time: e.time ? String(e.time) : 'All Day',
+    date: e.date ? String(e.date) : '',
+    currency: String(e.country || '').toUpperCase(),
+    country: String(e.country || ''),
+    countryFlag: '',
+    title: String(e.event || e.name || 'Economic Release'),
+    impact: mapFinnhubImpact(String(e.impact || '')),
+    actual: e.actual != null ? String(e.actual) : undefined,
+    forecast: e.forecast != null ? String(e.forecast) : '',
+    previous: e.prev != null ? String(e.prev) : (e.previous != null ? String(e.previous) : ''),
+    affectedSymbols: [],
+    description: String(e.event || e.name || ''),
+  }));
+}
+
+async function fetchInvestingEconomicCalendar(): Promise<any[]> {
+  // Public investing.com economic-calendar JSON proxy (andrevlima style).
+  // Returns [{country, currency, event, importance, actual, forecast, previous, date, time}]
+  const url = 'https://api.allorigins.win/raw?url=' + encodeURIComponent(
+    'https://sslecaly.investing.com/telecaster/?format=json'
+  );
+  const r = await fetch(url, { headers: { 'Accept': 'application/json' } });
+  if (!r.ok) throw new Error(`investing proxy ${r.status}`);
+  const j = (await r.json()) as any;
+  const events = Array.isArray(j) ? j : Array.isArray(j?.data) ? j.data : [];
+  return events.map((e: any, i: number) => {
+    const imp = String(e.importance || e.impact || '').toLowerCase();
+    let impact: 'HIGH' | 'MEDIUM' | 'LOW' = 'LOW';
+    if (imp.includes('high') || imp === '3') impact = 'HIGH';
+    else if (imp.includes('medium') || imp === '2') impact = 'MEDIUM';
+    return {
+      id: `inv_${i}_${e.currency || ''}_${e.event || ''}`.replace(/\s+/g, '_'),
+      time: e.time ? String(e.time) : 'All Day',
+      date: e.date ? String(e.date) : '',
+      currency: String(e.currency || e.country || '').toUpperCase(),
+      country: String(e.country || e.currency || ''),
+      countryFlag: '',
+      title: String(e.event || e.name || 'Economic Release'),
+      impact,
+      actual: e.actual ? String(e.actual) : undefined,
+      forecast: e.forecast ? String(e.forecast) : '',
+      previous: e.previous ? String(e.previous) : '',
+      affectedSymbols: [],
+      description: String(e.event || e.name || ''),
+    };
+  });
+}
+
+app.get('/api/economic-calendar', async (req, res) => {
+  const now = Date.now();
+  // Cache for 10 minutes to stay responsive but avoid hammering upstream APIs.
+  if (now - economicCalendarCache.fetchedAt < 10 * 60 * 1000 && economicCalendarCache.data.length > 0) {
+    return res.json({ live: true, source: 'cache', events: economicCalendarCache.data });
+  }
+  let events: any[] = [];
+  let source = '';
+  try {
+    events = await fetchFinnhubEconomicCalendar();
+    if (events.length) source = 'Finnhub API';
+  } catch (e) {
+    console.warn('Finnhub economic calendar fetch failed:', (e as Error).message);
+  }
+  if (!events.length) {
+    try {
+      events = await fetchInvestingEconomicCalendar();
+      if (events.length) source = 'Investing.com (live)';
+    } catch (e) {
+      console.warn('Investing economic calendar fetch failed:', (e as Error).message);
+    }
+  }
+  if (events.length) {
+    economicCalendarCache = { data: events, fetchedAt: now };
+    return res.json({ live: true, source, events });
+  }
+  // No data available — return an empty, honest response. NEVER sample data.
+  return res.json({ live: false, source: 'unavailable', events: [] });
+});
+
+// ---------------------------------------------------------------------------
+// Market Sentiment — long/short positioning per instrument.
+// Only returns REAL data when a provider is configured. If no real source is
+// available the endpoint responds with live:false so the client shows an
+// honest "unavailable" state instead of fabricated percentages.
+// ---------------------------------------------------------------------------
+let sentimentCache: Record<string, { data: any; fetchedAt: number }> = {};
+
+app.get('/api/sentiment/:symbol', async (req, res) => {
+  const symbol = String(req.params.symbol || '').toUpperCase();
+  if (!symbol) return res.status(400).json({ live: false, error: 'Symbol required' });
+
+  const now = Date.now();
+  const cached = sentimentCache[symbol];
+  if (cached && now - cached.fetchedAt < 5 * 60 * 1000) {
+    return res.json({ live: cached.data.live, symbol, ...cached.data });
+  }
+
+  // Attempt real sentiment via Finnhub (requires API key). Finnhub does not
+  // expose direct long/short positioning, so we derive a directional bias
+  // from the live quote change and flag it as a price-bias estimate rather
+  // than broker client positioning. This is honest and never fabricated.
+  const finnhubKey = process.env.FINNHUB_API_KEY;
+  if (finnhubKey) {
+    try {
+      const finnhubSym = FINNHUB_MAPPING[symbol] || symbol;
+      const r = await fetch(`https://finnhub.io/api/v1/quote?symbol=${encodeURIComponent(finnhubSym)}&token=${finnhubKey}`, {
+        headers: { 'Accept': 'application/json' }
+      });
+      if (r.ok) {
+        const q = (await r.json()) as any;
+        const change = Number(q?.dp ?? q?.change ?? 0); // percent change
+        if (!isNaN(change)) {
+          // Map a symmetric price change into a long/short bias estimate.
+          // +-5% daily move maps to ~80/20 bias; 0% maps to 50/50.
+          const clamped = Math.max(-10, Math.min(10, change));
+          const long = Math.round(50 + clamped * 3); // 50 +/- up to 30
+          const short = 100 - long;
+          const data = {
+            live: true,
+            source: 'Price-bias estimate (Finnhub)',
+            long: Math.max(5, Math.min(95, long)),
+            short: Math.max(5, Math.min(95, short)),
+            activePositions: undefined,
+            note: 'Directional bias derived from live intraday price change. Broker client positioning is not publicly available.'
+          };
+          sentimentCache[symbol] = { data, fetchedAt: now };
+          return res.json({ symbol, ...data });
+        }
+      }
+    } catch (e) {
+      console.warn('Sentiment fetch failed for', symbol, (e as Error).message);
+    }
+  }
+
+  // No real source available — honest empty response, never fabricated counts.
+  return res.json({
+    live: false,
+    symbol,
+    source: 'unavailable',
+    long: null,
+    short: null,
+    activePositions: null,
+    note: 'Live broker sentiment is not available. No fabricated positioning data is displayed.'
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Copy-Trading Leaderboard — verified master traders.
+// Reads from an admin-managed data file (leaderboard.json) which is EMPTY by
+// default. No fabricated/premade traders are ever returned. Admins populate
+// real verified traders via the admin dashboard (or direct file edit).
+// ---------------------------------------------------------------------------
+app.get('/api/leaderboard', (req, res) => {
+  const traders = readDataFile('leaderboard.json', []);
+  res.json({ live: Array.isArray(traders) && traders.length > 0, traders: Array.isArray(traders) ? traders : [] });
+});
+
 
 app.get('/api/markets/history', async (req, res) => {
   const symbol = req.query.symbol as string;
@@ -695,52 +955,45 @@ app.get('/api/markets/history', async (req, res) => {
     return res.status(404).json({ error: 'Instrument not found' });
   }
   
-  // Map timeframe to Binance interval & limit
-  let binanceInterval = '1h';
-  let binanceLimit = 48;
-  if (tf === '1D') {
-    binanceInterval = '1d';
-    binanceLimit = 30;
-  } else if (tf === '4H') {
-    binanceInterval = '4h';
-    binanceLimit = 42;
-  } else if (tf === '1H') {
-    binanceInterval = '1h';
-    binanceLimit = 48;
-  } else if (tf === '15M') {
-    binanceInterval = '15m';
-    binanceLimit = 40;
-  } else if (tf === '5M') {
-    binanceInterval = '5m';
-    binanceLimit = 40;
-  } else if (tf === '1M') {
-    binanceInterval = '1m';
-    binanceLimit = 40;
-  }
+  // Map timeframe to Kraken OHLC interval (minutes) & limit
+  let krakenInterval = 60;   // minutes
+  let krakenLimit = 48;
+  if (tf === '1D') { krakenInterval = 1440; krakenLimit = 30; }
+  else if (tf === '4H') { krakenInterval = 240; krakenLimit = 42; }
+  else if (tf === '1H') { krakenInterval = 60; krakenLimit = 48; }
+  else if (tf === '15M') { krakenInterval = 15; krakenLimit = 40; }
+  else if (tf === '5M') { krakenInterval = 5; krakenLimit = 40; }
+  else if (tf === '1M') { krakenInterval = 1; krakenLimit = 40; }
 
-  // For Crypto: Use Binance live kline API
+  // For Crypto: Use Kraken live OHLC API (Binance is geo-blocked in many regions)
   const isCrypto = symbol === 'BTCUSD' || symbol === 'ETHUSD' || symbol === 'SOLUSD' || symbol === 'XRPUSD';
   if (isCrypto) {
     try {
-      const binanceSym = symbol === 'BTCUSD' ? 'BTCUSDT' 
-        : symbol === 'ETHUSD' ? 'ETHUSDT' 
-        : symbol === 'SOLUSD' ? 'SOLUSDT' 
-        : 'XRPUSDT';
-      const bRes = await fetch(`https://api.binance.com/api/v3/klines?symbol=${binanceSym}&interval=${binanceInterval}&limit=${binanceLimit}`);
-      if (bRes.ok) {
-        const klines: any[] = await bRes.json();
-        const formatted = klines.map((k: any) => ({
-          time: Math.floor(k[0] / 1000),
-          open: parseFloat(k[1]),
-          high: parseFloat(k[2]),
-          low: parseFloat(k[3]),
-          close: parseFloat(k[4]),
-          volume: parseFloat(k[5])
-        }));
-        return res.json(formatted);
+      const krakenSym = symbol === 'BTCUSD' ? 'XBTUSD'
+        : symbol === 'ETHUSD' ? 'ETHUSD'
+        : symbol === 'SOLUSD' ? 'SOLUSD'
+        : 'XRPUSD';
+      const kRes = await fetch(`https://api.kraken.com/0/public/OHLC?pair=${krakenSym}&interval=${krakenInterval}`);
+      if (kRes.ok) {
+        const kData: any = await kRes.json();
+        const resultObj = kData?.result || {};
+        // resultObj has the pair key + 'last'. Find the array under the pair key.
+        const pairKey = Object.keys(resultObj).find(k => k !== 'last');
+        const ohlc: any[] = pairKey ? resultObj[pairKey] : [];
+        if (ohlc.length > 0) {
+          const formatted = ohlc.slice(0, krakenLimit).map((k: any) => ({
+            time: Math.floor(k[0]),
+            open: parseFloat(k[1]),
+            high: parseFloat(k[2]),
+            low: parseFloat(k[3]),
+            close: parseFloat(k[4]),
+            volume: parseFloat(k[6])
+          })).filter((c: any) => !isNaN(c.close));
+          return res.json(formatted);
+        }
       }
     } catch (err) {
-      console.error('Binance history fetch error:', err);
+      console.error('Kraken history fetch error:', err);
     }
   }
 
@@ -986,6 +1239,48 @@ app.post('/api/stripe/verify-deposit', async (req, res) => {
   }
 
   const txId = `DEP-${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
+
+  // If Stripe confirmed the payment, record it for admin manual review.
+  // Stripe does NOT credit the user balance — the admin must manually credit the
+  // exact paid amount from the Admin Dashboard after confirming receipt in Stripe.
+  if (verified && verifiedAmount > 0 && userId) {
+    const targetUser = appUsersStore.find(u => u.id === userId || u.email.toLowerCase() === userId.toLowerCase());
+    const email = targetUser?.email || userId;
+    const pendingDeposits = readDataFile<any[]>('pendingDeposits.json', []);
+    if (!pendingDeposits.find(d => d.id === refCode)) {
+      pendingDeposits.unshift({
+        id: refCode,
+        userEmail: email,
+        user: targetUser || null,
+        amount: verifiedAmount,
+        method: 'Card (Stripe)',
+        status: 'Payment Received — Awaiting Admin Credit',
+        stripeRef: refCode,
+        receivedAt: new Date().toISOString(),
+        creditedByAdmin: false
+      });
+      writeDataFile('pendingDeposits.json', pendingDeposits);
+    }
+    const botToken2 = process.env.TELEGRAM_BOT_TOKEN;
+    const chatId2 = process.env.TELEGRAM_CHAT_ID;
+    if (botToken2 && chatId2) {
+      fetch(`https://api.telegram.org/bot${botToken2}/sendMessage`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          chat_id: chatId2,
+          text: `<b>[Axi Trading Alert - DEPOSIT_VERIFIED]</b>\n\n` + 
+                `\ud83d\udcb0 <b>STRIPE PAYMENT CONFIRMED</b>\n` +
+                `User: ${email}\nAmount: $${verifiedAmount.toFixed(2)} USD\nRef: ${refCode}\n\n` +
+                `\u2705 Funds received into Stripe balance.\n` +
+                `\u26a0\ufe0f ACTION REQUIRED: Admin must manually credit this amount to the user's account from the Admin Dashboard.\n\n` +
+                `<i>Sent: ${new Date().toUTCString()}</i>`,
+          parse_mode: 'HTML'
+        })
+      }).catch(() => {});
+    }
+  }
+
   return res.json({
     verified,
     amount: verifiedAmount,
@@ -1150,12 +1445,12 @@ if (!fs.existsSync(DATA_DIR)) {
   }
 }
 
-function readDataFile(filename: string, defaultVal: any) {
+function readDataFile<T = any>(filename: string, defaultVal: T): T {
   const filePath = path.join(DATA_DIR, filename);
   try {
     if (fs.existsSync(filePath)) {
       const raw = fs.readFileSync(filePath, 'utf-8');
-      return JSON.parse(raw);
+      return JSON.parse(raw) as T;
     }
   } catch (err) {
     console.warn(`Notice reading ${filename}:`, err);
@@ -1187,6 +1482,55 @@ let appTawkToConfigStore: any = readDataFile('tawkto.json', {
   widgetId: process.env.VITE_TAWKTO_WIDGET_ID || 'default',
   directChatUrl: process.env.VITE_TAWKTO_DIRECT_URL || 'https://tawk.to/chat/6a877895e687441d49b91140/default',
   autoOpenOnVisit: false
+});
+
+// Admin platform settings stores (persisted to data files)
+let appBotConfigStore: any = readDataFile('adminBotConfig.json', {
+  active: true,
+  name: 'Axi Neural Quant Bot v4',
+  strategy: 'High Frequency Arbitrage',
+  frequency: '15 seconds',
+  maxAllocationUsd: 25000,
+  winRateSim: 88.5,
+  monthlyTargetYield: 18.4,
+  riskLevel: 'Moderate'
+});
+
+let appTradingBotSettingsStore: any = readDataFile('adminTradingBotSettings.json', {
+  automatedTradingEnabled: true,
+  maxBotLeverage: '1:500',
+  circuitBreakerEnabled: true,
+  circuitBreakerThreshold: 15
+});
+
+let appInvestmentPlansStore: any[] = readDataFile('adminInvestmentPlans.json', [
+  { id: 'plan-1', name: 'Starter Alpha Plan', minDeposit: 500, maxDeposit: 5000, dailyRoi: 1.8, durationDays: 14, active: true },
+  { id: 'plan-2', name: 'Pro Growth Quant Plan', minDeposit: 5000, maxDeposit: 25000, dailyRoi: 2.5, durationDays: 30, active: true },
+  { id: 'plan-3', name: 'Institutional Prime Plan', minDeposit: 25000, maxDeposit: 250000, dailyRoi: 3.4, durationDays: 60, active: true }
+]);
+
+let appTradingPairsStore: any[] = readDataFile('adminTradingPairs.json', [
+  { id: 'p1', symbol: 'EURUSD', category: 'Forex Major', spreadPips: 0.2, leverage: '1:500', active: true },
+  { id: 'p2', symbol: 'GBPUSD', category: 'Forex Major', spreadPips: 0.4, leverage: '1:500', active: true },
+  { id: 'p3', symbol: 'BTCUSD', category: 'Crypto', spreadPips: 12.0, leverage: '1:100', active: true },
+  { id: 'p4', symbol: 'ETHUSD', category: 'Crypto', spreadPips: 1.5, leverage: '1:100', active: true },
+  { id: 'p5', symbol: 'XAUUSD', category: 'Commodities', spreadPips: 0.15, leverage: '1:500', active: true },
+  { id: 'p6', symbol: 'NVDA', category: 'US Stocks', spreadPips: 0.05, leverage: '1:20', active: true }
+]);
+
+let appCurrenciesStore: any[] = readDataFile('adminCurrencies.json', [
+  { code: 'USD', name: 'US Dollar', symbol: '$', rateToUsd: 1.0, isBase: true },
+  { code: 'EUR', name: 'Euro', symbol: '€', rateToUsd: 0.92, isBase: false },
+  { code: 'GBP', name: 'British Pound', symbol: '£', rateToUsd: 0.79, isBase: false },
+  { code: 'JPY', name: 'Japanese Yen', symbol: '¥', rateToUsd: 155.2, isBase: false },
+  { code: 'AUD', name: 'Australian Dollar', symbol: 'A$', rateToUsd: 1.52, isBase: false }
+]);
+
+let appCopyTradersStore: any[] = readDataFile('adminCopyTraders.json', []);
+
+let appAdminPasswordStore: any = readDataFile('adminPassword.json', {
+  hash: '',
+  updatedAt: ''
 });
 
 // Helper to notify Telegram
@@ -1539,6 +1883,102 @@ app.post('/api/kyc/reject', (req, res) => {
 });
 
 // ----------------------------------------------------
+// PENDING STRIPE DEPOSITS — ADMIN MANUAL CREDIT API
+// ----------------------------------------------------
+// Stripe payments are collected into the Stripe balance only. They are recorded
+// here as "pending" and the admin manually credits the exact paid amount to the
+// user from the Admin Dashboard. Stripe never touches the user balance.
+
+app.get('/api/deposits/pending', (req, res) => {
+  const pendingDeposits = readDataFile<any[]>('pendingDeposits.json', []);
+  res.json({
+    success: true,
+    deposits: pendingDeposits,
+    total: pendingDeposits.length,
+    pendingCount: pendingDeposits.filter(d => !d.creditedByAdmin).length
+  });
+});
+
+// Admin manually credits a pending Stripe deposit to the user's balance.
+// Body: { id, amount (exact paid amount), userId (optional override) }
+app.post('/api/deposits/credit', (req, res) => {
+  const { id, amount, userId } = req.body || {};
+  if (!id) return res.status(400).json({ error: 'Deposit id is required' });
+
+  const pendingDeposits = readDataFile<any[]>('pendingDeposits.json', []);
+  const deposit = pendingDeposits.find(d => d.id === id || d.stripeRef === id);
+  if (!deposit) return res.status(404).json({ error: 'Pending deposit not found' });
+  if (deposit.creditedByAdmin) return res.status(409).json({ error: 'This deposit has already been credited' });
+
+  const creditAmount = typeof amount === 'number' && amount > 0 ? amount : deposit.amount;
+  const lookupKey = (userId || deposit.userEmail || deposit.user?.email || deposit.id || '').toLowerCase();
+
+  const targetUser = appUsersStore.find(
+    u => u.email.toLowerCase() === lookupKey ||
+         u.id.toLowerCase() === lookupKey ||
+         (deposit.user && u.id === deposit.user.id)
+  );
+
+  if (!targetUser) {
+    return res.status(404).json({ error: 'User not found for this deposit. Ensure the user is registered.' });
+  }
+
+  // Credit the EXACT paid amount to the user's live balance
+  targetUser.balance = (typeof targetUser.balance === 'number' ? targetUser.balance : 0) + creditAmount;
+  targetUser.updatedAt = new Date().toISOString();
+
+  // Mark deposit as credited
+  deposit.creditedByAdmin = true;
+  deposit.creditedAt = new Date().toISOString();
+  deposit.creditedAmount = creditAmount;
+  deposit.creditedToUser = targetUser.email;
+
+  writeDataFile('users.json', appUsersStore);
+  writeDataFile('pendingDeposits.json', pendingDeposits);
+
+  // Record a transaction for audit
+  const txEntry = {
+    id: deposit.id,
+    type: 'Deposit',
+    amount: creditAmount,
+    method: deposit.method || 'Stripe Card',
+    date: new Date().toISOString().replace('T', ' ').substring(0, 19),
+    status: 'Approved',
+    account: 'Live ECN Account',
+    refCode: deposit.stripeRef || deposit.id,
+    userEmail: targetUser.email,
+    proofNote: `Manually credited by admin (Stripe payment ${deposit.stripeRef || deposit.id})`
+  };
+  appTransactionsStore.unshift(txEntry);
+  writeDataFile('transactions.json', appTransactionsStore);
+
+  notifyTelegram('ADMIN_DEPOSIT_CREDITED', {
+    'User': `${targetUser.name} (${targetUser.email})`,
+    'Amount Credited': `$${creditAmount.toFixed(2)} USD`,
+    'Stripe Ref': deposit.stripeRef || deposit.id,
+    'New Balance': `$${targetUser.balance.toLocaleString()} USD`
+  });
+
+  res.json({ success: true, deposit, user: targetUser, creditedAmount: creditAmount });
+});
+
+// Dismiss / remove a pending deposit (e.g. disputed or invalid) without crediting
+app.post('/api/deposits/dismiss', (req, res) => {
+  const { id, reason } = req.body || {};
+  const pendingDeposits = readDataFile<any[]>('pendingDeposits.json', []);
+  const deposit = pendingDeposits.find(d => d.id === id || d.stripeRef === id);
+  if (!deposit) return res.status(404).json({ error: 'Pending deposit not found' });
+
+  deposit.creditedByAdmin = false;
+  deposit.dismissed = true;
+  deposit.dismissedAt = new Date().toISOString();
+  deposit.dismissedReason = reason || 'Dismissed by admin without credit';
+  writeDataFile('pendingDeposits.json', pendingDeposits);
+
+  res.json({ success: true, deposit });
+});
+
+// ----------------------------------------------------
 // TRANSACTIONS & DEPOSITS / WITHDRAWALS API
 // ----------------------------------------------------
 
@@ -1648,6 +2088,114 @@ app.post('/api/promos/claim', (req, res) => {
   });
 
   res.json({ success: true, claim: claimItem });
+});
+
+// ----------------------------------------------------
+// ADMIN PLATFORM SETTINGS API (persisted to data files)
+// ----------------------------------------------------
+
+// --- Bot Config (Edit Bot section) ---
+app.get('/api/admin/bot-config', (req, res) => {
+  res.json({ success: true, config: appBotConfigStore });
+});
+
+app.post('/api/admin/bot-config', (req, res) => {
+  appBotConfigStore = { ...appBotConfigStore, ...req.body, updatedAt: new Date().toISOString() };
+  writeDataFile('adminBotConfig.json', appBotConfigStore);
+  notifyTelegram('ADMIN_BOT_CONFIG_UPDATED', {
+    'Bot Name': appBotConfigStore.name || 'Axi Bot',
+    'Strategy': appBotConfigStore.strategy || 'N/A',
+    'Active': appBotConfigStore.active ? 'YES' : 'NO'
+  });
+  res.json({ success: true, config: appBotConfigStore });
+});
+
+// --- Global Trading Bot Settings ---
+app.get('/api/admin/trading-bot-settings', (req, res) => {
+  res.json({ success: true, settings: appTradingBotSettingsStore });
+});
+
+app.post('/api/admin/trading-bot-settings', (req, res) => {
+  appTradingBotSettingsStore = { ...appTradingBotSettingsStore, ...req.body, updatedAt: new Date().toISOString() };
+  writeDataFile('adminTradingBotSettings.json', appTradingBotSettingsStore);
+  res.json({ success: true, settings: appTradingBotSettingsStore });
+});
+
+// --- Investment Plans ---
+app.get('/api/admin/investment-plans', (req, res) => {
+  res.json({ success: true, plans: appInvestmentPlansStore });
+});
+
+app.post('/api/admin/investment-plans', (req, res) => {
+  const plans = req.body?.plans;
+  if (!Array.isArray(plans)) return res.status(400).json({ error: 'plans array is required' });
+  appInvestmentPlansStore = plans;
+  writeDataFile('adminInvestmentPlans.json', appInvestmentPlansStore);
+  res.json({ success: true, plans: appInvestmentPlansStore });
+});
+
+// --- Trading Pairs ---
+app.get('/api/admin/trading-pairs', (req, res) => {
+  res.json({ success: true, pairs: appTradingPairsStore });
+});
+
+app.post('/api/admin/trading-pairs', (req, res) => {
+  const pairs = req.body?.pairs;
+  if (!Array.isArray(pairs)) return res.status(400).json({ error: 'pairs array is required' });
+  appTradingPairsStore = pairs;
+  writeDataFile('adminTradingPairs.json', appTradingPairsStore);
+  res.json({ success: true, pairs: appTradingPairsStore });
+});
+
+// --- Currencies ---
+app.get('/api/admin/currencies', (req, res) => {
+  res.json({ success: true, currencies: appCurrenciesStore });
+});
+
+app.post('/api/admin/currencies', (req, res) => {
+  const currencies = req.body?.currencies;
+  if (!Array.isArray(currencies)) return res.status(400).json({ error: 'currencies array is required' });
+  appCurrenciesStore = currencies;
+  writeDataFile('adminCurrencies.json', appCurrenciesStore);
+  res.json({ success: true, currencies: appCurrenciesStore });
+});
+
+// --- Copy Traders ---
+app.get('/api/admin/copy-traders', (req, res) => {
+  res.json({ success: true, traders: appCopyTradersStore });
+});
+
+app.post('/api/admin/copy-traders', (req, res) => {
+  const traders = req.body?.traders;
+  if (!Array.isArray(traders)) return res.status(400).json({ error: 'traders array is required' });
+  appCopyTradersStore = traders;
+  writeDataFile('adminCopyTraders.json', appCopyTradersStore);
+  res.json({ success: true, traders: appCopyTradersStore });
+});
+
+app.delete('/api/admin/copy-traders/:id', (req, res) => {
+  const id = req.params.id;
+  appCopyTradersStore = appCopyTradersStore.filter(t => t.id !== id);
+  writeDataFile('adminCopyTraders.json', appCopyTradersStore);
+  res.json({ success: true, traders: appCopyTradersStore });
+});
+
+// --- Admin Password Change (server-side verification) ---
+app.post('/api/admin/change-password', (req, res) => {
+  const { currentPassword, newPassword } = req.body || {};
+  if (!newPassword || newPassword.length < 6) {
+    return res.status(400).json({ error: 'New password must be at least 6 characters' });
+  }
+  // Verify current password against stored hash (simple comparison for admin panel)
+  if (appAdminPasswordStore.hash && currentPassword !== appAdminPasswordStore.hash) {
+    return res.status(403).json({ error: 'Current password is incorrect' });
+  }
+  appAdminPasswordStore = { hash: newPassword, updatedAt: new Date().toISOString() };
+  writeDataFile('adminPassword.json', appAdminPasswordStore);
+  notifyTelegram('ADMIN_PASSWORD_CHANGED', {
+    'Changed At': new Date().toUTCString()
+  });
+  res.json({ success: true, message: 'Admin password updated successfully' });
 });
 
 // ----------------------------------------------------
@@ -1777,6 +2325,7 @@ function buildAxiEmailHtml({
   reason,
   accountNo,
   platform,
+  refCode,
   customBody
 }: any) {
   const brandRed = '#e3000f';
@@ -1852,6 +2401,43 @@ function buildAxiEmailHtml({
         <p style="font-size: 13px; color: #64748b; line-height: 1.5;">
           If you did not initiate this request, please contact our 24/7 Security Operations Desk immediately at <a href="mailto:axicustomersupport@gmail.com" style="color: ${brandRed}; font-weight: bold;">axicustomersupport@gmail.com</a>.
         </p>
+      </div>
+    `;
+  } else if (type === 'DepositPending' || (status === 'Pending Admin Credit' && txType === 'Deposit')) {
+    bodyContent = `
+      <div style="margin-bottom: 24px;">
+        <div style="display: inline-block; background-color: #fef3c7; color: #92400e; font-size: 11px; font-weight: 800; padding: 4px 10px; border-radius: 9999px; text-transform: uppercase; margin-bottom: 12px;">
+          Payment Received — Pending Admin Credit
+        </div>
+        <h2 style="font-size: 20px; font-weight: 800; color: #0f172a; margin: 0 0 12px 0;">Deposit Payment Received</h2>
+        <p style="font-size: 14px; color: #475569; line-height: 1.6; margin: 0 0 16px 0;">
+          Hello <strong>${recipientName || 'Valued Trader'}</strong>,<br/><br/>
+          We have received your card payment of <strong>$${(amount || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} USD</strong> via Stripe. The funds have been securely received into our Stripe balance.
+        </p>
+        <div style="background-color: #fffbeb; border: 1px solid #fde68a; border-radius: 8px; padding: 14px; margin: 16px 0; font-size: 13px; color: #92400e; line-height: 1.5;">
+          <strong>⏳ Next step:</strong> Our admin team will manually verify and credit the exact paid amount to your live trading account shortly. You will receive a confirmation email once your balance has been updated. This is a security measure to ensure accurate balance crediting.
+        </div>
+        <div style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-left: 4px solid #f59e0b; border-radius: 8px; padding: 18px; margin: 20px 0;">
+          <div style="font-size: 11px; font-weight: 800; text-transform: uppercase; color: #b45309; letter-spacing: 0.5px; margin-bottom: 10px;">Payment Receipt</div>
+          <table style="width: 100%; font-size: 13px; color: #334155; border-collapse: collapse;">
+            <tr>
+              <td style="padding: 4px 0; color: #64748b; width: 140px;">Reference:</td>
+              <td style="padding: 4px 0; font-weight: 700; font-family: monospace;">${refCode || txId || 'STRIPE-PAY'}</td>
+            </tr>
+            <tr>
+              <td style="padding: 4px 0; color: #64748b;">Amount Paid:</td>
+              <td style="padding: 4px 0; font-weight: 800; color: #b45309; font-size: 15px;">$${(amount || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} USD</td>
+            </tr>
+            <tr>
+              <td style="padding: 4px 0; color: #64748b;">Payment Method:</td>
+              <td style="padding: 4px 0; font-weight: 700;">${method || 'Stripe Card'}</td>
+            </tr>
+            <tr>
+              <td style="padding: 4px 0; color: #64748b;">Status:</td>
+              <td style="padding: 4px 0; font-weight: 800; color: #b45309;">PENDING ADMIN CREDIT</td>
+            </tr>
+          </table>
+        </div>
       </div>
     `;
   } else if (type === 'DepositApproved' || (status === 'Approved' && (txType === 'Deposit' || !txType))) {
@@ -2168,6 +2754,7 @@ app.post('/api/email/send', async (req, res) => {
     reason, 
     accountNo, 
     platform,
+    refCode,
     customBody 
   } = req.body || {};
 
@@ -2199,6 +2786,7 @@ app.post('/api/email/send', async (req, res) => {
     reason,
     accountNo,
     platform,
+    refCode,
     customBody
   });
 

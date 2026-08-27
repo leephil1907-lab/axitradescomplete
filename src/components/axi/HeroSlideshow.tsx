@@ -12,41 +12,41 @@ import { ChevronLeft, ChevronRight } from 'lucide-react';
 const SLIDES = [
   {
     id: 'slide-0',
-    title: 'Trade with Axi funds up to $1 million USD',
-    subtitle: 'Axi has launched a capital allocation program. No registration fees. No monthly fees. 100% FREE',
-    cta: 'JOIN NOW',
-    image: imgAxiSelect,
-    theme: 'dark'
-  },
-  {
-    id: 'slide-1',
     title: 'YOUR EDGE IN THE MARKETS',
-    subtitle: 'SPREADS ON GOLD $0.16, SPREADS ON OIL $0.03, SPREADS ON BTC $15',
-    cta: 'ACCESS TIGHT SPREADS',
+    subtitle: 'Tight spreads. Real prices. Unmatched execution. Trade Gold, Bitcoin and Ethereum with average spreads as low as $0.16 on Gold, $12 on BTC and $1.25 on ETH.',
+    cta: 'OPEN ACCOUNT',
     image: imgSpreads,
     theme: 'dark'
   },
   {
-    id: 'slide-2',
-    title: '650+ markets. One app.',
-    subtitle: 'Trade 650+ assets across forex, crypto, commodities, share CFDs, ETFs and global indices without switching apps.',
-    cta: 'DOWNLOAD NOW',
+    id: 'slide-1',
+    title: 'AXI COPY TRADING',
+    subtitle: 'Automate. Imitate. Copy trade. Mirror the strategies of experienced traders in real time with the Axi Copy Trading app. Watch, learn and grow with real results from day one.',
+    cta: 'START COPY TRADING',
     image: imgMarketsApp,
+    theme: 'dark'
+  },
+  {
+    id: 'slide-2',
+    title: 'TRADE CFDs, CRYPTO AND FOREX',
+    subtitle: '650+ markets across forex, indices, shares, commodities, ETFs and cryptocurrencies. One account for every major market with spreads as low as 0.68 pips on EUR/USD.',
+    cta: 'VIEW ALL MARKETS',
+    image: imgAxiSelect,
     theme: 'dark'
   },
   {
     id: 'slide-3',
     title: 'SPOT IT. BUY IT. OWN IT.',
-    subtitle: 'Experience instant crypto spot buying with zero commission and deep liquidity across top trading pairs.',
+    subtitle: 'Buy, sell and hold real cryptocurrencies directly on the spot market. No hidden charges, secure custody, 24/7 market access across top trading pairs.',
     cta: 'BUY CRYPTO NOW',
     image: imgSpotCrypto,
     theme: 'dark'
   },
   {
     id: 'slide-4',
-    title: 'POWER UP YOUR TRADING STRATEGY WITH AI',
-    subtitle: 'Automated signals, signal analytics, and intelligent copy trading built into your dashboard.',
-    cta: 'LEARN MORE',
+    title: 'AI TRADING ANALYST',
+    subtitle: 'Ask Axi is an AI-powered trading analyst, included free with your Axi account. Test your portfolio, get unique insights and make more informed decisions with every trade.',
+    cta: 'ANALYSE MY PORTFOLIO',
     image: imgAiStrategy,
     theme: 'dark'
   }

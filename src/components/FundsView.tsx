@@ -32,6 +32,7 @@ import CurrencySelector from './CurrencySelector';
 import { copyToClipboard } from '../utils/copy';
 import { defaultCryptoWallets, defaultBankSettings, subscribePaymentConfig, getLocalPaymentConfig, CentralPaymentConfig } from '../services/paymentConfigService';
 import { safeStorage } from '../utils/storage';
+import { auth } from '../firebase';
 
 export function PaymentMethodBrandIcon({ id, className = "w-6 h-6" }: { id: string; className?: string }) {
   switch (id) {
@@ -588,13 +589,18 @@ export default function FundsView({
 
     setIsProcessingDeposit(true);
     try {
+      const currentUser = auth.currentUser;
+      const userId = currentUser?.uid || currentUser?.email || '';
+      const depositId = `DEP-${Date.now()}`;
       const res = await fetch('/api/stripe/create-checkout-session', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           amount: amountNum,
           currency: 'usd',
-          method: selectedMethodId === 'bank_instant' ? 'bank_transfer' : 'card'
+          method: selectedMethodId === 'bank_instant' ? 'bank_transfer' : 'card',
+          userId,
+          depositId
         })
       });
 

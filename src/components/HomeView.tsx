@@ -301,21 +301,11 @@ export default function HomeView({ quotes, setView, openSignUp, user }: HomeView
   const [allocation, setAllocation] = useState<number>(2000);
   const [copiedSuccess, setCopiedSuccess] = useState<boolean>(false);
 
-  const selectedTrader = MASTER_TRADERS.find(t => t.id === selectedTraderId) || MASTER_TRADERS[0] || {
-    id: 'trader-default',
-    name: 'Verified Signal Provider',
-    avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=200',
-    roi: 124.5,
-    winRate: 78.4,
-    copiers: 1820,
-    riskScore: 3,
-    profitGraph: [100, 108, 114, 119, 124.5],
-    assetClass: 'Forex & Commodities'
-  };
+  const selectedTrader = MASTER_TRADERS.find(t => t.id === selectedTraderId) || MASTER_TRADERS[0] || null;
 
-  // Calculations for projected copy results
-  const projectedMonthlyReturn = Math.round(allocation * ((selectedTrader?.roi || 100) / 1200));
-  const expectedCopierProfit = Math.round(allocation * ((selectedTrader?.roi || 100) / 100));
+  // Calculations for projected copy results (only when a real trader is selected)
+  const projectedMonthlyReturn = selectedTrader ? Math.round(allocation * (selectedTrader.roi / 1200)) : 0;
+  const expectedCopierProfit = selectedTrader ? Math.round(allocation * (selectedTrader.roi / 100)) : 0;
 
   // Transform graph data for recharts
   const chartData = (selectedTrader?.profitGraph || [100, 110, 120]).map((val, idx) => ({
@@ -717,13 +707,13 @@ export default function HomeView({ quotes, setView, openSignUp, user }: HomeView
               <table className="w-full text-left text-xs font-bold text-slate-600">
                 <thead className="bg-slate-100 text-[10px] uppercase tracking-wider border-b border-slate-200 text-slate-500 font-mono">
                   <tr>
-                    <th className="px-6 py-4">Instrument</th>
-                    <th className="px-6 py-4 text-right">Bid</th>
-                    <th className="px-6 py-4 text-right">Ask</th>
-                    <th className="px-6 py-4 text-right">24h Change</th>
-                    <th className="px-6 py-4 text-right">Std Spread</th>
-                    <th className="px-6 py-4 text-right">Pro Spread</th>
-                    <th className="px-6 py-4 text-center">Action</th>
+                    <th className="px-2 sm:px-4 md:px-6 py-3 md:py-4">Instrument</th>
+                    <th className="px-2 sm:px-4 md:px-6 py-3 md:py-4 text-right">Bid</th>
+                    <th className="px-2 sm:px-4 md:px-6 py-3 md:py-4 text-right">Ask</th>
+                    <th className="px-2 sm:px-4 md:px-6 py-3 md:py-4 text-right">24h Change</th>
+                    <th className="px-2 sm:px-4 md:px-6 py-3 md:py-4 text-right">Std Spread</th>
+                    <th className="px-2 sm:px-4 md:px-6 py-3 md:py-4 text-right">Pro Spread</th>
+                    <th className="px-2 sm:px-4 md:px-6 py-3 md:py-4 text-center">Action</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-200">
@@ -753,7 +743,7 @@ export default function HomeView({ quotes, setView, openSignUp, user }: HomeView
 
                     return (
                       <tr key={symbolObj.symbol} className="hover:bg-slate-50/80 transition group">
-                        <td className="px-6 py-4">
+                        <td className="px-2 sm:px-4 md:px-6 py-3 md:py-4">
                           <div className="flex items-center gap-3">
                             <AssetBrandLogo symbol={symbolObj.symbol} size="md" />
                             <div className="flex flex-col">
@@ -762,24 +752,24 @@ export default function HomeView({ quotes, setView, openSignUp, user }: HomeView
                             </div>
                           </div>
                         </td>
-                        <td className="px-6 py-4 text-right font-mono">
+                        <td className="px-2 sm:px-4 md:px-6 py-3 md:py-4 text-right font-mono">
                           <span className={`px-2 py-1 rounded transition-colors duration-300 font-bold ${isTickUp ? 'text-emerald-600 bg-emerald-50' : isTickDown ? 'text-rose-600 bg-rose-50' : 'text-slate-800'}`}>
                             {bidPrice.toLocaleString(undefined, { minimumFractionDigits: decDigits, maximumFractionDigits: decDigits })}
                           </span>
                         </td>
-                        <td className="px-6 py-4 text-right font-mono">
+                        <td className="px-2 sm:px-4 md:px-6 py-3 md:py-4 text-right font-mono">
                           <span className={`px-2 py-1 rounded transition-colors duration-300 font-bold ${isTickUp ? 'text-emerald-600 bg-emerald-50' : isTickDown ? 'text-rose-600 bg-rose-50' : 'text-slate-800'}`}>
                             {askPrice.toLocaleString(undefined, { minimumFractionDigits: decDigits, maximumFractionDigits: decDigits })}
                           </span>
                         </td>
-                        <td className="px-6 py-4 text-right">
+                        <td className="px-2 sm:px-4 md:px-6 py-3 md:py-4 text-right">
                           <span className={`inline-flex items-center gap-1 text-xs font-black px-2.5 py-1 rounded-full border ${isPositive ? 'bg-emerald-50 text-emerald-600 border-emerald-200' : 'bg-rose-50 text-rose-600 border-rose-200'}`}>
                             {isPositive ? '+' : ''}{changeNum.toFixed(2)}%
                           </span>
                         </td>
-                        <td className="px-6 py-4 text-right font-mono text-slate-500">{stdSpread}</td>
-                        <td className="px-6 py-4 text-right font-mono text-brand-red font-black">{proSpread}</td>
-                        <td className="px-6 py-4 text-center">
+                        <td className="px-2 sm:px-4 md:px-6 py-3 md:py-4 text-right font-mono text-slate-500">{stdSpread}</td>
+                        <td className="px-2 sm:px-4 md:px-6 py-3 md:py-4 text-right font-mono text-brand-red font-black">{proSpread}</td>
+                        <td className="px-2 sm:px-4 md:px-6 py-3 md:py-4 text-center">
                           <motion.button
                             whileHover={{ scale: 1.05 }}
                             whileTap={{ scale: 0.95 }}
@@ -1080,6 +1070,24 @@ export default function HomeView({ quotes, setView, openSignUp, user }: HomeView
 
             {/* Right: Projections & Recharts */}
             <div className="lg:col-span-7 bg-white border border-slate-200 rounded-2xl p-6 flex flex-col gap-6 shadow-sm">
+              {!selectedTrader ? (
+                <div className="flex flex-col items-center justify-center text-center py-10 px-4">
+                  <div className="w-14 h-14 rounded-2xl bg-slate-100 flex items-center justify-center mb-4">
+                    <Users className="w-7 h-7 text-slate-400" />
+                  </div>
+                  <h4 className="text-sm font-black text-slate-800 uppercase tracking-wider mb-2">No verified master traders available yet</h4>
+                  <p className="text-xs text-slate-500 max-w-md leading-relaxed">
+                    The Axi copy-trading leaderboard is populated only with real, compliance-verified master traders. Once verified traders are onboarded and approved, their live audited track records will appear here with interactive performance projections. No fabricated or sample performance data is displayed.
+                  </p>
+                  <button
+                    onClick={() => setView('select')}
+                    className="mt-5 bg-brand-red hover:bg-brand-red-hover text-white text-xs font-black uppercase px-6 py-3 rounded-xl transition shadow-md cursor-pointer"
+                  >
+                    Explore Axi Select Program
+                  </button>
+                </div>
+              ) : (
+                <>
               <div className="flex items-center justify-between border-b border-slate-100 pb-4">
                 <div>
                   <h4 className="text-sm font-black text-slate-800 uppercase tracking-wider">Historical Equity Growth Projection</h4>
@@ -1144,6 +1152,8 @@ export default function HomeView({ quotes, setView, openSignUp, user }: HomeView
                   </LineChart>
                 </ResponsiveContainer>
               </div>
+                </>
+              )}
             </div>
 
           </div>
