@@ -1,13 +1,14 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
-  Menu, X, ChevronDown, Globe, ShieldCheck, User, LayoutDashboard, Wallet, 
+  X, ChevronDown, Globe, ShieldCheck, User, LayoutDashboard, Wallet, 
   LogOut, TrendingUp, ChevronRight, PhoneCall, FileText, BarChart2, Zap, 
   BookOpen, Award, Layers, Coins, Landmark, HelpCircle, ArrowRight,
   Users, Server, Gift, Calendar, Sparkles, DollarSign
 } from 'lucide-react';
 import { ViewType, DisplayCurrency } from '../types';
 import CurrencySelector from './CurrencySelector';
+import AxiHamburgerIcon from './AxiHamburgerIcon';
 
 interface HeaderProps {
   currentView: ViewType;
@@ -206,7 +207,7 @@ export default function Header({
           >
             <div className="flex items-center">
               <svg className="h-8 sm:h-9 w-auto text-white drop-shadow-sm transition-transform group-hover:scale-105" viewBox="0 0 110 36" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <text x="0" y="29" fill="#FFFFFF" fontSize="36" fontWeight="900" fontFamily="system-ui, -apple-system, sans-serif" letterSpacing="-1.5">axi</text>
+                <text x="0" y="29" fill="#FFFFFF" fontSize="36" fontWeight="900" fontFamily="'Clash Display', 'General Sans', system-ui, sans-serif" letterSpacing="-1.5">axi</text>
               </svg>
             </div>
           </button>
@@ -481,13 +482,13 @@ export default function Header({
             </button>
           )}
 
-          {/* Hamburger Menu Toggle Icon (3 horizontal white bars) */}
+          {/* Axi-Style Slanted Hamburger Menu Toggle (3 staggered diagonal lines) */}
           <button
             onClick={() => setMobileMenuOpen(true)}
             className="p-1.5 text-white hover:text-[#F5CE47] transition cursor-pointer flex items-center justify-center"
             aria-label="Open Navigation Menu"
           >
-            <Menu className="w-7 h-7 stroke-[2.5]" />
+            <AxiHamburgerIcon className="w-7 h-7" />
           </button>
         </div>
       </div>
@@ -521,7 +522,7 @@ export default function Header({
                 />
                 <div className="relative flex items-center gap-1">
                   <svg className="h-7 w-auto text-white" viewBox="0 0 110 36" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <text x="0" y="29" fill="#FFFFFF" fontSize="35" fontWeight="900" fontFamily="system-ui, sans-serif" letterSpacing="-1.5">axi</text>
+                    <text x="0" y="29" fill="#FFFFFF" fontSize="35" fontWeight="900" fontFamily="'Clash Display', 'General Sans', system-ui, sans-serif" letterSpacing="-1.5">axi</text>
                   </svg>
                 </div>
                 <button

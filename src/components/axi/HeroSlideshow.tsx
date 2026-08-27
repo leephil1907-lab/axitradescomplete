@@ -13,40 +13,40 @@ const SLIDES = [
   {
     id: 'slide-0',
     title: 'YOUR EDGE IN THE MARKETS',
-    subtitle: 'Tight spreads. Real prices. Unmatched execution. Trade Gold, Bitcoin and Ethereum with average spreads as low as $0.16 on Gold, $12 on BTC and $1.25 on ETH.',
+    subtitle: '',
     cta: 'OPEN ACCOUNT',
     image: imgSpreads,
     theme: 'dark'
   },
   {
     id: 'slide-1',
-    title: 'AXI COPY TRADING',
-    subtitle: 'Automate. Imitate. Copy trade. Mirror the strategies of experienced traders in real time with the Axi Copy Trading app. Watch, learn and grow with real results from day one.',
+    title: '650+ MARKETS. ONE APP.',
+    subtitle: '',
     cta: 'START COPY TRADING',
     image: imgMarketsApp,
     theme: 'dark'
   },
   {
     id: 'slide-2',
-    title: 'TRADE CFDs, CRYPTO AND FOREX',
-    subtitle: '650+ markets across forex, indices, shares, commodities, ETFs and cryptocurrencies. One account for every major market with spreads as low as 0.68 pips on EUR/USD.',
-    cta: 'VIEW ALL MARKETS',
+    title: 'TRADE WITH AXI FUNDS UP TO $1M',
+    subtitle: 'No registration fees. No monthly fees. 100% FREE.',
+    cta: 'JOIN NOW',
     image: imgAxiSelect,
     theme: 'dark'
   },
   {
     id: 'slide-3',
     title: 'SPOT IT. BUY IT. OWN IT.',
-    subtitle: 'Buy, sell and hold real cryptocurrencies directly on the spot market. No hidden charges, secure custody, 24/7 market access across top trading pairs.',
+    subtitle: '',
     cta: 'BUY CRYPTO NOW',
     image: imgSpotCrypto,
     theme: 'dark'
   },
   {
     id: 'slide-4',
-    title: 'AI TRADING ANALYST',
-    subtitle: 'Ask Axi is an AI-powered trading analyst, included free with your Axi account. Test your portfolio, get unique insights and make more informed decisions with every trade.',
-    cta: 'ANALYSE MY PORTFOLIO',
+    title: 'POWER UP YOUR TRADING STRATEGY WITH AI',
+    subtitle: '',
+    cta: 'LEARN MORE',
     image: imgAiStrategy,
     theme: 'dark'
   }
@@ -60,10 +60,13 @@ export default function HeroSlideshow() {
 
   const activeSlides = [...SLIDES];
   if (cmsContent) {
+    // Only override title & CTA from CMS admin settings.
+    // We intentionally do NOT override the subtitle here, because the hero
+    // slide images now carry their own marketing text — forcing a CMS subtitle
+    // would create duplicate text on top of the image.
     activeSlides[0] = {
       ...activeSlides[0],
       title: cmsContent.home.heroTitle,
-      subtitle: cmsContent.home.heroSubtitle,
       cta: cmsContent.home.ctaText
     };
   }
@@ -242,7 +245,7 @@ export default function HeroSlideshow() {
               aria-hidden="true"
             />
             {/* Smooth gradient overlay ensuring high text readability while showcasing trading visuals */}
-            <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/75 to-slate-950/30 md:bg-gradient-to-r md:from-slate-950 md:via-slate-950/85 md:to-transparent" />
+            <div className="absolute inset-0 bg-gradient-to-t from-slate-950/85 via-slate-950/30 to-slate-950/10 md:bg-gradient-to-r md:from-slate-950/80 md:via-slate-950/30 md:to-transparent" />
           </div>
 
           {/* Foreground Text & Action - Perfectly aligned with max-w-7xl px-4 sm:px-6 lg:px-8 grid */}
@@ -266,19 +269,23 @@ export default function HeroSlideshow() {
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.6, delay: 0.2 }}
-                className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-black tracking-tight leading-[1.08] mb-5 text-white"
+                className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-black tracking-tight leading-[1.08] mb-5 text-white drop-shadow-[0_2px_8px_rgba(0,0,0,0.85)]"
               >
                 {currentSlide.title}
               </motion.h1>
               
-              <motion.p
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.6, delay: 0.35 }}
-                className="text-base sm:text-lg md:text-xl font-medium mb-8 leading-relaxed max-w-xl text-slate-200"
-              >
-                {currentSlide.subtitle}
-              </motion.p>
+              {currentSlide.subtitle ? (
+                <motion.p
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.6, delay: 0.35 }}
+                  className="text-base sm:text-lg md:text-xl font-medium mb-8 leading-relaxed max-w-xl text-slate-200 drop-shadow-[0_1px_6px_rgba(0,0,0,0.8)]"
+                >
+                  {currentSlide.subtitle}
+                </motion.p>
+              ) : (
+                <div className="mb-8" />
+              )}
               
               <motion.div
                 initial={{ opacity: 0, y: 20 }}

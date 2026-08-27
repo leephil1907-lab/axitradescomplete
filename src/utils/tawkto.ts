@@ -135,7 +135,8 @@ export const loadTawkToScript = (config: TawkToConfig, immediate = true) => {
   if (existingScript) {
     if (existingScript.src === scriptSrc && isScriptLoaded) {
       try {
-        (window as any).Tawk_API?.showWidget?.();
+        // Keep the native Tawk.to launcher hidden; we use our own branded button
+        (window as any).Tawk_API?.hideWidget?.();
       } catch (e) {}
       return;
     }
@@ -149,12 +150,18 @@ export const loadTawkToScript = (config: TawkToConfig, immediate = true) => {
   (window as any).Tawk_API = (window as any).Tawk_API || {};
   (window as any).Tawk_LoadStart = (window as any).Tawk_LoadStart || new Date();
 
+  // Run Tawk.to in EMBEDDED mode: this prevents Tawk.to from rendering its OWN
+  // native floating launcher button. We render our own branded "Live Support"
+  // launcher (TawkToWidget.tsx) instead, so there is only ONE chat button.
+  (window as any).Tawk_API.embedded = true;
+
   // Configure callbacks
   (window as any).Tawk_API.onLoad = function () {
     isScriptLoading = false;
     isScriptLoaded = true;
     try {
-      (window as any).Tawk_API?.showWidget?.();
+      // Hide the native Tawk.to launcher bubble (we use our own branded one)
+      (window as any).Tawk_API?.hideWidget?.();
       if (config.autoOpenOnVisit || config.autoOpen) {
         (window as any).Tawk_API?.maximize?.();
       }
@@ -213,7 +220,7 @@ export const openTawkToChat = () => {
 
   if (tawkAPI && typeof tawkAPI.maximize === 'function') {
     try {
-      tawkAPI.showWidget?.();
+      // Open the chat window without revealing the native launcher bubble
       tawkAPI.maximize();
       return true;
     } catch (e) {

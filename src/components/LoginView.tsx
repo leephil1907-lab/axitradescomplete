@@ -244,7 +244,7 @@ export default function LoginView({
           >
             <div className="flex items-center justify-center gap-1.5">
               <svg className="h-10 sm:h-12 w-auto text-slate-900 dark:text-white" viewBox="0 0 140 40" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <text x="0" y="32" fill="currentColor" fontSize="38" fontWeight="900" fontFamily="Outfit, system-ui, sans-serif" letterSpacing="-1.5">axi</text>
+                <text x="0" y="32" fill="currentColor" fontSize="38" fontWeight="900" fontFamily='"Clash Display", "General Sans", system-ui, sans-serif' letterSpacing="-1.5">axi</text>
                 <circle cx="68" cy="28" r="4.5" fill="#E3000F" />
               </svg>
               <span className="text-[10px] font-black uppercase tracking-widest text-[#FFCC00] border border-[#FFCC00]/30 bg-[#FFCC00]/10 px-2 py-0.5 rounded">GLOBAL</span>

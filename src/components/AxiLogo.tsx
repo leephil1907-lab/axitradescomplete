@@ -40,7 +40,7 @@ export default function AxiLogo({
         fill={colorMap[variant]} 
         fontSize="36" 
         fontWeight="900" 
-        fontFamily="system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" 
+        fontFamily="'Clash Display', 'General Sans', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" 
         letterSpacing="-1.5"
       >
         axi

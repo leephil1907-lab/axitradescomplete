@@ -125,7 +125,7 @@ export default function Footer({ setView }: FooterProps) {
                 aria-label="Axi Home"
               >
                 <svg className="h-9 w-auto text-white" viewBox="0 0 110 36" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <text x="0" y="29" fill="#FFFFFF" fontSize="36" fontWeight="900" fontFamily="system-ui, -apple-system, sans-serif" letterSpacing="-1.5">axi</text>
+                  <text x="0" y="29" fill="#FFFFFF" fontSize="36" fontWeight="900" fontFamily="'Clash Display', 'General Sans', system-ui, sans-serif" letterSpacing="-1.5">axi</text>
                 </svg>
               </button>
 

@@ -135,7 +135,7 @@ export default function ForgotPasswordModal({
           {/* Header */}
           <div className="bg-gradient-to-r from-slate-900 via-slate-950 to-slate-900 text-white p-5 flex items-center justify-between border-b border-slate-800">
             <div className="flex items-center gap-2.5">
-              <span className="text-2xl font-black text-[#E3000F] font-sans" style={{ fontFamily: 'Outfit, sans-serif' }}>
+              <span className="text-2xl font-black text-[#E3000F] font-sans" style={{ fontFamily: '"Clash Display", "General Sans", sans-serif' }}>
                 axi
               </span>
               <span className="text-xs font-bold uppercase tracking-wider text-slate-300 border-l border-slate-700 pl-2.5">

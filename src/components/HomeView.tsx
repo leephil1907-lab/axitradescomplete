@@ -870,6 +870,9 @@ export default function HomeView({ quotes, setView, openSignUp, user }: HomeView
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col md:flex-row items-center justify-between gap-12">
           
           <div className="flex flex-col items-center md:items-start text-center md:text-left gap-5 md:w-1/2 md:pr-10">
+            <span className="inline-flex items-center gap-2 bg-[#6CABDD]/10 text-[#6CABDD] text-[10px] font-black tracking-widest uppercase px-3 py-1.5 rounded-sm">
+              Official Partner
+            </span>
             <h2 className="text-4xl md:text-5xl font-black text-slate-900 tracking-tight leading-tight">
               {cmsContent.home.partnershipTitle}
             </h2>
@@ -888,12 +891,23 @@ export default function HomeView({ quotes, setView, openSignUp, user }: HomeView
           </div>
 
           <div className="md:w-1/2 w-full mt-8 md:mt-0 flex justify-center">
-            <img 
-              src={ManCityImage} 
-              alt="Official Online Trading Partner - Manchester City & DP World Tour" 
-              className="w-full max-w-lg h-auto object-contain rounded-2xl shadow-xl transition-transform hover:scale-[1.02] duration-500 border border-slate-200/60"
-              referrerPolicy="no-referrer"
-            />
+            <div className="relative w-full max-w-xl aspect-[4/3] rounded-2xl overflow-hidden shadow-2xl border border-slate-200/60 group">
+              <img 
+                src={ManCityImage} 
+                alt="Official Online Trading Partner - Manchester City & DP World Tour" 
+                className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
+                referrerPolicy="no-referrer"
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-slate-950/40 via-transparent to-transparent" />
+              <div className="absolute bottom-0 left-0 right-0 p-5 flex items-center justify-between">
+                <span className="text-white text-xs sm:text-sm font-black tracking-wide drop-shadow-lg">
+                  Official Online Trading Partner
+                </span>
+                <span className="bg-[#6CABDD] text-white text-[10px] font-black uppercase tracking-widest px-3 py-1.5 rounded-sm shadow-md">
+                  Man City
+                </span>
+              </div>
+            </div>
           </div>
           
         </div>
