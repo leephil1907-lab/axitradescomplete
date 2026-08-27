@@ -1616,7 +1616,7 @@ app.post('/api/users/register', (req, res) => {
     // sync can never downgrade an Approved/Verified account back to Pending, and
     // never overwrite an admin-adjusted balance. Only refresh identity/activity.
     const prev = appUsersStore[existingIdx];
-    appUsersStore[existingIdx] = {
+    const merged = {
       ...prev,
       ...userData,
       // Admin-controlled fields — always keep the existing value:
@@ -1626,20 +1626,26 @@ app.post('/api/users/register', (req, res) => {
       balance: typeof prev.balance === 'number' ? prev.balance : userData.balance,
       pnlOverride: prev.pnlOverride ?? userData.pnlOverride ?? null
     };
-  } else {
-    appUsersStore.unshift(userData);
-
-    // Notify Telegram Admin about new registered user
-    notifyTelegram('NEW_USER_REGISTRATION', {
-      'Client Name': userData.name,
-      'Email': userData.email,
-      'Country': userData.country,
-      'Account No': userData.accountNo,
-      'Platform': `${userData.tradingPlatform} (${userData.accountType})`,
-      'Leverage': userData.leverage,
-      'Initial Balance': `$${userData.balance.toLocaleString()}`
-    });
+    appUsersStore[existingIdx] = merged;
+    writeDataFile('users.json', appUsersStore);
+    // Return the MERGED record (with preserved admin fields) so the client
+    // never sees a downgraded status in the response.
+    res.json({ success: true, user: merged, totalUsers: appUsersStore.length });
+    return;
   }
+
+  appUsersStore.unshift(userData);
+
+  // Notify Telegram Admin about new registered user
+  notifyTelegram('NEW_USER_REGISTRATION', {
+    'Client Name': userData.name,
+    'Email': userData.email,
+    'Country': userData.country,
+    'Account No': userData.accountNo,
+    'Platform': `${userData.tradingPlatform} (${userData.accountType})`,
+    'Leverage': userData.leverage,
+    'Initial Balance': `$${userData.balance.toLocaleString()}`
+  });
 
   writeDataFile('users.json', appUsersStore);
   res.json({ success: true, user: userData, totalUsers: appUsersStore.length });
