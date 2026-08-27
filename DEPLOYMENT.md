@@ -79,16 +79,42 @@ gcloud run deploy axitrades \
 
 **Cost:** Generous free tier (2 million requests/month, 360,000 GB-seconds/month). Pay-per-use after that.
 
-### Option 4 — Fly.io (Fast global edge)
+### Option 4 — Fly.io (Fast global edge) ✅ Config ready
+
+Fly.io runs your app on fast global edge servers and fully supports long-running Node/Express servers. A `fly.toml` config is already in your repo.
 
 1. Install Fly CLI: `curl -L https://fly.io/install.sh | sh`
-2. Run `fly launch` in the project directory (it detects the Dockerfile)
-3. Follow prompts to create the app
-4. Set secrets: `fly secrets set GEMINI_API_KEY=xxx STRIPE_SECRET_KEY=xxx`
-5. Deploy: `fly deploy`
-6. Get URL: `fly apps info`
+2. Authenticate: `fly auth login` (sign up at https://fly.io if needed)
+3. In the project directory, launch the app (the `fly.toml` is already configured):
+```bash
+fly deploy
+```
+   - If this is your first deploy, Fly will prompt you to create the app. Say yes.
+   - The `fly.toml` sets: region `iad` (Washington D.C. — change to `lhr` for London, `sin` for Singapore, `syd` for Sydney), 512MB RAM, always-on (1 min machine so live price feeds never stop), health check on `/api/markets/quotes`.
+4. Set your secrets (environment variables) — do NOT put these in fly.toml:
+```bash
+fly secrets set GEMINI_API_KEY=your_key_here
+fly secrets set STRIPE_SECRET_KEY=sk_live_xxx STRIPE_WEBHOOK_SECRET=whsec_xxx
+fly secrets set TELEGRAM_BOT_TOKEN=xxx TELEGRAM_CHAT_ID=xxx
+fly secrets set APP_URL=https://axitrades.fly.dev
+```
+5. Redeploy with secrets applied:
+```bash
+fly deploy
+```
+6. Open your app:
+```bash
+fly apps open
+```
+   - You'll get a URL like `https://axitrades.fly.dev`
+7. Check logs if needed:
+```bash
+fly logs
+```
 
-**Cost:** Free tier includes up to 3 shared-cpu-1x VMs with 256MB RAM.
+**Cost:** Free tier includes 3 shared-cpu-1x VMs (256MB RAM each). Your `fly.toml` requests 512MB for the Express server + live price feeds, which costs approximately ~$2-3/month (well within the free credit). If you want to stay fully free, change `memory = "512mb"` to `memory = "256mb"` in `fly.toml`.
+
+**Key advantage:** Fly deploys to edge regions worldwide, so your users get fast response times no matter where they are. The always-on setting (`min_machines_running = 1`) ensures your live market price feeds keep running 24/7 without spinning down.
 
 ---
 
