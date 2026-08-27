@@ -1,39 +1,40 @@
-# fly.toml — Fly.io configuration for Axi Trades
-# Generated for deployment via: fly deploy
+# fly.toml app configuration file generated for axitradescomplete on 2026-08-27T02:43:02Z
+#
+# See https://fly.io/docs/reference/configuration/ for information about how to use this file.
+#
 
-app = "axitrades"
-primary_region = "iad"  # Washington, D.C. — change to your nearest region (lhr=London, sin=Singapore, syd=Sydney)
+app = 'axitradescomplete'
+primary_region = 'ams'
 
 [build]
-  # Uses the existing Dockerfile in the repo root
-  dockerfile = "Dockerfile"
+  dockerfile = 'Dockerfile'
 
 [env]
-  NODE_ENV = "production"
-  PORT = "8080"
+  NODE_ENV = 'production'
+  PORT = '8080'
 
 [http_service]
   internal_port = 8080
   force_https = true
-  auto_stop_machines = false   # keep running so live price feeds stay active
+  auto_stop_machines = 'off'
   auto_start_machines = true
-  min_machines_running = 1     # always-on: 1 machine minimum so API is never cold
+  min_machines_running = 1
 
   [http_service.concurrency]
-    type = "requests"
-    soft_limit = 200
+    type = 'requests'
     hard_limit = 500
+    soft_limit = 200
 
-# Health check — confirms the Express server + live API are responding
-[[http_service.checks]]
-  interval = "30s"
-  timeout = "5s"
-  grace_period = "30s"
-  method = "GET"
-  path = "/api/markets/quotes"
+  [[http_service.checks]]
+    interval = '30s'
+    timeout = '5s'
+    grace_period = '30s'
+    method = 'GET'
+    path = '/api/markets/quotes'
 
-# Resource sizing — 512MB is enough for the Express server + live price feeds
 [[vm]]
-  size = "shared-cpu-1x"
-  memory = "512mb"
+  size = 'shared-cpu-1x'
+  memory = '512mb'
+  cpu_kind = 'shared'
   cpus = 1
+  memory_mb = 256
