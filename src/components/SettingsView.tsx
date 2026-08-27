@@ -104,20 +104,68 @@ export default function SettingsView({ user, showToast, setView, isDarkMode = fa
   const [biometricScanning, setBiometricScanning] = useState(false);
   const [biometricSuccess, setBiometricSuccess] = useState(false);
 
-  const handleTriggerBiometricScan = () => {
+  const handleTriggerBiometricScan = async () => {
     if (biometricScanning || biometricSuccess) return;
+
+    // Use the real WebAuthn API (window.PublicKeyCredential) if available
+    if (!window.PublicKeyCredential) {
+      showToast('Biometric authentication is not supported on this device/browser. Use 2FA instead.', 'error');
+      return;
+    }
+
     setBiometricScanning(true);
-    setTimeout(() => {
+    try {
+      // Create a real WebAuthn credential registration
+      const challenge = new Uint8Array(32);
+      crypto.getRandomValues(challenge);
+
+      const userId = new Uint8Array(16);
+      crypto.getRandomValues(userId);
+
+      const publicKey: PublicKeyCredentialCreationOptions = {
+        challenge,
+        rp: { name: 'Axitrade' },
+        user: {
+          id: userId,
+          name: user?.email || auth.currentUser?.email || 'trader@axi.com',
+          displayName: user?.displayName || auth.currentUser?.displayName || 'Active Trader'
+        },
+        pubKeyCredParams: [
+          { type: 'public-key', alg: -7 },   // ES256
+          { type: 'public-key', alg: -257 }  // RS256
+        ],
+        authenticatorSelection: {
+          authenticatorAttachment: 'platform',
+          userVerification: 'required'
+        },
+        timeout: 60000,
+        attestation: 'none'
+      };
+
+      const credential = await navigator.credentials.create({ publicKey }) as PublicKeyCredential | null;
+
+      if (credential) {
+        setBiometricScanning(false);
+        setBiometricSuccess(true);
+        setIsBiometricEnabled(true);
+        localStorage.setItem('axi_biometric_enabled', 'true');
+        localStorage.setItem('axi_biometric_cred_id', credential.id);
+        showToast('✅ Biometric (WebAuthn) login enabled successfully on this device!', 'success');
+        setTimeout(() => {
+          setIsBiometricModalOpen(false);
+          setBiometricSuccess(false);
+        }, 1200);
+      } else {
+        setBiometricScanning(false);
+        showToast('Biometric scan was cancelled or no credential was created.', 'info');
+      }
+    } catch (err: any) {
       setBiometricScanning(false);
-      setBiometricSuccess(true);
-      setIsBiometricEnabled(true);
-      localStorage.setItem('axi_biometric_enabled', 'true');
-      showToast('Biometric login enabled successfully!', 'success');
-      setTimeout(() => {
-        setIsBiometricModalOpen(false);
-        setBiometricSuccess(false);
-      }, 1200);
-    }, 1500);
+      const msg = err?.name === 'NotAllowedError'
+        ? 'Biometric permission was denied or the operation timed out.'
+        : err?.message || 'Biometric authentication failed.';
+      showToast(msg, 'error');
+    }
   };
 
   // Active Sessions State
@@ -285,7 +333,76 @@ export default function SettingsView({ user, showToast, setView, isDarkMode = fa
     ];
   });
 
+  // Sync KYC status from server — fetches real admin approval/rejection decisions
   useEffect(() => {
+    const activeUserEmail = (user?.email || auth.currentUser?.email || localStorage.getItem('axi_remembered_email') || '').toLowerCase();
+    if (!activeUserEmail) return;
+
+    let cancelled = false;
+
+    const syncKycFromServer = async () => {
+      try {
+        const res = await fetch('/api/kyc/list');
+        if (!res.ok) return;
+        const data = await res.json();
+        if (cancelled || !data.documents) return;
+
+        // Find documents belonging to THIS user
+        const myDocs = data.documents.filter((d: any) =>
+          (d.userEmail || '').toLowerCase() === activeUserEmail
+        );
+
+        if (myDocs.length === 0) return;
+
+        // Map server statuses to local KYCDocument statuses and update kycDocs state
+        const updated = [...kycDocs];
+        let hasApproved = false;
+        let hasUnderReview = false;
+        let hasRejected = false;
+
+        myDocs.forEach((serverDoc: any) => {
+          const localIdx = updated.findIndex(d => d.type === serverDoc.type);
+          const mappedStatus: KYCDocument['status'] =
+            serverDoc.status === 'Approved' ? 'Verified' :
+            serverDoc.status === 'Rejected' ? 'Action Required' :
+            'Under Review';
+
+          if (mappedStatus === 'Verified') hasApproved = true;
+          if (mappedStatus === 'Under Review') hasUnderReview = true;
+          if (mappedStatus === 'Action Required') hasRejected = true;
+
+          if (localIdx >= 0) {
+            updated[localIdx] = {
+              ...updated[localIdx],
+              status: mappedStatus,
+              refCode: serverDoc.refCode || updated[localIdx].refCode,
+              fileName: serverDoc.fileName !== `${serverDoc.type}_Front.pdf, Proof_Of_Address.pdf` ? serverDoc.fileName : updated[localIdx].fileName,
+              submittedAt: serverDoc.submittedAt || updated[localIdx].submittedAt,
+              adminNote: serverDoc.rejectedReason ? `Rejected: ${serverDoc.rejectedReason}` : updated[localIdx].adminNote
+            };
+          }
+        });
+
+        // Determine overall KYC status
+        const newStatus: 'unverified' | 'pending' | 'verified' =
+          updated.filter(d => d.status === 'Verified').length === updated.length ? 'verified' :
+          hasUnderReview || hasRejected ? 'pending' : 'unverified';
+
+        if (!cancelled) {
+          setKycDocs(updated);
+          setKycStatus(newStatus);
+          localStorage.setItem('axi_kyc_docs', JSON.stringify(updated));
+          localStorage.setItem('axi_kyc_status', newStatus);
+        }
+      } catch (e) {
+        // Server unreachable — keep local state
+        console.info('KYC server sync notice:', e);
+      }
+    };
+
+    syncKycFromServer();
+    const interval = setInterval(syncKycFromServer, 10000); // Poll every 10s for admin decisions
+
     const handleKycUpdate = () => {
       const saved = localStorage.getItem('axi_kyc_docs');
       if (saved) {
@@ -294,8 +411,13 @@ export default function SettingsView({ user, showToast, setView, isDarkMode = fa
       setKycStatus((localStorage.getItem('axi_kyc_status') as 'unverified' | 'pending' | 'verified') || 'unverified');
     };
     window.addEventListener('axi_kyc_update', handleKycUpdate);
-    return () => window.removeEventListener('axi_kyc_update', handleKycUpdate);
-  }, []);
+
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+      window.removeEventListener('axi_kyc_update', handleKycUpdate);
+    };
+  }, [user]);
 
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
   const [selectedDocType, setSelectedDocType] = useState<'Passport / National ID' | 'Proof of Address' | 'Bank Statement / Wealth Proof'>('Passport / National ID');
@@ -305,51 +427,118 @@ export default function SettingsView({ user, showToast, setView, isDarkMode = fa
 
   const totpSecret = 'AXI-2FA-88X9-4110-K9L2-M56P';
 
-  const handleUploadDocument = (e: React.FormEvent) => {
+  const handleUploadDocument = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!uploadFileName.trim()) {
-      showToast('Please select or enter a document filename.', 'error');
+    const fileInput = (e.currentTarget.querySelector('input[type="file"]') as HTMLInputElement);
+    const file = fileInput?.files?.[0];
+    if (!file) {
+      showToast('Please select a document file to upload.', 'error');
       return;
     }
 
+    // Validate file size (max 10MB)
+    if (file.size > 10 * 1024 * 1024) {
+      showToast('File exceeds 10MB limit. Please compress or choose a smaller file.', 'error');
+      return;
+    }
+
+    const actualFileSize = `${(file.size / (1024 * 1024)).toFixed(2)} MB`;
+    const newRef = `DOC-${Date.now().toString(36).toUpperCase()}`;
+    const newId = `KYC-${Date.now().toString().slice(-6)}`;
+    const submittedAt = new Date().toISOString().replace('T', ' ').substring(0, 16) + ' UTC';
+
     setIsSubmittingDoc(true);
-    setTimeout(() => {
-      setIsSubmittingDoc(false);
-      const newRef = `DOC-${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
-      
-      const newDoc = {
-        id: `KYC-${Math.floor(100000 + Math.random() * 899999)}`,
-        user: user?.displayName || 'User',
-        userEmail: user?.email || 'user@example.com',
-        type: selectedDocType,
-        fileName: uploadFileName.trim(),
-        fileSize: `${(Math.random() * 2 + 1).toFixed(1)} MB`,
-        submittedAt: new Date().toISOString().replace('T', ' ').substring(0, 16) + ' UTC',
-        status: 'Under Review',
-        reviewStep: 2,
-        adminNote: uploadNote ? `User Note: "${uploadNote}". Submitted for manual admin review.` : 'Submitted and queued for manual compliance admin review.',
-        refCode: newRef
-      };
 
-      const updated = [...kycDocs];
-      const existingIdx = updated.findIndex(doc => doc.type === selectedDocType);
-      
-      if (existingIdx >= 0) {
-        updated[existingIdx] = { ...updated[existingIdx], ...newDoc, id: updated[existingIdx].id };
-      } else {
-        updated.push(newDoc as any);
+    // Read file as base64 for server-side storage (for images under 2MB; PDFs handled by filename)
+    let fileBase64 = '';
+    try {
+      if (file.size < 2 * 1024 * 1024 && file.type !== 'application/pdf') {
+        fileBase64 = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(reader.result as string);
+          reader.onerror = reject;
+          reader.readAsDataURL(file);
+        });
       }
+    } catch (readErr) {
+      console.warn('File read notice:', readErr);
+    }
 
-      setKycDocs(updated);
-      localStorage.setItem('axi_kyc_docs', JSON.stringify(updated));
-      localStorage.setItem('axi_kyc_status', 'pending');
-      window.dispatchEvent(new Event('axi_kyc_update'));
+    const newDoc = {
+      id: newId,
+      user: user?.displayName || auth.currentUser?.displayName || 'Active Trader',
+      userEmail: (user?.email || auth.currentUser?.email || localStorage.getItem('axi_remembered_email') || 'trader@axi.com').toLowerCase(),
+      type: selectedDocType,
+      fileName: file.name,
+      fileSize: actualFileSize,
+      submittedAt,
+      status: 'Under Review',
+      reviewStep: 2,
+      adminNote: uploadNote ? `User Note: "${uploadNote}". Submitted for manual admin review.` : 'Submitted and queued for manual compliance admin review.',
+      refCode: newRef,
+      fileData: fileBase64 || undefined,
+      fileType: file.type,
+      level: 1
+    };
 
-      showToast(`📄 KYC Document submitted! Ref: ${newRef}. Status set to Under Review. Awaiting admin approval.`, 'success');
-      setIsUploadModalOpen(false);
-      setUploadFileName('');
-      setUploadNote('');
-    }, 1200);
+    // 1. Submit to Backend API (POST /api/kyc/submit) — admin receives this in the KYC review queue
+    try {
+      const res = await fetch('/api/kyc/submit', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: newId,
+          user: newDoc.user,
+          userEmail: newDoc.userEmail,
+          type: selectedDocType,
+          fileName: file.name,
+          submittedAt,
+          refCode: newRef,
+          level: 1,
+          dateOfBirth: '',
+          address: '',
+          city: '',
+          postalCode: '',
+          country: '',
+          docType: selectedDocType,
+          docNumber: '',
+          idFrontName: file.name,
+          idBackName: '',
+          proofResName: '',
+          documents: fileBase64 ? [{ label: selectedDocType, fileName: file.name, dataUrl: fileBase64 }] : [],
+          userNote: uploadNote
+        })
+      });
+      if (!res.ok) {
+        console.warn('KYC submit returned non-OK:', res.status);
+      }
+    } catch (apiErr) {
+      console.warn('Backend KYC submission sync notice:', apiErr);
+    }
+
+    setIsSubmittingDoc(false);
+
+    // 2. Update local state and storage for immediate UI feedback
+    const updated = [...kycDocs];
+    const existingIdx = updated.findIndex(doc => doc.type === selectedDocType);
+    
+    if (existingIdx >= 0) {
+      updated[existingIdx] = { ...updated[existingIdx], ...newDoc, id: updated[existingIdx].id } as KYCDocument;
+    } else {
+      updated.push(newDoc as any);
+    }
+
+    setKycDocs(updated);
+    localStorage.setItem('axi_kyc_docs', JSON.stringify(updated));
+    localStorage.setItem('axi_kyc_status', 'pending');
+    setKycStatus('pending');
+    window.dispatchEvent(new Event('axi_kyc_update'));
+
+    showToast(`📄 KYC Document "${file.name}" uploaded & submitted to admin! Ref: ${newRef}. Status: Under Review.`, 'success');
+    setIsUploadModalOpen(false);
+    setUploadFileName('');
+    setUploadNote('');
+    if (fileInput) fileInput.value = '';
   };
 
   const handleThemeChange = (newTheme: 'light' | 'dark') => {
@@ -843,7 +1032,7 @@ export default function SettingsView({ user, showToast, setView, isDarkMode = fa
                 </form>
               </div>
 
-              {/* Verification Progress Visual Timeline */}
+              {/* Verification Progress Visual Timeline — DYNAMIC (based on real kycDocs status) */}
               <div className="bg-white border border-slate-200 rounded-xl p-6 shadow-sm flex flex-col gap-6">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-4">
                   <div>
@@ -860,118 +1049,127 @@ export default function SettingsView({ user, showToast, setView, isDarkMode = fa
                   <div className="flex items-center gap-2 shrink-0">
                     <div className="text-right">
                       <div className="text-[10px] font-bold uppercase text-slate-400">Account Status</div>
-                      <div className="text-xs font-black text-emerald-600 font-mono">75% Verified (Level 2)</div>
+                      <div className={`text-xs font-black font-mono ${
+                        kycStatus === 'verified' ? 'text-emerald-600' :
+                        kycStatus === 'pending' ? 'text-amber-600' : 'text-slate-500'
+                      }`}>
+                        {kycStatus === 'verified' ? 'Verified (Level 2)' : kycStatus === 'pending' ? 'Pending Review' : 'Not Started'}
+                      </div>
                     </div>
-                    <div className="w-12 h-12 rounded-full border-4 border-emerald-500 border-t-amber-400 flex items-center justify-center font-black text-xs text-slate-900 bg-emerald-50">
-                      2/3
+                    <div className={`w-12 h-12 rounded-full border-4 flex items-center justify-center font-black text-xs bg-slate-50 ${
+                      kycStatus === 'verified' ? 'border-emerald-500 text-emerald-700' :
+                      kycStatus === 'pending' ? 'border-amber-400 text-amber-700' : 'border-slate-300 text-slate-500'
+                    }`}>
+                      {kycDocs.filter(d => d.status === 'Verified').length}/3
                     </div>
                   </div>
                 </div>
 
                 {/* Timeline Path Container */}
                 <div className="relative py-2">
-                  {/* Connecting Line (Desktop) */}
+                  {/* Connecting Line (Desktop) — progress width based on verified docs */}
                   <div className="hidden md:block absolute top-1/2 left-10 right-10 h-1 bg-slate-200 -translate-y-8 z-0">
-                    <div className="h-full bg-gradient-to-r from-emerald-500 via-emerald-500 to-amber-400 w-[66%]" />
+                    <div
+                      className="h-full bg-gradient-to-r from-emerald-500 to-amber-400 transition-all duration-500"
+                      style={{ width: `${(kycDocs.filter(d => d.status === 'Verified').length / 3) * 100}%` }}
+                    />
                   </div>
 
-                  {/* Visual Timeline Steps Grid */}
+                  {/* Visual Timeline Steps Grid — DYNAMIC per document type */}
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-6 relative z-10">
-                    
-                    {/* STEP 1: IDENTITY VERIFICATION (COMPLETED) */}
-                    <div className="flex flex-col items-center text-center p-5 rounded-2xl bg-emerald-50/50 border-2 border-emerald-300 relative shadow-sm">
-                      <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-emerald-600 text-white text-[9px] font-black uppercase px-2.5 py-0.5 rounded-full shadow-sm flex items-center gap-1">
-                        <CheckCircle2 className="w-3 h-3" /> Step 1 Passed
-                      </div>
+                    {kycDocs.map((doc, idx) => {
+                      const stepNum = idx + 1;
+                      const stepLabels = ['Identity Verification', 'Residency Verification', 'Review & Tier Unlock'];
+                      const stepDescs = [
+                        'Upload an unexpired government-issued passport, national ID, or driver\'s license.',
+                        'Upload a utility bill, bank statement, or tax document issued within 90 days.',
+                        'Final compliance review & activation of higher deposit/withdrawal limits & leverage tiers.'
+                      ];
 
-                      {/* Status Circle: COMPLETED */}
-                      <div className="w-16 h-16 rounded-full bg-emerald-600 text-white flex items-center justify-center shadow-lg shadow-emerald-600/30 ring-4 ring-emerald-100 my-2 shrink-0">
-                        <CheckCircle2 className="w-8 h-8 text-white animate-scale-in" />
-                      </div>
+                      const isVerified = doc.status === 'Verified';
+                      const isUnderReview = doc.status === 'Under Review';
+                      const isNotUploaded = doc.status === 'Not Uploaded';
 
-                      <div className="mt-2 space-y-1">
-                        <span className="text-[10px] font-black uppercase tracking-wider text-emerald-800 bg-emerald-100 px-2 py-0.5 rounded font-mono">
-                          Status: Completed
-                        </span>
-                        <h5 className="font-extrabold text-slate-900 text-sm mt-1">1. Identity Verification</h5>
-                        <p className="text-xs text-slate-600 font-medium leading-relaxed">
-                          National Passport & Government Photo ID submitted & verified by automated MRZ scanner.
-                        </p>
-                      </div>
-
-                      <div className="mt-4 pt-3 border-t border-emerald-200/60 w-full flex items-center justify-between text-[11px] text-emerald-800 font-medium">
-                        <span>Ref: DOC-88912-ID</span>
-                        <span className="font-bold text-emerald-700">Verified ✓</span>
-                      </div>
-                    </div>
-
-                    {/* STEP 2: RESIDENCY VERIFICATION (ACTIVE / IN PROGRESS) */}
-                    <div className="flex flex-col items-center text-center p-5 rounded-2xl bg-amber-50/60 border-2 border-amber-400 relative shadow-sm">
-                      <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-amber-500 text-slate-950 text-[9px] font-black uppercase px-2.5 py-0.5 rounded-full shadow-sm flex items-center gap-1 animate-pulse">
-                        <Clock className="w-3 h-3" /> Step 2 Active
-                      </div>
-
-                      {/* Status Circle: ACTIVE / IN PROGRESS */}
-                      <div className="w-16 h-16 rounded-full bg-amber-400 text-slate-950 flex items-center justify-center shadow-lg shadow-amber-400/40 ring-4 ring-amber-100 my-2 shrink-0 relative">
-                        <motion.div
-                          animate={{ scale: [1, 1.15, 1], opacity: [0.8, 0.2, 0.8] }}
-                          transition={{ repeat: Infinity, duration: 2 }}
-                          className="absolute inset-0 rounded-full bg-amber-400 -z-10"
-                        />
-                        <RefreshCw className="w-7 h-7 text-slate-950 animate-spin" style={{ animationDuration: '4s' }} />
-                      </div>
-
-                      <div className="mt-2 space-y-1">
-                        <span className="text-[10px] font-black uppercase tracking-wider text-amber-900 bg-amber-200/80 px-2 py-0.5 rounded font-mono">
-                          Status: Active Audit
-                        </span>
-                        <h5 className="font-extrabold text-slate-900 text-sm mt-1">2. Residency Verification</h5>
-                        <p className="text-xs text-slate-600 font-medium leading-relaxed">
-                          Utility Bill / Proof of Address submitted. OCR address check complete, awaiting admin audit.
-                        </p>
-                      </div>
-
-                      <div className="mt-4 pt-3 border-t border-amber-200 w-full flex items-center justify-between text-[11px] font-medium">
-                        <span className="text-amber-900">Ref: DOC-90145-POA</span>
-                        <button
-                          onClick={() => {
-                            setSelectedDocType('Proof of Address');
-                            setIsUploadModalOpen(true);
-                          }}
-                          className="text-[#E3000F] font-bold hover:underline cursor-pointer flex items-center gap-1"
+                      return (
+                        <div
+                          key={doc.id}
+                          className={`flex flex-col items-center text-center p-5 rounded-2xl relative shadow-sm ${
+                            isVerified ? 'bg-emerald-50/50 border-2 border-emerald-300' :
+                            isUnderReview ? 'bg-amber-50/60 border-2 border-amber-400' :
+                            'bg-slate-50 border-2 border-slate-200 shadow-xs'
+                          }`}
                         >
-                          <Upload className="w-3 h-3" /> Update
-                        </button>
-                      </div>
-                    </div>
+                          {/* Step Badge */}
+                          <div className={`absolute -top-3 left-1/2 -translate-x-1/2 text-white text-[9px] font-black uppercase px-2.5 py-0.5 rounded-full shadow-sm flex items-center gap-1 ${
+                            isVerified ? 'bg-emerald-600' :
+                            isUnderReview ? 'bg-amber-500 text-slate-950 animate-pulse' : 'bg-slate-400'
+                          }`}>
+                            {isVerified ? (
+                              <><CheckCircle2 className="w-3 h-3" /> Step {stepNum} Passed</>
+                            ) : isUnderReview ? (
+                              <><Clock className="w-3 h-3" /> Step {stepNum} Active</>
+                            ) : (
+                              <><Lock className="w-3 h-3" /> Step {stepNum} Pending</>
+                            )}
+                          </div>
 
-                    {/* STEP 3: COMPLIANCE REVIEW STATUS (PENDING) */}
-                    <div className="flex flex-col items-center text-center p-5 rounded-2xl bg-slate-50 border-2 border-slate-200 relative shadow-xs">
-                      <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-slate-400 text-white text-[9px] font-black uppercase px-2.5 py-0.5 rounded-full shadow-sm flex items-center gap-1">
-                        <Lock className="w-3 h-3" /> Step 3 Pending
-                      </div>
+                          {/* Status Circle */}
+                          <div className={`w-16 h-16 rounded-full flex items-center justify-center shadow-lg my-2 shrink-0 relative ${
+                            isVerified ? 'bg-emerald-600 text-white shadow-emerald-600/30 ring-4 ring-emerald-100' :
+                            isUnderReview ? 'bg-amber-400 text-slate-950 shadow-amber-400/40 ring-4 ring-amber-100' :
+                            'bg-slate-200 text-slate-500 shadow-inner border border-slate-300'
+                          }`}>
+                            {isUnderReview && (
+                              <motion.div
+                                animate={{ scale: [1, 1.15, 1], opacity: [0.8, 0.2, 0.8] }}
+                                transition={{ repeat: Infinity, duration: 2 }}
+                                className="absolute inset-0 rounded-full bg-amber-400 -z-10"
+                              />
+                            )}
+                            {isVerified ? (
+                              <CheckCircle2 className="w-8 h-8 text-white animate-scale-in" />
+                            ) : isUnderReview ? (
+                              <RefreshCw className="w-7 h-7 text-slate-950 animate-spin" style={{ animationDuration: '4s' }} />
+                            ) : (
+                              <Lock className="w-7 h-7 text-slate-400" />
+                            )}
+                          </div>
 
-                      {/* Status Circle: PENDING */}
-                      <div className="w-16 h-16 rounded-full bg-slate-200 text-slate-500 flex items-center justify-center shadow-inner my-2 shrink-0 border border-slate-300">
-                        <Lock className="w-7 h-7 text-slate-400" />
-                      </div>
+                          <div className="mt-2 space-y-1">
+                            <span className={`text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded font-mono ${
+                              isVerified ? 'text-emerald-800 bg-emerald-100' :
+                              isUnderReview ? 'text-amber-900 bg-amber-200/80' : 'text-slate-600 bg-slate-200'
+                            }`}>
+                              {isVerified ? 'Status: Completed' : isUnderReview ? 'Status: Under Review' : 'Status: Not Uploaded'}
+                            </span>
+                            <h5 className="font-extrabold text-slate-900 text-sm mt-1">{stepNum}. {stepLabels[idx]}</h5>
+                            <p className="text-xs text-slate-600 font-medium leading-relaxed">
+                              {stepDescs[idx]}
+                            </p>
+                          </div>
 
-                      <div className="mt-2 space-y-1">
-                        <span className="text-[10px] font-black uppercase tracking-wider text-slate-600 bg-slate-200 px-2 py-0.5 rounded font-mono">
-                          Status: Pending Step 2
-                        </span>
-                        <h5 className="font-extrabold text-slate-900 text-sm mt-1">3. Review & Tier Unlock</h5>
-                        <p className="text-xs text-slate-500 font-medium leading-relaxed">
-                          Final compliance review & activation of Institutional Tier ($100,000+ limits & 1:500 leverage).
-                        </p>
-                      </div>
-
-                      <div className="mt-4 pt-3 border-t border-slate-200 w-full flex items-center justify-between text-[11px] text-slate-400 font-medium">
-                        <span>Awaiting Residency Approval</span>
-                        <span className="font-mono text-slate-500">Tier 3</span>
-                      </div>
-                    </div>
-
+                          <div className={`mt-4 pt-3 border-t w-full flex items-center justify-between text-[11px] font-medium ${
+                            isVerified ? 'border-emerald-200/60 text-emerald-800' :
+                            isUnderReview ? 'border-amber-200 text-amber-900' : 'border-slate-200 text-slate-400'
+                          }`}>
+                            <span>Ref: {doc.refCode}</span>
+                            {isVerified ? (
+                              <span className="font-bold text-emerald-700">Verified ✓</span>
+                            ) : (
+                              <button
+                                onClick={() => {
+                                  setSelectedDocType(doc.type);
+                                  setIsUploadModalOpen(true);
+                                }}
+                                className="text-[#E3000F] font-bold hover:underline cursor-pointer flex items-center gap-1"
+                              >
+                                <Upload className="w-3 h-3" /> {isUnderReview ? 'Update' : 'Upload'}
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
 
@@ -987,7 +1185,7 @@ export default function SettingsView({ user, showToast, setView, isDarkMode = fa
                   </div>
                   <div className="flex items-center gap-2">
                     <span className="w-3 h-3 rounded-full bg-slate-300 ring-2 ring-slate-200 shrink-0" />
-                    <span><strong>Pending:</strong> Step locked until prior step complete</span>
+                    <span><strong>Pending:</strong> Not yet uploaded</span>
                   </div>
                 </div>
               </div>
