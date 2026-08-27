@@ -28,7 +28,7 @@
   "rewrites": [
     {
       "source": "/api/(.*)",
-      "destination": "/api"
+      "destination": "https://axitradescomplete.fly.dev/api/$1"
     },
     {
       "source": "/(.*)",
