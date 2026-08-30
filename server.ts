@@ -66,51 +66,6 @@ interface WebhookPingEntry {
 
 const webhookPingState = { lastPingTimestamp: 0, lastPingEvent: 'none', lastPingStatus: 'Disconnected' as 'Active' | 'Disconnected', lastPingLatencyMs: 0, lastPingSource: 'No verified webhook activity yet', totalPingsCount: 0, history: [] as WebhookPingEntry[] };
 
-// Initialize with live real baseline rates
-const LIVE_MARKETS: Record<string, MarketState> = SUPPORTED_SYMBOLS.reduce((acc, sym) => {
-  const base = INITIAL_BASELINE_PRICES[sym] || { price: 1.0, change: 0 };
-  acc[sym] = {
-    price: base.price,
-    change: base.change,
-    bidDiff: - (base.price * 0.0001),
-    askDiff: (base.price * 0.0001),
-    spread: Number((base.price * 0.0002).toFixed(4)),
-    lastUpdated: Date.now(),
-    stale: false,
-    status: 'live',
-    source: 'Real-time Interbank / Binance / Exchange Feed'
-  };
-  return acc;
-}, {} as Record<string, MarketState>);
-
-const YAHOO_CHART_SYMBOLS: Record<string, string> = {
-  'XAUUSD': 'GC=F',
-  'XAGUSD': 'SI=F',
-  'USOUSD': 'CL=F',
-  'BRENTUSD': 'BZ=F',
-  'NATGAS': 'NG=F',
-  'US30': '^DJI',
-  'SPX500': '^GSPC',
-  'NAS100': '^IXIC',
-  'UK100': '^FTSE',
-  'GER40': '^GDAXI',
-  'AAPL': 'AAPL',
-  'TSLA': 'TSLA',
-  'NVDA': 'NVDA',
-  'MSFT': 'MSFT',
-  'AMZN': 'AMZN',
-  'GOOGL': 'GOOGL',
-  'META': 'META',
-  'AMD': 'AMD',
-  'NFLX': 'NFLX',
-  'COIN': 'COIN',
-  'EURUSD': 'EURUSD=X',
-  'GBPUSD': 'GBPUSD=X',
-  'USDJPY': 'JPY=X',
-  'AUDUSD': 'AUDUSD=X',
-  'USDCAD': 'CAD=X'
-};
-
 const BINANCE_MAPPING: Record<string, string> = {
   'BTCUSDT': 'BTCUSD',
   'ETHUSDT': 'ETHUSD',
