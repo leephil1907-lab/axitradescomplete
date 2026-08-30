@@ -6,7 +6,7 @@
   },
   "deploy": {
     "startCommand": "node dist/server.cjs",
-    "healthcheckPath": "/api/markets/quotes",
+    "healthcheckPath": "/api/health",
     "healthcheckTimeout": 30,
     "restartPolicyType": "ON_FAILURE",
     "restartPolicyMaxRetries": 10
