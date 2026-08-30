@@ -228,13 +228,9 @@ export function useFirebaseData() {
   const loginWithEmail = async (email: string, pass: string) => {
     try {
       const res = await signInWithEmailAndPassword(auth, email.trim().toLowerCase(), pass);
-      sendTelegramAlert('USER_LOGIN', '🔓 User Signed In via Email/Password', {
-        'Email': email.trim().toLowerCase(),
-        'User UID': res.user.uid
-      });
+      sendTelegramAlert('USER_LOGIN', '🔓 User Signed In via Email/Password', { 'Email': email.trim().toLowerCase(), 'User UID': res.user.uid });
       return res;
     } catch (err: any) {
-      // A failed login is a failed login. Never auto-register or mutate the account.
       throw err;
     }
   };
