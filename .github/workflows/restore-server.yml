@@ -1,0 +1,51 @@
+name: Restore server integrity
+
+on:
+  push:
+    branches: [production-integrity-cleanup]
+
+permissions:
+  contents: write
+
+jobs:
+  restore:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: production-integrity-cleanup
+          fetch-depth: 0
+      - name: Restore server from main and apply safe production changes
+        run: |
+          git fetch origin main
+          git checkout origin/main -- server.ts
+          python3 <<'PY'
+          from pathlib import Path
+          p = Path('server.ts')
+          s = p.read_text()
+          old = """const webhookPingState = {\n  lastPingTimestamp: Date.now() - 1000 * 60 * 3, // Default 3 mins ago\n  lastPingEvent: 'ping.succeeded',\n  lastPingStatus: 'Active' as 'Active' | 'Disconnected',\n  lastPingLatencyMs: 16,\n  lastPingSource: 'Stripe Webhook Listener',\n  totalPingsCount: 14,\n  history: [\n    {\n      timestamp: new Date(Date.now() - 1000 * 60 * 3).toISOString(),\n      event: 'ping.succeeded',\n      status: 'Active' as 'Active' | 'Disconnected',\n      latencyMs: 16,\n      source: 'Stripe Webhook Listener'\n    },\n    {\n      timestamp: new Date(Date.now() - 1000 * 60 * 25).toISOString(),\n      event: 'payment_intent.succeeded',\n      status: 'Active' as 'Active' | 'Disconnected',\n      latencyMs: 24,\n      source: 'Stripe Payment Gateway'\n    }\n  ] as WebhookPingEntry[]\n};"""
+          new = """const webhookPingState = {\n  lastPingTimestamp: 0,\n  lastPingEvent: 'none',\n  lastPingStatus: 'Disconnected' as 'Active' | 'Disconnected',\n  lastPingLatencyMs: 0,\n  lastPingSource: 'No verified webhook activity yet',\n  totalPingsCount: 0,\n  history: [] as WebhookPingEntry[]\n};"""
+          if old not in s: raise SystemExit('Expected webhook state block was not found')
+          s = s.replace(old, new, 1)
+          s = s.replace("demoBalance: typeof body.demoBalance === 'number' ? body.demoBalance : 10000,", "demoBalance: typeof body.demoBalance === 'number' ? body.demoBalance : 0,")
+          s = s.replace("pnlPercentage: typeof body.pnlPercentage === 'number' ? body.pnlPercentage : 24.5,", "pnlPercentage: typeof body.pnlPercentage === 'number' ? body.pnlPercentage : 0,")
+          s = s.replace("pnlOverride: body.pnlOverride || null,", "pnlOverride: null,")
+          s = s.replace("accountNo: body.accountNo || `AXI-${body.tradingPlatform || 'MT5'}-${Math.floor(1000000 + Math.random() * 8999999)}`,", "accountNo: body.accountNo || '',")
+          s = s.replace("accountType: body.accountType || `${body.tier || 'Standard'} Live`,", "accountType: body.accountType || 'Pending broker provisioning',")
+          s = s.replace("leverage: body.leverage || '1:500',", "leverage: body.leverage || '',")
+          s = s.replace("tradingPassword: body.tradingPassword || '',", "tradingPassword: '',")
+          # Disable test-only Stripe controls in production without deleting the real webhook.
+          for route in ["app.post('/api/stripe/webhook/ping'", "app.post('/api/stripe/webhook/toggle-disconnect'"]:
+              idx = s.find(route)
+              if idx >= 0:
+                  body_start = s.find('{', idx)
+                  guard = "\n  if (process.env.NODE_ENV === 'production') return res.status(404).json({ error: 'Test endpoint disabled in production.' });"
+                  if body_start >= 0 and guard not in s[body_start:body_start+250]: s = s[:body_start+1] + guard + s[body_start+1:]
+          p.write_text(s)
+          PY
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add server.ts
+          git commit -m "Restore Stripe webhook and keep production-safe server defaults"
+          git push origin production-integrity-cleanup
