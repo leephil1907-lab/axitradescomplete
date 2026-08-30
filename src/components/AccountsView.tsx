@@ -485,7 +485,7 @@ export default function AccountsView({
     });
   };
 
-  const validateAndNext = () => {
+  const validateAndNext = async () => {
     // Custom validation logic per step
     if (wizardStep === 1) {
       // Interest survey
