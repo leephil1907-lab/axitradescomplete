@@ -64,15 +64,7 @@ interface WebhookPingEntry {
   source: string;
 }
 
-const webhookPingState = {
-  lastPingTimestamp: 0,
-  lastPingEvent: 'none',
-  lastPingStatus: 'Disconnected' as 'Active' | 'Disconnected',
-  lastPingLatencyMs: 0,
-  lastPingSource: 'No verified webhook activity yet',
-  totalPingsCount: 0,
-  history: [] as WebhookPingEntry[]
-};
+const webhookPingState = { lastPingTimestamp: 0, lastPingEvent: 'none', lastPingStatus: 'Disconnected' as 'Active' | 'Disconnected', lastPingLatencyMs: 0, lastPingSource: 'No verified webhook activity yet', totalPingsCount: 0, history: [] as WebhookPingEntry[] };
 
 // Stripe configuration & lazy client initialization
 let stripeClient: Stripe | null = null;
@@ -1476,14 +1468,9 @@ let appTawkToConfigStore: any = readDataFile('tawkto.json', {
 });
 
 // Admin platform settings stores (persisted to data files)
-let appBotConfigStore: any = readDataFile('adminBotConfig.json', {
-  active: false,
-  name: '', strategy: '', frequency: '', maxAllocationUsd: 0, winRateSim: 0, monthlyTargetYield: 0, riskLevel: 'Disabled'
-});
+let appBotConfigStore: any = readDataFile('adminBotConfig.json', { active: false, name: '', strategy: '', frequency: '', maxAllocationUsd: 0, winRateSim: 0, monthlyTargetYield: 0, riskLevel: 'Disabled' });
 
-let appTradingBotSettingsStore: any = readDataFile('adminTradingBotSettings.json', {
-  automatedTradingEnabled: false, maxBotLeverage: '', circuitBreakerEnabled: true, circuitBreakerThreshold: 0
-});
+let appTradingBotSettingsStore: any = readDataFile('adminTradingBotSettings.json', { automatedTradingEnabled: false, maxBotLeverage: '', circuitBreakerEnabled: true, circuitBreakerThreshold: 0 });
 
 let appInvestmentPlansStore: any[] = readDataFile('adminInvestmentPlans.json', []);
 
