@@ -65,28 +65,13 @@ interface WebhookPingEntry {
 }
 
 const webhookPingState = {
-  lastPingTimestamp: Date.now() - 1000 * 60 * 3, // Default 3 mins ago
-  lastPingEvent: 'ping.succeeded',
-  lastPingStatus: 'Active' as 'Active' | 'Disconnected',
-  lastPingLatencyMs: 16,
-  lastPingSource: 'Stripe Webhook Listener',
-  totalPingsCount: 14,
-  history: [
-    {
-      timestamp: new Date(Date.now() - 1000 * 60 * 3).toISOString(),
-      event: 'ping.succeeded',
-      status: 'Active' as 'Active' | 'Disconnected',
-      latencyMs: 16,
-      source: 'Stripe Webhook Listener'
-    },
-    {
-      timestamp: new Date(Date.now() - 1000 * 60 * 25).toISOString(),
-      event: 'payment_intent.succeeded',
-      status: 'Active' as 'Active' | 'Disconnected',
-      latencyMs: 24,
-      source: 'Stripe Payment Gateway'
-    }
-  ] as WebhookPingEntry[]
+  lastPingTimestamp: 0,
+  lastPingEvent: 'none',
+  lastPingStatus: 'Disconnected' as 'Active' | 'Disconnected',
+  lastPingLatencyMs: 0,
+  lastPingSource: 'No verified webhook activity yet',
+  totalPingsCount: 0,
+  history: [] as WebhookPingEntry[]
 };
 
 // Stripe configuration & lazy client initialization
@@ -1322,6 +1307,7 @@ app.get('/api/stripe/status', (req, res) => {
 
 // Endpoint to trigger a direct webhook Ping test
 app.post('/api/stripe/webhook/ping', (req, res) => {
+  if (process.env.NODE_ENV === 'production') return res.status(404).json({ error: 'Test endpoint disabled in production.' });
   const startTime = Date.now();
   const calculatedLatency = Math.max(1, Date.now() - startTime + 5);
   
@@ -1355,6 +1341,7 @@ app.post('/api/stripe/webhook/ping', (req, res) => {
 
 // Endpoint to toggle network state for testing
 app.post('/api/stripe/webhook/toggle-disconnect', (req, res) => {
+  if (process.env.NODE_ENV === 'production') return res.status(404).json({ error: 'Test endpoint disabled in production.' });
   const newStatus = webhookPingState.lastPingStatus === 'Active' ? 'Disconnected' : 'Active';
   webhookPingState.lastPingStatus = newStatus;
   webhookPingState.lastPingTimestamp = Date.now();
@@ -1486,45 +1473,19 @@ let appTawkToConfigStore: any = readDataFile('tawkto.json', {
 
 // Admin platform settings stores (persisted to data files)
 let appBotConfigStore: any = readDataFile('adminBotConfig.json', {
-  active: true,
-  name: 'Axi Neural Quant Bot v4',
-  strategy: 'High Frequency Arbitrage',
-  frequency: '15 seconds',
-  maxAllocationUsd: 25000,
-  winRateSim: 88.5,
-  monthlyTargetYield: 18.4,
-  riskLevel: 'Moderate'
+  active: false,
+  name: '', strategy: '', frequency: '', maxAllocationUsd: 0, winRateSim: 0, monthlyTargetYield: 0, riskLevel: 'Disabled'
 });
 
 let appTradingBotSettingsStore: any = readDataFile('adminTradingBotSettings.json', {
-  automatedTradingEnabled: true,
-  maxBotLeverage: '1:500',
-  circuitBreakerEnabled: true,
-  circuitBreakerThreshold: 15
+  automatedTradingEnabled: false, maxBotLeverage: '', circuitBreakerEnabled: true, circuitBreakerThreshold: 0
 });
 
-let appInvestmentPlansStore: any[] = readDataFile('adminInvestmentPlans.json', [
-  { id: 'plan-1', name: 'Starter Alpha Plan', minDeposit: 500, maxDeposit: 5000, dailyRoi: 1.8, durationDays: 14, active: true },
-  { id: 'plan-2', name: 'Pro Growth Quant Plan', minDeposit: 5000, maxDeposit: 25000, dailyRoi: 2.5, durationDays: 30, active: true },
-  { id: 'plan-3', name: 'Institutional Prime Plan', minDeposit: 25000, maxDeposit: 250000, dailyRoi: 3.4, durationDays: 60, active: true }
-]);
+let appInvestmentPlansStore: any[] = readDataFile('adminInvestmentPlans.json', []);
 
-let appTradingPairsStore: any[] = readDataFile('adminTradingPairs.json', [
-  { id: 'p1', symbol: 'EURUSD', category: 'Forex Major', spreadPips: 0.2, leverage: '1:500', active: true },
-  { id: 'p2', symbol: 'GBPUSD', category: 'Forex Major', spreadPips: 0.4, leverage: '1:500', active: true },
-  { id: 'p3', symbol: 'BTCUSD', category: 'Crypto', spreadPips: 12.0, leverage: '1:100', active: true },
-  { id: 'p4', symbol: 'ETHUSD', category: 'Crypto', spreadPips: 1.5, leverage: '1:100', active: true },
-  { id: 'p5', symbol: 'XAUUSD', category: 'Commodities', spreadPips: 0.15, leverage: '1:500', active: true },
-  { id: 'p6', symbol: 'NVDA', category: 'US Stocks', spreadPips: 0.05, leverage: '1:20', active: true }
-]);
+let appTradingPairsStore: any[] = readDataFile('adminTradingPairs.json', []);
 
-let appCurrenciesStore: any[] = readDataFile('adminCurrencies.json', [
-  { code: 'USD', name: 'US Dollar', symbol: '$', rateToUsd: 1.0, isBase: true },
-  { code: 'EUR', name: 'Euro', symbol: '€', rateToUsd: 0.92, isBase: false },
-  { code: 'GBP', name: 'British Pound', symbol: '£', rateToUsd: 0.79, isBase: false },
-  { code: 'JPY', name: 'Japanese Yen', symbol: '¥', rateToUsd: 155.2, isBase: false },
-  { code: 'AUD', name: 'Australian Dollar', symbol: 'A$', rateToUsd: 1.52, isBase: false }
-]);
+let appCurrenciesStore: any[] = readDataFile('adminCurrencies.json', []);
 
 let appCopyTradersStore: any[] = readDataFile('adminCopyTraders.json', []);
 
@@ -1591,18 +1552,18 @@ app.post('/api/users/register', (req, res) => {
     verificationStatus: body.verificationStatus || 'Pending',
     kycStatus: body.kycStatus || 'NOT_STARTED',
     balance: typeof body.balance === 'number' ? body.balance : 0,
-    demoBalance: typeof body.demoBalance === 'number' ? body.demoBalance : 10000,
-    pnlPercentage: typeof body.pnlPercentage === 'number' ? body.pnlPercentage : 24.5,
-    pnlOverride: body.pnlOverride || null,
+    demoBalance: typeof body.demoBalance === 'number' ? body.demoBalance : 0,
+    pnlPercentage: typeof body.pnlPercentage === 'number' ? body.pnlPercentage : 0,
+    pnlOverride: null,
     registeredAt: body.registeredAt || new Date().toISOString().replace('T', ' ').substring(0, 16),
     lastActive: 'Active Now (' + new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) + ' UTC)',
     provider: body.provider || 'Email / Portal Auth',
-    accountNo: body.accountNo || `AXI-${body.tradingPlatform || 'MT5'}-${Math.floor(1000000 + Math.random() * 8999999)}`,
-    accountType: body.accountType || `${body.tier || 'Standard'} Live`,
+    accountNo: body.accountNo || '',
+    accountType: body.accountType || 'Pending broker provisioning',
     tradingPlatform: body.tradingPlatform || 'MT5',
-    leverage: body.leverage || '1:500',
+    leverage: body.leverage || '',
     currency: body.currency || 'USD',
-    tradingPassword: body.tradingPassword || '',
+    tradingPassword: '',
     employment: body.employment || '',
     avgIncome: body.avgIncome || '',
     savingsValue: body.savingsValue || '',

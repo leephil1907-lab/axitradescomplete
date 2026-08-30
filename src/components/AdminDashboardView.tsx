@@ -397,6 +397,26 @@ export default function AdminDashboardView({
     safeStorage.setItem('axi_promo_claims', JSON.stringify(promoClaims));
   }, [promoClaims]);
 
+  // Realtime registered-user directory. Firestore rules restrict this collection to admins.
+  useEffect(() => {
+    const unsubscribe = onSnapshot(collection(db, 'users'), (snapshot) => {
+      const liveUsers = snapshot.docs.map(item => {
+        const data = item.data() as any;
+        return {
+          id: item.id, name: data.displayName || data.name || data.email?.split('@')[0] || 'Trader',
+          email: data.email || '', status: data.kycStatus === 'VERIFIED' ? 'Verified' : (data.status || 'Pending'),
+          kycStatus: data.kycStatus || 'NOT_STARTED', balance: Number(data.liveBalance || 0),
+          demoBalance: Number(data.balance || 0), registeredAt: data.createdAt ? new Date(data.createdAt).toISOString() : new Date().toISOString(),
+          lastActive: new Date().toISOString()
+        };
+      });
+      setRecentUsers(liveUsers);
+    }, (error) => {
+      console.warn('Realtime admin user directory unavailable:', error);
+    });
+    return () => unsubscribe();
+  }, []);
+
   // Sync with safeStorage
   useEffect(() => {
     safeStorage.setItem('axi_registered_users', JSON.stringify(recentUsers));
