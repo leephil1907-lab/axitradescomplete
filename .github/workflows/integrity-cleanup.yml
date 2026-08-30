@@ -23,7 +23,7 @@ jobs:
           from pathlib import Path
           import re
 
-          # ---------------- App.tsx ----------------
+          # App: metadata-only quote shells and no fabricated account identity.
           p = Path('src/App.tsx')
           s = p.read_text()
           s = s.replace("import { ASSET_METADATA, DEFAULT_MARKET_QUOTES } from './data';", "import { ASSET_METADATA } from './data';")
@@ -38,50 +38,63 @@ jobs:
           s = s.replace("status: user.status || user.verificationStatus || 'Verified'", "status: user.status || user.verificationStatus || 'Pending'")
           p.write_text(s)
 
-          # ---------------- AccountsView.tsx ----------------
+          # Accounts: remove pre-populated accounts, fake credentials and demo balance.
           p = Path('src/components/AccountsView.tsx')
           s = p.read_text()
-          # Remove pre-populated demo/live-looking sub-accounts.
           s = re.sub(r"const \[subAccountsList, setSubAccountsList\] = useState\(\[.*?\]\);", "const [subAccountsList, setSubAccountsList] = useState<any[]>([]);", s, flags=re.S)
-          # Do not fabricate a local account number/balance. Request broker provisioning instead.
           s = re.sub(r"  const handleCreateSubAccount = \(e: React\.FormEvent\) => \{.*?\n  \};", "  const handleCreateSubAccount = (e: React.FormEvent) => {\n    e.preventDefault();\n    setIsCreatingSubAccount(false);\n    showToast('Sub-account request recorded. A broker-side account must be provisioned before credentials are issued.', 'info');\n  };", s, flags=re.S)
           s = s.replace("country: 'Nigeria',", "country: '',")
           s = s.replace("    'Axi Select': true, // checked by default", "    'Axi Select': false,")
           s = re.sub(r"\n  // Authenticator manual code generated for copying\n  const authSetupCode = '[^']+';", "", s)
-          # Remove the premature welcome email which claimed registration before account creation.
           s = re.sub(r"\n      // Trigger official Registration Welcome Email notification from Axi Trades.*?\n      window\.dispatchEvent\(new CustomEvent\('axi_email_trigger', \{ detail: emailPayload \}\)\);\n", "\n", s, flags=re.S)
-          # Remove fake broker credential generation and replace the final step with a real Firebase registration + pending provisioning state.
           old = re.search(r"      // Currency & Leverage - Submit and finalize!.*?      showToast\('Live Axi ECN Account configured successfully! Finalizing settings\.\.\.', 'success'\);\n      setWizardStep\(15\);", s, flags=re.S)
           if old:
-              new = """      // Final application step: create the real Firebase identity first.\n      // Broker credentials are never fabricated in the browser; they must come from the broker/execution backend.\n      try {\n        const displayName = formData.firstName ? `${formData.firstName} ${formData.lastName}`.trim() : formData.email.split('@')[0];\n        const userCred = await createUserWithEmailAndPassword(auth, formData.email.trim().toLowerCase(), formData.password);\n        await updateProfile(userCred.user, { displayName });\n\n        const newUserPayload = {\n          id: userCred.user.uid,\n          uid: userCred.user.uid,\n          name: displayName,\n          email: formData.email.trim().toLowerCase(),\n          country: formData.country,\n          status: 'Pending',\n          verificationStatus: 'Pending',\n          kycStatus: 'NOT_STARTED',\n          balance: 0,\n          liveBalance: 0,\n          accountNo: '',\n          accountType: `${formData.accountType} — awaiting broker provisioning`,\n          tradingPlatform: formData.tradingPlatform,\n          leverage: formData.leverage,\n          currency: formData.currency,\n          employment: formData.employment,\n          avgIncome: formData.avgIncome,\n          savingsValue: formData.savingsValue,\n          sourceFunds: formData.sourceFunds,\n          authMethod: formData.authMethod,\n          registeredAt: new Date().toISOString()\n        };\n\n        const response = await fetch('/api/users/register', {\n          method: 'POST',\n          headers: { 'Content-Type': 'application/json' },\n          body: JSON.stringify(newUserPayload)\n        });\n        if (!response.ok) throw new Error('The registration service did not accept the new account record.');\n\n        setGeneratedAccount(null);\n        showToast('Account registration completed. Your application is pending KYC/admin review; broker credentials will only appear after real provisioning.', 'success');\n        setWizardStep(15);\n      } catch (err: any) {\n        showToast((err?.message || 'Unable to complete registration. Please try again.').replace('Firebase: ', ''), 'error');\n      }"""
+              new = """      // Final application step: create the real Firebase identity first.\n      // Broker credentials are never fabricated in the browser; they must come from the broker/execution backend.\n      try {\n        const displayName = formData.firstName ? `${formData.firstName} ${formData.lastName}`.trim() : formData.email.split('@')[0];\n        const userCred = await createUserWithEmailAndPassword(auth, formData.email.trim().toLowerCase(), formData.password);\n        await updateProfile(userCred.user, { displayName });\n\n        const newUserPayload = {\n          id: userCred.user.uid, uid: userCred.user.uid, name: displayName,\n          email: formData.email.trim().toLowerCase(), country: formData.country,\n          status: 'Pending', verificationStatus: 'Pending', kycStatus: 'NOT_STARTED',\n          balance: 0, liveBalance: 0, accountNo: '',\n          accountType: `${formData.accountType} — awaiting broker provisioning`,\n          tradingPlatform: formData.tradingPlatform, leverage: formData.leverage, currency: formData.currency,\n          employment: formData.employment, avgIncome: formData.avgIncome, savingsValue: formData.savingsValue,\n          sourceFunds: formData.sourceFunds, authMethod: formData.authMethod, registeredAt: new Date().toISOString()\n        };\n\n        const response = await fetch('/api/users/register', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(newUserPayload) });\n        if (!response.ok) throw new Error('The registration service did not accept the new account record.');\n        setGeneratedAccount(null);\n        showToast('Registration completed. Your application is pending KYC/admin review; broker credentials will only appear after real provisioning.', 'success');\n        setWizardStep(15);\n      } catch (err: any) {\n        showToast((err?.message || 'Unable to complete registration. Please try again.').replace('Firebase: ', ''), 'error');\n      }"""
               s = s[:old.start()] + new + s[old.end():]
-          # Never display the old fabricated credential screen. Keep the state for compatibility but remove its entry point.
           s = s.replace("onClick={() => setWizardStep(16)}", "onClick={() => { showToast('Broker credentials are issued only after real backend provisioning.', 'info'); }}")
           s = re.sub(r"\n            \{wizardStep === 16 && generatedAccount && \(.*?\n            \)\}\n", "\n", s, flags=re.S)
           s = s.replace("Explore MT4, MT5, or Axi's own platform", "Application submitted — provisioning pending")
           s = s.replace("Now on Web and App with crypto perps and more. Complete your setup by checking your credentials or trading directly in-platform.", "Your identity has been registered. Complete KYC and wait for administrator/broker approval before live trading credentials are issued.")
           s = s.replace("View Account Credentials", "View application status")
           s = s.replace("showToast('Launching custom cloud-native Axi Webtrader terminal...', 'success');", "showToast('Live trading access is available only after verified account provisioning.', 'info');")
+          s = s.replace("demoBalance: 10000,", "demoBalance: 0,")
           p.write_text(s)
 
-          # ---------------- useFirebaseData.ts ----------------
+          # Auth: failed login must never auto-register.
           p = Path('src/hooks/useFirebaseData.ts')
           s = p.read_text()
-          # Login must never create a new account. Registration belongs exclusively to the signup flow.
-          s = re.sub(r"  const loginWithEmail = async \(email: string, pass: string\) => \{.*?\n  \};\n\n  const logout", """  const loginWithEmail = async (email: string, pass: string) => {\n    try {\n      const res = await signInWithEmailAndPassword(auth, email.trim().toLowerCase(), pass);\n      sendTelegramAlert('USER_LOGIN', '🔓 User Signed In via Email/Password', {\n        'Email': email.trim().toLowerCase(),\n        'User UID': res.user.uid\n      });\n      return res;\n    } catch (err: any) {\n      // A failed login is a failed login. Never auto-register or mutate the account.\n      throw err;\n    }\n  };\n\n  const logout""", s, flags=re.S)
+          s = re.sub(r"  const loginWithEmail = async \(email: string, pass: string\) => \{.*?\n  \};\n\n  const logout", """  const loginWithEmail = async (email: string, pass: string) => {\n    try {\n      const res = await signInWithEmailAndPassword(auth, email.trim().toLowerCase(), pass);\n      sendTelegramAlert('USER_LOGIN', '🔓 User Signed In via Email/Password', { 'Email': email.trim().toLowerCase(), 'User UID': res.user.uid });\n      return res;\n    } catch (err: any) {\n      throw err;\n    }\n  };\n\n  const logout""", s, flags=re.S)
           p.write_text(s)
 
-          # ---------------- AdminDashboardView.tsx ----------------
-          p = Path('src/components/AdminDashboardView.tsx')
+          # Dashboard: remove synthetic quotes and local fake execution.
+          p = Path('src/components/DashboardView.tsx')
           s = p.read_text()
-          # Stop client-only localStorage from being treated as the authoritative admin ledger.
-          # The admin directory will prefer backend/Firebase data when available.
-          s = s.replace("const defaultUsersList: any[] = [];", "const defaultUsersList: any[] = [];")
+          s = s.replace("import { DEFAULT_MARKET_QUOTES } from '../data';", "")
+          s = re.sub(r"    // Default fallback quote\n    const fallbackPrice = .*?\n    return \{\n      price: fallbackPrice,\n      bid: fallbackPrice - 0\.0002,\n      ask: fallbackPrice \+ 0\.0002,\n      spreadPips: activeInstrument\.baseSpread,\n      change: DEFAULT_MARKET_QUOTES\[selectedSymbol\]\?\.change \?\? 0\.24,\n      high: fallbackPrice \* 1\.005,\n      low: fallbackPrice \* 0\.995\n    \};", "    // No provider quote means no executable quote.\n    return { price: 0, bid: 0, ask: 0, spreadPips: 0, change: 0, high: 0, low: 0 };", s, flags=re.S)
+          s = re.sub(r"const price = raw\?\.price \|\| DEFAULT_MARKET_QUOTES\[inst\.symbol\]\?\.price \|\| \(inst\.symbol === 'EURUSD' \? 1\.0482 : inst\.symbol === 'BTCUSD' \? 96450 : 2915\.40\);", "const price = raw?.price || 0;", s)
+          s = s.replace("const spreadVal = raw?.askDiff || inst.baseSpread * 0.0001;", "const spreadVal = typeof raw?.askDiff === 'number' ? raw.askDiff : 0;")
+          s = s.replace("const bid = raw?.bid || (price - spreadVal / 2);", "const bid = typeof raw?.bid === 'number' ? raw.bid : (price > 0 ? price - spreadVal / 2 : 0);")
+          s = s.replace("const ask = raw?.ask || (price + spreadVal / 2);", "const ask = typeof raw?.ask === 'number' ? raw.ask : (price > 0 ? price + spreadVal / 2 : 0);")
+          s = s.replace("const change = raw?.change ?? DEFAULT_MARKET_QUOTES[inst.symbol]?.change ?? 0.12;", "const change = typeof raw?.change === 'number' ? raw.change : 0;")
+          # Disable the local simulated fill path. A real execution gateway must acknowledge the order first.
+          s = re.sub(r"  // Execute Market Order\n  const handleExecuteMarketOrder = .*?\n  };\n\n  // Place Pending Order", """  // Execute Market Order: local browser-side fills are disabled.\n  const handleExecuteMarketOrder = (_type: 'BUY' | 'SELL') => {\n    if (!activeQuote.price || activeQuote.status === 'unavailable') {\n      showToast('Live execution is unavailable because no verified broker quote/execution gateway is connected.', 'error');\n      return;\n    }\n    showToast('Order not submitted: this deployment has no verified broker execution gateway. No simulated fill was created.', 'error');\n  };\n\n  // Place Pending Order""", s, flags=re.S)
+          # Pending orders must not be simulated in browser memory.
+          s = re.sub(r"  // Place Pending Order\n  const handlePlacePendingOrder = .*?\n  };", """  // Pending orders require a broker-side execution service.\n  const handlePlacePendingOrder = (e: React.FormEvent) => {\n    e.preventDefault();\n    showToast('Pending orders are unavailable until a verified broker execution gateway is connected.', 'error');\n  };""", s, flags=re.S)
+          # Closing positions must not mutate balances in the browser.
+          s = re.sub(r"  // Close Open Position\n  const handleClosePosition = .*?\n  };", """  // Position closing is server/execution-gateway controlled.\n  const handleClosePosition = (_posId: string) => {\n    showToast('Position close requests require the verified broker execution gateway. No local balance mutation was performed.', 'error');\n  };""", s, flags=re.S)
+          s = re.sub(r"  // Bulk Close All Positions\n  const handleCloseAllPositions = .*?\n  };", """  // Bulk close is server/execution-gateway controlled.\n  const handleCloseAllPositions = () => {\n    showToast('Bulk close is unavailable until the broker execution gateway is connected.', 'error');\n  };""", s, flags=re.S)
+          # Remove visible demo account switch and fake account number/server labels.
+          s = re.sub(r"\n              <button\n                type=\"button\"\n                onClick=\{\(\) => setAccountMode\('demo'\)\}.*?\n              </button>", "", s, flags=re.S)
+          s = s.replace("AxiCorp-Live MT5", "Broker execution connection")
+          s = s.replace("(12ms • STP)", "(status provider-controlled)")
+          s = s.replace("Live ECN (#8849201)", "Live account")
+          s = s.replace("Leverage: <strong className=\"text-slate-200 font-mono\">1:500</strong>", "Leverage: <strong className=\"text-slate-200 font-mono\">Provider controlled</strong>")
+          s = s.replace("const [accountMode, setAccountMode] = useState<'live' | 'demo'>('live');", "const [accountMode] = useState<'live' | 'demo'>('live');")
+          s = s.replace("<span>1-Click</span>", "<span>1-Click (disabled)</span>")
+          s = s.replace("onClick={() => setOneClickTrading(!oneClickTrading)}", "onClick={() => showToast('1-Click trading is disabled until broker execution is verified.', 'info')}")
           p.write_text(s)
 
-          # ---------------- remove one-time automation after patching ----------------
-          wf = Path('.github/workflows/integrity-cleanup.yml')
-          # Keep the workflow for this run; a later cleanup commit removes it.
+          # Keep the workflow only long enough to perform this cleanup.
           print('Production integrity patch completed.')
           PY
 
@@ -89,6 +102,6 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add src/App.tsx src/components/AccountsView.tsx src/hooks/useFirebaseData.ts src/components/AdminDashboardView.tsx
-          git diff --cached --quiet || git commit -m "Remove demo flows and fabricated account data"
+          git add src/App.tsx src/components/AccountsView.tsx src/hooks/useFirebaseData.ts src/components/AdminDashboardView.tsx src/components/DashboardView.tsx
+          git diff --cached --quiet || git commit -m "Remove simulated trading execution and demo account state"
           git push origin production-integrity-cleanup
