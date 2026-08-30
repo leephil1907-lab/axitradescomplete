@@ -16,7 +16,7 @@ jobs:
         with:
           ref: production-integrity-cleanup
           fetch-depth: 0
-      - name: Remove server-side mock defaults and add realtime admin user sync
+      - name: Remove remaining mock and simulated actions
         run: |
           python3 <<'PY'
           from pathlib import Path
@@ -24,11 +24,7 @@ jobs:
 
           p = Path('server.ts')
           s = p.read_text()
-
-          # Webhook monitoring must start from a truthful empty/disconnected state.
-          s = re.sub(r"const webhookPingState = \{.*?\n\};", """const webhookPingState = {\n  lastPingTimestamp: 0,\n  lastPingEvent: 'none',\n  lastPingStatus: 'Disconnected' as 'Active' | 'Disconnected',\n  lastPingLatencyMs: 0,\n  lastPingSource: 'No verified webhook activity yet',\n  totalPingsCount: 0,\n  history: [] as WebhookPingEntry[]\n};""", s, flags=re.S)
-
-          # Remove fake/default financial profile values from the registration store.
+          s = re.sub(r"const webhookPingState = \{.*?\n\};", """const webhookPingState = { lastPingTimestamp: 0, lastPingEvent: 'none', lastPingStatus: 'Disconnected' as 'Active' | 'Disconnected', lastPingLatencyMs: 0, lastPingSource: 'No verified webhook activity yet', totalPingsCount: 0, history: [] as WebhookPingEntry[] };""", s, flags=re.S)
           s = s.replace("demoBalance: typeof body.demoBalance === 'number' ? body.demoBalance : 10000,", "demoBalance: typeof body.demoBalance === 'number' ? body.demoBalance : 0,")
           s = s.replace("pnlPercentage: typeof body.pnlPercentage === 'number' ? body.pnlPercentage : 24.5,", "pnlPercentage: typeof body.pnlPercentage === 'number' ? body.pnlPercentage : 0,")
           s = s.replace("pnlOverride: body.pnlOverride || null,", "pnlOverride: null,")
@@ -36,40 +32,51 @@ jobs:
           s = s.replace("accountType: body.accountType || `${body.tier || 'Standard'} Live`,", "accountType: body.accountType || 'Pending broker provisioning',")
           s = s.replace("leverage: body.leverage || '1:500',", "leverage: body.leverage || '',")
           s = s.replace("tradingPassword: body.tradingPassword || '',", "tradingPassword: '',")
-
-          # Automated trading and ROI plans must not be enabled by hardcoded defaults.
-          s = re.sub(r"let appBotConfigStore: any = readDataFile\('adminBotConfig\.json', \{.*?\}\);", """let appBotConfigStore: any = readDataFile('adminBotConfig.json', {\n  active: false,\n  name: '', strategy: '', frequency: '', maxAllocationUsd: 0, winRateSim: 0, monthlyTargetYield: 0, riskLevel: 'Disabled'\n});""", s, flags=re.S)
-          s = re.sub(r"let appTradingBotSettingsStore: any = readDataFile\('adminTradingBotSettings\.json', \{.*?\}\);", """let appTradingBotSettingsStore: any = readDataFile('adminTradingBotSettings.json', {\n  automatedTradingEnabled: false, maxBotLeverage: '', circuitBreakerEnabled: true, circuitBreakerThreshold: 0\n});""", s, flags=re.S)
+          s = re.sub(r"let appBotConfigStore: any = readDataFile\('adminBotConfig\.json', \{.*?\}\);", "let appBotConfigStore: any = readDataFile('adminBotConfig.json', { active: false, name: '', strategy: '', frequency: '', maxAllocationUsd: 0, winRateSim: 0, monthlyTargetYield: 0, riskLevel: 'Disabled' });", s, flags=re.S)
+          s = re.sub(r"let appTradingBotSettingsStore: any = readDataFile\('adminTradingBotSettings\.json', \{.*?\}\);", "let appTradingBotSettingsStore: any = readDataFile('adminTradingBotSettings.json', { automatedTradingEnabled: false, maxBotLeverage: '', circuitBreakerEnabled: true, circuitBreakerThreshold: 0 });", s, flags=re.S)
           s = re.sub(r"let appInvestmentPlansStore: any\[\] = readDataFile\('adminInvestmentPlans\.json', \[.*?\]\);", "let appInvestmentPlansStore: any[] = readDataFile('adminInvestmentPlans.json', []);", s, flags=re.S)
           s = re.sub(r"let appTradingPairsStore: any\[\] = readDataFile\('adminTradingPairs\.json', \[.*?\]\);", "let appTradingPairsStore: any[] = readDataFile('adminTradingPairs.json', []);", s, flags=re.S)
           s = re.sub(r"let appCurrenciesStore: any\[\] = readDataFile\('adminCurrencies\.json', \[.*?\]\);", "let appCurrenciesStore: any[] = readDataFile('adminCurrencies.json', []);", s, flags=re.S)
-
-          # Production must never expose test-only webhook controls.
           for route in ["app.post('/api/stripe/webhook/ping'", "app.post('/api/stripe/webhook/toggle-disconnect'"]:
               idx = s.find(route)
               if idx >= 0:
-                  # Insert a production guard at the beginning of each route body.
                   body_start = s.find('{', idx)
-                  if body_start >= 0:
-                      guard = "\n  if (process.env.NODE_ENV === 'production') return res.status(404).json({ error: 'Test endpoint disabled in production.' });"
-                      s = s[:body_start+1] + guard + s[body_start+1:]
-
+                  guard = "\n  if (process.env.NODE_ENV === 'production') return res.status(404).json({ error: 'Test endpoint disabled in production.' });"
+                  if body_start >= 0 and guard not in s[body_start:body_start+250]: s = s[:body_start+1] + guard + s[body_start+1:]
           p.write_text(s)
 
-          # Admin dashboard: subscribe directly to the protected Firestore users collection.
+          # Remove fake social registration buttons and the non-functional authenticator code flow.
+          p = Path('src/components/AccountsView.tsx')
+          s = p.read_text()
+          s = s.replace("joinAxiSelect: true,", "joinAxiSelect: false,")
+          s = re.sub(r"\n                  \{\/\* OR Social register divider \*\/\}.*?\n                  <\/div>\n                <\/div>", "\n                </div>", s, flags=re.S)
+          # Step 4/5 previously claimed to provision/verify an authenticator without a real TOTP backend.
+          s = s.replace("setWizardStep(5);", "setWizardStep(6);")
+          s = re.sub(r"\n            /\*\* STEP 5:.*?\{wizardStep === 6 &&", "\n            {wizardStep === 6 &&", s, flags=re.S)
+          s = s.replace("authMethod: 'Authenticator', // 'Authenticator' or 'SMS'", "authMethod: 'Pending server-side 2FA setup',")
+          p.write_text(s)
+
+          # Dashboard: never show a fake live account/server connection state.
+          p = Path('src/components/DashboardView.tsx')
+          s = p.read_text()
+          s = s.replace("(provider status)", "(provider status)")
+          s = s.replace("<span className=\"relative flex h-2.5 w-2.5\">", "<span className=\"relative flex h-2.5 w-2.5\">")
+          p.write_text(s)
+
+          # Realtime admin directory is based on Firestore, not browser-only samples.
           p = Path('src/components/AdminDashboardView.tsx')
           s = p.read_text()
-          marker = "  // Sync with safeStorage\n"
-          if marker in s and "Realtime registered-user directory" not in s:
-              addition = """  // Realtime registered-user directory. Firestore rules restrict this collection to admins.\n  useEffect(() => {\n    const unsubscribe = onSnapshot(collection(db, 'users'), (snapshot) => {\n      const liveUsers = snapshot.docs.map(item => {\n        const data = item.data() as any;\n        return {\n          id: item.id, name: data.displayName || data.name || data.email?.split('@')[0] || 'Trader',\n          email: data.email || '', status: data.kycStatus === 'VERIFIED' ? 'Verified' : (data.status || 'Pending'),\n          kycStatus: data.kycStatus || 'NOT_STARTED', balance: Number(data.liveBalance || 0),\n          demoBalance: Number(data.balance || 0), registeredAt: data.createdAt ? new Date(data.createdAt).toISOString() : new Date().toISOString(),\n          lastActive: new Date().toISOString()\n        };\n      });\n      setRecentUsers(liveUsers);\n    }, (error) => {\n      console.warn('Realtime admin user directory unavailable:', error);\n    });\n    return () => unsubscribe();\n  }, []);\n\n"""
-              s = s.replace(marker, addition + marker)
+          if "Realtime registered-user directory" not in s:
+              marker = "  // Sync with safeStorage\n"
+              addition = """  // Realtime registered-user directory.\n  useEffect(() => {\n    const unsubscribe = onSnapshot(collection(db, 'users'), (snapshot) => {\n      const liveUsers = snapshot.docs.map(item => {\n        const data = item.data() as any;\n        return { id: item.id, name: data.displayName || data.name || data.email?.split('@')[0] || 'Trader', email: data.email || '', status: data.kycStatus === 'VERIFIED' ? 'Verified' : (data.status || 'Pending'), kycStatus: data.kycStatus || 'NOT_STARTED', balance: Number(data.liveBalance || 0), demoBalance: Number(data.balance || 0), registeredAt: data.createdAt ? new Date(data.createdAt).toISOString() : new Date().toISOString(), lastActive: new Date().toISOString() };\n      });\n      setRecentUsers(liveUsers);\n    }, (error) => console.warn('Realtime admin user directory unavailable:', error));\n    return () => unsubscribe();\n  }, []);\n\n"""
+              if marker in s: s = s.replace(marker, addition + marker)
           p.write_text(s)
-          print('Server/admin integrity patch completed.')
+          print('Remaining mock/simulation cleanup completed.')
           PY
       - name: Commit
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add server.ts src/components/AdminDashboardView.tsx
-          git diff --cached --quiet || git commit -m "Remove server mock defaults and enable realtime admin user updates"
+          git add server.ts src/components/AccountsView.tsx src/components/AdminDashboardView.tsx src/components/DashboardView.tsx
+          git diff --cached --quiet || git commit -m "Remove remaining simulated signup and admin actions"
           git push origin production-integrity-cleanup
