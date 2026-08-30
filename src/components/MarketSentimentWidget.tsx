@@ -1,23 +1,19 @@
-import React, { useState, useEffect } from 'react';
-import { motion } from 'motion/react';
-import { Users, Flame, RefreshCw, ArrowUpRight, ArrowDownRight } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { RefreshCw, ArrowUpRight, ArrowDownRight, AlertCircle } from 'lucide-react';
 import AssetBrandLogo from './AssetBrandLogo';
-import { DEFAULT_MARKET_QUOTES } from '../data';
 
-export interface SymbolSentiment {
+interface MarketRow {
   symbol: string;
   name: string;
   category: string;
-  bullishPercentage: number;
-  bearishPercentage: number;
-  totalTrades24h: number;
-  sentimentChange24h: number;
-  dominantSentiment: 'BULLISH' | 'BEARISH' | 'NEUTRAL';
   price: number;
   change24h: number;
+  status: 'live' | 'stale' | 'unavailable';
+  source?: string;
+  lastUpdated?: number;
 }
 
-const BASE_SENTIMENT_CONFIG: Array<{ symbol: string; name: string; category: string }> = [
+const SYMBOLS: Array<{ symbol: string; name: string; category: string }> = [
   { symbol: 'EURUSD', name: 'Euro / US Dollar', category: 'Forex' },
   { symbol: 'GBPUSD', name: 'British Pound / US Dollar', category: 'Forex' },
   { symbol: 'USDJPY', name: 'US Dollar / Japanese Yen', category: 'Forex' },
@@ -27,200 +23,108 @@ const BASE_SENTIMENT_CONFIG: Array<{ symbol: string; name: string; category: str
   { symbol: 'ETHUSD', name: 'Ethereum CFD', category: 'Crypto' },
   { symbol: 'SOLUSD', name: 'Solana CFD', category: 'Crypto' },
   { symbol: 'US30', name: 'Dow Jones Index CFD', category: 'Indices' },
-  { symbol: 'NVDA', name: 'NVIDIA Corp Share CFD', category: 'Shares' },
-  { symbol: 'TSLA', name: 'Tesla Inc Share CFD', category: 'Shares' },
-  { symbol: 'AAPL', name: 'Apple Inc Share CFD', category: 'Shares' }
+  { symbol: 'NVDA', name: 'NVIDIA Share CFD', category: 'Shares' },
+  { symbol: 'TSLA', name: 'Tesla Share CFD', category: 'Shares' },
+  { symbol: 'AAPL', name: 'Apple Share CFD', category: 'Shares' }
 ];
 
-interface MarketSentimentWidgetProps {
+interface Props {
   accountMode?: 'demo' | 'live';
   onTradeSymbol?: (symbol: string) => void;
 }
 
-export default function MarketSentimentWidget({ accountMode = 'live', onTradeSymbol }: MarketSentimentWidgetProps) {
-  const [sentimentData, setSentimentData] = useState<SymbolSentiment[]>([]);
-  const [filterCategory, setFilterCategory] = useState<string>('ALL');
-  const [isLoading, setIsLoading] = useState<boolean>(true);
+export default function MarketSentimentWidget({ accountMode = 'live', onTradeSymbol }: Props) {
+  const [rows, setRows] = useState<MarketRow[]>([]);
+  const [filter, setFilter] = useState('ALL');
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
 
-  const calculateDynamicSentiment = (quotes: Record<string, any>) => {
-    return BASE_SENTIMENT_CONFIG.map((item) => {
-      const q = quotes[item.symbol] || {};
-      const fallbackPrice = (DEFAULT_MARKET_QUOTES as Record<string, any>)[item.symbol]?.price || 1.0482;
-      const price = q.price || fallbackPrice;
-      const change24h = q.change !== undefined ? Number(q.change) : Number((DEFAULT_MARKET_QUOTES as Record<string, any>)[item.symbol]?.change ?? 0);
-
-      // Real quote momentum ratio based on 24h delta and spread dynamics
-      const normalizedChange = Math.max(-5, Math.min(5, change24h));
-      const bullishPercentage = Math.min(92, Math.max(8, Math.round(50 + (normalizedChange * 8.4))));
-      const bearishPercentage = 100 - bullishPercentage;
-
-      const totalTrades24h = Math.round(15000 + Math.abs(change24h) * 4200);
-      const sentimentChange24h = Number((change24h * 1.15).toFixed(1));
-      const dominantSentiment: 'BULLISH' | 'BEARISH' | 'NEUTRAL' = 
-        bullishPercentage >= 55 ? 'BULLISH' : bullishPercentage <= 45 ? 'BEARISH' : 'NEUTRAL';
-
-      return {
-        symbol: item.symbol,
-        name: item.name,
-        category: item.category,
-        bullishPercentage,
-        bearishPercentage,
-        totalTrades24h,
-        sentimentChange24h,
-        dominantSentiment,
-        price,
-        change24h
-      };
-    });
-  };
-
-  const fetchLiveSentiment = async () => {
+  const load = async () => {
     try {
-      const res = await fetch('/api/markets/quotes');
-      if (res.ok) {
-        const quotes = await res.json();
-        const computed = calculateDynamicSentiment(quotes);
-        setSentimentData(computed);
-      }
-    } catch (e) {
-      // Fallback
+      setError(false);
+      const res = await fetch('/api/markets/quotes', { cache: 'no-store' });
+      if (!res.ok) throw new Error('Market feed unavailable');
+      const quotes = await res.json();
+      setRows(SYMBOLS.map(meta => {
+        const q = quotes?.[meta.symbol];
+        const status = q?.status === 'live' ? 'live' : q?.stale ? 'stale' : 'unavailable';
+        return {
+          ...meta,
+          price: typeof q?.price === 'number' ? q.price : 0,
+          change24h: typeof q?.change === 'number' ? q.change : 0,
+          status,
+          source: q?.source,
+          lastUpdated: q?.lastUpdated
+        };
+      }));
+    } catch {
+      setError(true);
+      setRows([]);
     } finally {
-      setIsLoading(false);
+      setLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchLiveSentiment();
-    const interval = setInterval(fetchLiveSentiment, 10000);
-    return () => clearInterval(interval);
+    void load();
+    const timer = setInterval(() => void load(), 10_000);
+    return () => clearInterval(timer);
   }, []);
 
-  const filteredData = filterCategory === 'ALL'
-    ? sentimentData
-    : sentimentData.filter(s => s.category.toLowerCase() === filterCategory.toLowerCase());
+  const filtered = filter === 'ALL' ? rows : rows.filter(row => row.category === filter);
 
   return (
-    <div className={`rounded-2xl border p-5 transition-all shadow-xs ${
-      accountMode === 'demo'
-        ? 'bg-slate-900 border-slate-800 text-white'
-        : 'bg-white border-slate-200/90 text-slate-900'
-    }`}>
-      {/* Widget Header */}
-      <div className="flex items-center justify-between gap-3 mb-4 flex-wrap">
-        <div className="flex items-center gap-2.5">
-          <div className="p-2 rounded-xl bg-emerald-500/10 text-emerald-500">
-            <Users className="w-5 h-5" />
-          </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <h3 className="font-extrabold text-sm tracking-tight">Market Sentiment & Community Positioning</h3>
-              <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 border border-emerald-500/20">
-                Live Feed
-              </span>
-            </div>
-            <p className="text-xs text-slate-500 font-medium mt-0.5">
-              Live long vs short distribution computed from active Axi interbank order flow.
-            </p>
-          </div>
+    <div className={`rounded-2xl border p-5 shadow-xs ${accountMode === 'demo' ? 'border-slate-800 bg-slate-900 text-white' : 'border-slate-200 bg-white text-slate-900'}`}>
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h3 className="text-sm font-extrabold tracking-tight">Market Data</h3>
+          <p className="mt-1 text-xs font-medium text-slate-500">Provider-sourced prices only. Client positioning and order counts are not fabricated.</p>
         </div>
-
-        {/* Category Selector */}
-        <div className="flex items-center gap-1 overflow-x-auto bg-slate-100 dark:bg-slate-800 p-1 rounded-xl">
-          {['ALL', 'Forex', 'Commodities', 'Crypto', 'Indices', 'Shares'].map((cat) => (
-            <button
-              key={cat}
-              onClick={() => setFilterCategory(cat)}
-              className={`px-2.5 py-1 rounded-lg text-xs font-bold transition cursor-pointer whitespace-nowrap ${
-                filterCategory === cat
-                  ? 'bg-slate-900 text-white dark:bg-white dark:text-slate-900 shadow-xs'
-                  : 'text-slate-500 hover:text-slate-900 dark:hover:text-white'
-              }`}
-            >
-              {cat}
-            </button>
-          ))}
-        </div>
+        <button type="button" onClick={() => void load()} className="rounded-lg border border-slate-200 p-2 text-slate-500 hover:bg-slate-50" aria-label="Refresh market data">
+          <RefreshCw className="h-4 w-4" />
+        </button>
       </div>
 
-      {/* Symbol Sentiment List */}
-      <div className="space-y-3">
-        {filteredData.map((item) => {
-          return (
-            <motion.div
-              key={item.symbol}
-              whileHover={{ scale: 1.005 }}
-              className={`p-3.5 rounded-xl border transition-all ${
-                accountMode === 'demo'
-                  ? 'bg-slate-800/50 border-slate-700 hover:bg-slate-800'
-                  : 'bg-slate-50/70 border-slate-200/80 hover:bg-white hover:border-slate-300 shadow-xs'
-              }`}
-            >
-              <div className="flex items-center justify-between gap-3 mb-2 flex-wrap sm:flex-nowrap">
-                {/* Left: Asset info */}
-                <div className="flex items-center gap-3">
-                  <AssetBrandLogo symbol={item.symbol} size="sm" />
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <span className="font-black text-sm">{item.symbol}</span>
-                      <span className="text-[10px] font-semibold opacity-60">
-                        {item.name}
-                      </span>
-                    </div>
-                    <div className="text-[11px] font-mono flex items-center gap-2 mt-0.5">
-                      <span className="font-bold">
-                        ${item.price > 10 ? item.price.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : item.price.toFixed(5)}
-                      </span>
-                      <span className={`font-bold flex items-center ${item.change24h >= 0 ? 'text-emerald-500' : 'text-rose-500'}`}>
-                        {item.change24h >= 0 ? <ArrowUpRight className="w-3 h-3 inline" /> : <ArrowDownRight className="w-3 h-3 inline" />}
-                        {item.change24h >= 0 ? '+' : ''}{item.change24h.toFixed(2)}%
-                      </span>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Right: Quick Trade Action */}
-                <div className="flex items-center gap-3">
-                  <div className="text-right hidden sm:block">
-                    <span className="text-[10px] font-bold opacity-60 uppercase block">24h Vol</span>
-                    <span className="text-xs font-mono font-bold">{item.totalTrades24h.toLocaleString()} orders</span>
-                  </div>
-                  {onTradeSymbol && (
-                    <button
-                      onClick={() => onTradeSymbol(item.symbol)}
-                      className="px-3 py-1.5 bg-[#E3000F] hover:bg-red-700 text-white rounded-lg text-xs font-extrabold shadow-sm transition"
-                    >
-                      Trade
-                    </button>
-                  )}
-                </div>
-              </div>
-
-              {/* Long / Short Bar */}
-              <div className="space-y-1 mt-2">
-                <div className="flex justify-between text-xs font-bold">
-                  <span className="text-emerald-500 flex items-center gap-1">
-                    <Flame className="w-3.5 h-3.5 inline" /> {item.bullishPercentage}% Long
-                  </span>
-                  <span className="text-rose-500">
-                    {item.bearishPercentage}% Short
-                  </span>
-                </div>
-
-                <div className="h-2 w-full bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden flex">
-                  <div 
-                    className="bg-emerald-500 h-full transition-all duration-700" 
-                    style={{ width: `${item.bullishPercentage}%` }}
-                  />
-                  <div 
-                    className="bg-rose-500 h-full transition-all duration-700" 
-                    style={{ width: `${item.bearishPercentage}%` }}
-                  />
-                </div>
-              </div>
-            </motion.div>
-          );
-        })}
+      <div className="mb-4 flex gap-1 overflow-x-auto rounded-xl bg-slate-100 p-1 dark:bg-slate-800">
+        {['ALL', 'Forex', 'Commodities', 'Crypto', 'Indices', 'Shares'].map(cat => (
+          <button key={cat} type="button" onClick={() => setFilter(cat)} className={`whitespace-nowrap rounded-lg px-2.5 py-1 text-xs font-bold ${filter === cat ? 'bg-slate-900 text-white' : 'text-slate-500'}`}>
+            {cat}
+          </button>
+        ))}
       </div>
+
+      {error && (
+        <div className="mb-3 flex items-center gap-2 rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">
+          <AlertCircle className="h-4 w-4" /> Market provider unavailable. No synthetic prices are displayed.
+        </div>
+      )}
+
+      {loading ? <div className="p-6 text-center text-xs text-slate-500">Loading verified market data…</div> : (
+        <div className="space-y-2">
+          {filtered.map(row => {
+            const live = row.status === 'live' && row.price > 0;
+            return (
+              <div key={row.symbol} className="rounded-xl border border-slate-200 bg-slate-50/70 p-3.5">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div className="flex items-center gap-3">
+                    <AssetBrandLogo symbol={row.symbol} size="sm" />
+                    <div>
+                      <div className="flex items-center gap-2"><span className="text-sm font-black">{row.symbol}</span><span className="text-[10px] font-semibold opacity-60">{row.name}</span></div>
+                      <div className="mt-0.5 text-[11px] font-mono">
+                        {live ? <><span className="font-bold">${row.price > 10 ? row.price.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : row.price.toFixed(5)}</span><span className={`ml-2 font-bold ${row.change24h >= 0 ? 'text-emerald-500' : 'text-rose-500'}`}>{row.change24h >= 0 ? <ArrowUpRight className="inline h-3 w-3" /> : <ArrowDownRight className="inline h-3 w-3" />}{row.change24h >= 0 ? '+' : ''}{row.change24h.toFixed(2)}%</span></> : <span className="font-bold text-slate-400">Unavailable</span>}
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <span className={`text-[10px] font-black uppercase ${live ? 'text-emerald-600' : 'text-slate-400'}`}>{live ? 'Live' : row.status}</span>
+                    {onTradeSymbol && live && <button type="button" onClick={() => onTradeSymbol(row.symbol)} className="rounded-lg bg-[#E3000F] px-3 py-1.5 text-xs font-extrabold text-white">Trade</button>}
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }
