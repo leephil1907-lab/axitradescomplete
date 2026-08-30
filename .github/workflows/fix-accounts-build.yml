@@ -3,8 +3,6 @@ name: Fix Accounts Build
 on:
   workflow_dispatch:
   push:
-    paths:
-      - 'src/components/AccountsView.tsx'
 
 permissions:
   contents: write
