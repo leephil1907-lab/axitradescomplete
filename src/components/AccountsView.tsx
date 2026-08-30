@@ -58,28 +58,12 @@ export default function AccountsView({
   const [selectedSubPlatform, setSelectedSubPlatform] = useState<'MT5' | 'MT4'>('MT5');
   const [selectedSubTier, setSelectedSubTier] = useState<'Standard' | 'Pro'>('Standard');
   const [isCreatingSubAccount, setIsCreatingSubAccount] = useState(false);
-  const [subAccountsList, setSubAccountsList] = useState([
-    { id: '8849201', platform: 'MT5', tier: 'Standard Live', currency: 'USD', leverage: '1:500', server: 'AxiCorp-Live', type: 'Live', balance: liveBalance || balance || 5000 },
-    { id: '1092842', platform: 'MT5', tier: 'Pro ECN Live', currency: 'USD', leverage: '1:500', server: 'AxiCorp-Live', type: 'Live', balance: 10000 },
-    { id: '9920148', platform: 'MT5', tier: 'Axi Select Seed', currency: 'USD', leverage: '1:100', server: 'AxiCorp-Edge', type: 'Funded', balance: 25000 }
-  ]);
+  const [subAccountsList, setSubAccountsList] = useState<any[]>([]);
 
   const handleCreateSubAccount = (e: React.FormEvent) => {
     e.preventDefault();
-    const newId = String(Math.floor(1000000 + Math.random() * 8999999));
-    const newAcc = {
-      id: newId,
-      platform: selectedSubPlatform,
-      tier: `${selectedSubTier} Live`,
-      currency: 'USD',
-      leverage: '1:500',
-      server: 'AxiCorp-Live',
-      type: 'Live',
-      balance: 0
-    };
-    setSubAccountsList(prev => [...prev, newAcc]);
     setIsCreatingSubAccount(false);
-    showToast(`✅ New ${selectedSubPlatform} ${selectedSubTier} Sub-Account (#${newId}) opened successfully!`, 'success');
+    showToast('Sub-account request recorded. A broker-side account must be provisioned before credentials are issued.', 'info');
   };
 
   // If user is already logged in, show their Axi Account Management Hub
@@ -399,12 +383,12 @@ export default function AccountsView({
   
   // Registration and wizard state
   const [formData, setFormData] = useState({
-    country: 'Nigeria',
+    country: '',
     email: '',
     password: '',
     consentPrivacy: false,
     consentPromo: false,
-    authMethod: 'Authenticator', // 'Authenticator' or 'SMS'
+    authMethod: 'Pending server-side 2FA setup',
     authCode: '',
     title: '',
     firstName: '',
@@ -423,7 +407,7 @@ export default function AccountsView({
     sourceFunds: [] as string[],
     tradingPlatform: 'MT5', // 'MT5' or 'MT4'
     accountType: 'Standard', // 'Standard', 'Pro', 'USD Cent'
-    joinAxiSelect: true,
+    joinAxiSelect: false,
     tradingPassword: '',
     currency: 'USD',
     leverage: '1:1000'
@@ -435,15 +419,13 @@ export default function AccountsView({
     'Crypto Perpetual Futures': false,
     'Automated strategies': false,
     'MT4/ MT5': false,
-    'Axi Select': true, // checked by default
+    'Axi Select': false,
     "I'm not sure yet": false
   });
 
   const [showPassword, setShowPassword] = useState(false);
   const [showTradingPassword, setShowTradingPassword] = useState(false);
 
-  // Authenticator manual code generated for copying
-  const authSetupCode = 'GJUEUZJRGRNS4XTIMFFGIVKLNMYUWMTO';
 
   // State to generate secure live credentials
   const [generatedAccount, setGeneratedAccount] = useState<{
@@ -543,18 +525,6 @@ export default function AccountsView({
         return;
       }
       
-      // Trigger official Registration Welcome Email notification from Axi Trades
-      const emailPayload = {
-        id: `WELCOME-REG-${Math.floor(100000 + Math.random() * 900000)}`,
-        recipientEmail: formData.email,
-        recipientName: formData.firstName ? `${formData.firstName} ${formData.lastName}` : (formData.email.split('@')[0] ? formData.email.split('@')[0].toUpperCase() : 'Axi Trader'),
-        type: 'Registration',
-        subject: `🎉 Welcome to Axi Trades - Account Registration Successful!`,
-        timestamp: new Date().toUTCString(),
-        accountNo: `AXI-MT5-${Math.floor(100000 + Math.random() * 900000)}`,
-        platform: formData.tradingPlatform || 'MT5 Live'
-      };
-      window.dispatchEvent(new CustomEvent('axi_email_trigger', { detail: emailPayload }));
 
       setWizardStep(4);
     } 
@@ -636,81 +606,50 @@ export default function AccountsView({
       setWizardStep(14);
     } 
     else if (wizardStep === 14) {
-      // Currency & Leverage - Submit and finalize!
-      // Generate actual live ECN account payload
-      const randomId = Math.floor(5400000 + Math.random() * 900000);
-      const passkey = formData.tradingPassword || 'AXI-' + Math.random().toString(36).slice(-8).toUpperCase();
-      
-      setGeneratedAccount({
-        loginId: randomId,
-        server: formData.accountType === 'Pro' ? 'AxiCorp-LivePro04' : formData.accountType === 'USD Cent' ? 'AxiCorp-CentLive01' : 'AxiCorp-Live12',
-        passkey: passkey,
-        tier: `${formData.accountType} Account`,
-        currency: formData.currency,
-        platform: formData.tradingPlatform,
-        leverage: formData.leverage
-      });
-
-      // Register real user into Firebase Auth and Backend Server
-      const displayName = formData.firstName ? `${formData.firstName} ${formData.lastName}`.trim() : (formData.email ? formData.email.split('@')[0] : 'Axi Trader');
-      const newUserPayload = {
-        id: `usr_${Math.floor(1000 + Math.random() * 9000)}`,
-        name: displayName,
-        email: formData.email.trim(),
-        country: formData.country,
-        status: 'Pending',
-        verificationStatus: 'Pending',
-        kycStatus: 'NOT_STARTED',
-        balance: 0,
-        demoBalance: 10000,
-        accountNo: `AXI-${formData.tradingPlatform}-${randomId}`,
-        accountType: `${formData.accountType} Live`,
-        tradingPlatform: formData.tradingPlatform,
-        leverage: formData.leverage,
-        currency: formData.currency,
-        tradingPassword: passkey,
-        employment: formData.employment,
-        avgIncome: formData.avgIncome,
-        savingsValue: formData.savingsValue,
-        sourceFunds: formData.sourceFunds,
-        authMethod: formData.authMethod,
-        registeredAt: new Date().toISOString().replace('T', ' ').substring(0, 16)
-      };
-
-      // 1. Sync with backend REST API
-      fetch('/api/users/register', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(newUserPayload)
-      }).catch(err => console.warn('Backend user registration sync:', err));
-
-      // 2. Sync with local storage
+      // Final application step: create the real Firebase identity first.
+      // Broker credentials are never fabricated in the browser; they must come from the broker/execution backend.
       try {
-        const existingUsers = JSON.parse(localStorage.getItem('axi_registered_users') || '[]');
-        if (!existingUsers.some((u: any) => u.email?.toLowerCase() === newUserPayload.email.toLowerCase())) {
-          existingUsers.unshift(newUserPayload);
-          localStorage.setItem('axi_registered_users', JSON.stringify(existingUsers));
-        }
-        window.dispatchEvent(new Event('axi_user_update'));
-      } catch (e) {}
+        const displayName = formData.firstName ? `${formData.firstName} ${formData.lastName}`.trim() : formData.email.split('@')[0];
+        const userCred = await createUserWithEmailAndPassword(auth, formData.email.trim().toLowerCase(), formData.password);
+        await updateProfile(userCred.user, { displayName });
 
-      // 3. Register real user into Firebase Auth if available
-      if (formData.email && formData.password) {
-        createUserWithEmailAndPassword(auth, formData.email.trim(), formData.password)
-          .then(async (userCred) => {
-            try {
-              await updateProfile(userCred.user, { displayName });
-            } catch (pErr) {
-              console.warn("Profile update notice:", pErr);
-            }
-          })
-          .catch((err) => {
-            console.warn("Firebase registration sync:", err?.message || err);
-          });
+        const newUserPayload = {
+          id: userCred.user.uid,
+          uid: userCred.user.uid,
+          name: displayName,
+          email: formData.email.trim().toLowerCase(),
+          country: formData.country,
+          status: 'Pending',
+          verificationStatus: 'Pending',
+          kycStatus: 'NOT_STARTED',
+          balance: 0,
+          liveBalance: 0,
+          accountNo: '',
+          accountType: `${formData.accountType} — awaiting broker provisioning`,
+          tradingPlatform: formData.tradingPlatform,
+          leverage: formData.leverage,
+          currency: formData.currency,
+          employment: formData.employment,
+          avgIncome: formData.avgIncome,
+          savingsValue: formData.savingsValue,
+          sourceFunds: formData.sourceFunds,
+          authMethod: formData.authMethod,
+          registeredAt: new Date().toISOString()
+        };
+
+        const response = await fetch('/api/users/register', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(newUserPayload)
+        });
+        if (!response.ok) throw new Error('The registration service did not accept the new account record.');
+
+        setGeneratedAccount(null);
+        showToast('Account registration completed. Your application is pending KYC/admin review; broker credentials will only appear after real provisioning.', 'success');
+        setWizardStep(15);
+      } catch (err: any) {
+        showToast((err?.message || 'Unable to complete registration. Please try again.').replace('Firebase: ', ''), 'error');
       }
-
-      showToast('Live Axi ECN Account configured successfully! Finalizing settings...', 'success');
-      setWizardStep(15);
     }
   };
 
@@ -723,7 +662,7 @@ export default function AccountsView({
   // Reset helper
   const handleResetWizard = () => {
     setFormData({
-      country: 'Nigeria',
+      country: '',
       email: '',
       password: '',
       consentPrivacy: false,
@@ -747,7 +686,7 @@ export default function AccountsView({
       sourceFunds: [],
       tradingPlatform: 'MT5',
       accountType: 'Standard',
-      joinAxiSelect: true,
+      joinAxiSelect: false,
       tradingPassword: '',
       currency: 'USD',
       leverage: '1:1000'
@@ -1086,45 +1025,6 @@ export default function AccountsView({
                     </span>
                   </div>
 
-                  {/* OR Social register divider */}
-                  <div className="flex items-center my-1">
-                    <div className="flex-grow border-t border-slate-200"></div>
-                    <span className="px-3 text-[10px] font-black uppercase text-slate-400 tracking-widest">OR</span>
-                    <div className="flex-grow border-t border-slate-200"></div>
-                  </div>
-
-                  <div className="grid grid-cols-1 gap-2.5">
-                    <button
-                      onClick={() => showToast('Connecting Secure Google API Auth...', 'info')}
-                      className="w-full bg-white hover:bg-slate-50 border border-slate-200 font-black text-[11px] py-3 rounded-xl uppercase flex items-center justify-center gap-2 text-slate-700 shadow-xs cursor-pointer"
-                    >
-                      <svg className="w-4 h-4" viewBox="0 0 24 24">
-                        <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
-                        <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
-                        <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l3.66-2.85z" />
-                        <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.85c.87-2.6 3.3-4.53 6.16-4.53z" />
-                      </svg>
-                      Sign up with Google
-                    </button>
-                    <button
-                      onClick={() => showToast('Connecting Secure Apple API Auth...', 'info')}
-                      className="w-full bg-white hover:bg-slate-50 border border-slate-200 font-black text-[11px] py-3 rounded-xl uppercase flex items-center justify-center gap-2 text-slate-700 shadow-xs cursor-pointer"
-                    >
-                      <svg className="w-4 h-4 fill-slate-800" viewBox="0 0 24 24">
-                        <path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.81-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M15.97 4.17c.66-.81 1.11-1.93.99-3.06-1 .04-2.21.67-2.93 1.49-.62.69-1.16 1.84-1.01 2.96 1.12.09 2.27-.57 2.95-1.39z" />
-                      </svg>
-                      Sign up with Apple
-                    </button>
-                    <button
-                      onClick={() => showToast('Connecting Secure Facebook API Auth...', 'info')}
-                      className="w-full bg-white hover:bg-slate-50 border border-slate-200 font-black text-[11px] py-3 rounded-xl uppercase flex items-center justify-center gap-2 text-slate-700 shadow-xs cursor-pointer"
-                    >
-                      <svg className="w-4 h-4 fill-blue-600" viewBox="0 0 24 24">
-                        <path d="M22 12c0-5.52-4.48-10-10-10S2 6.48 2 12c0 4.84 3.44 8.87 8 9.8V15H8v-3h2V9.5C10 7.57 11.57 6 13.5 6H16v3h-2c-.55 0-1 .45-1 1v2h3v3h-3v6.95c4.56-.93 8-4.96 8-9.75z" />
-                      </svg>
-                      Sign up with Facebook
-                    </button>
-                  </div>
                 </div>
               </motion.div>
             )}
@@ -1150,7 +1050,7 @@ export default function AccountsView({
                   <div
                     onClick={() => {
                       setFormData(prev => ({ ...prev, authMethod: 'Authenticator' }));
-                      setWizardStep(5);
+                      setWizardStep(6);
                     }}
                     className="border border-slate-200 hover:border-[#E61C3F] bg-white rounded-xl p-5 flex items-center justify-between cursor-pointer transition shadow-xs group"
                   >
@@ -1169,7 +1069,7 @@ export default function AccountsView({
                   <div
                     onClick={() => {
                       setFormData(prev => ({ ...prev, authMethod: 'SMS' }));
-                      setWizardStep(5);
+                      setWizardStep(6);
                     }}
                     className="border border-slate-200 hover:border-slate-350 bg-white/65 rounded-xl p-5 flex items-center justify-between cursor-pointer transition shadow-xs group"
                   >
@@ -2085,24 +1985,24 @@ export default function AccountsView({
                 </div>
 
                 <h2 className="text-2xl font-black text-slate-900 tracking-tight leading-none uppercase mb-2">
-                  Explore MT4, MT5, or Axi's own platform
+                  Application submitted — provisioning pending
                 </h2>
                 
                 <p className="text-slate-500 text-xs font-semibold max-w-sm mb-6">
-                  Now on Web and App with crypto perps and more. Complete your setup by checking your credentials or trading directly in-platform.
+                  Your identity has been registered. Complete KYC and wait for administrator/broker approval before live trading credentials are issued.
                 </p>
 
                 <div className="w-full flex flex-col gap-3 max-w-xs mb-8">
                   <button
-                    onClick={() => setWizardStep(16)}
+                    onClick={() => { showToast('Broker credentials are issued only after real backend provisioning.', 'info'); }}
                     className="w-full bg-[#FFD250] hover:bg-[#FFC518] text-slate-950 font-black text-xs py-4 rounded-xl uppercase tracking-wider shadow-md cursor-pointer transition-colors"
                   >
-                    View Account Credentials
+                    View application status
                   </button>
                   
                   <button
                     onClick={() => {
-                      showToast('Launching custom cloud-native Axi Webtrader terminal...', 'success');
+                      showToast('Live trading access is available only after verified account provisioning.', 'info');
                       if (setView) setView('dashboard');
                     }}
                     className="w-full bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 font-extrabold text-xs py-3.5 rounded-xl uppercase tracking-wider cursor-pointer shadow-xs transition-colors"
@@ -2127,89 +2027,6 @@ export default function AccountsView({
             )}
 
             {/* STEP 16: FINAL CREDENTIALS DISPLAY */}
-            {wizardStep === 16 && generatedAccount && (
-              <motion.div
-                key="step-16"
-                initial={{ opacity: 0, scale: 0.95 }}
-                animate={{ opacity: 1, scale: 1 }}
-                className="flex flex-col items-center text-center"
-              >
-                <div className="w-12 h-12 rounded-full bg-emerald-500 text-white flex items-center justify-center border border-emerald-600 shadow-md shadow-emerald-500/10 mb-4">
-                  <CheckCircle2 className="w-7 h-7" />
-                </div>
-
-                <h2 className="text-xl font-black text-slate-950 uppercase tracking-tight">
-                  Axi Live Account Provisioned!
-                </h2>
-                <p className="text-slate-400 text-[11px] font-semibold mt-1 max-w-sm">
-                  Your live master STP profile has been established. Log into your terminal with the ECN parameters below.
-                </p>
-
-                {/* Terminal parameter dark box */}
-                <div className="bg-slate-950 border border-[#E61C3F]/30 p-5 rounded-2xl w-full flex flex-col gap-3 font-mono text-xs text-left text-white my-6 select-all shadow-xl relative overflow-hidden">
-                  <div className="absolute top-0 right-0 w-32 h-32 bg-[#E61C3F]/5 rounded-full blur-2xl pointer-events-none"></div>
-                  
-                  <div className="flex justify-between border-b border-white/10 pb-2">
-                    <span className="text-slate-400 font-bold">Trading Login ID</span>
-                    <span className="text-brand-yellow font-extrabold">{generatedAccount.loginId}</span>
-                  </div>
-                  
-                  <div className="flex justify-between border-b border-white/10 pb-2">
-                    <span className="text-slate-400 font-bold">Master Password</span>
-                    <span className="text-white font-black">{generatedAccount.passkey}</span>
-                  </div>
-
-                  <div className="flex justify-between border-b border-white/10 pb-2">
-                    <span className="text-slate-400 font-bold">Trading Server</span>
-                    <span className="text-slate-300 font-extrabold">{generatedAccount.server}</span>
-                  </div>
-
-                  <div className="flex justify-between border-b border-white/10 pb-2">
-                    <span className="text-slate-400 font-bold">Currency Setup</span>
-                    <span className="text-brand-yellow font-black">{generatedAccount.currency}</span>
-                  </div>
-
-                  <div className="flex justify-between border-b border-white/10 pb-2">
-                    <span className="text-slate-400 font-bold">Leveage Profile</span>
-                    <span className="text-slate-300 font-black">{generatedAccount.leverage}</span>
-                  </div>
-
-                  <div className="flex justify-between border-b border-white/10 pb-2">
-                    <span className="text-slate-400 font-bold">Account Tier</span>
-                    <span className="text-[#E61C3F] font-black">{generatedAccount.tier}</span>
-                  </div>
-
-                  <div className="flex justify-between items-center pt-1 font-sans">
-                    <span className="text-slate-400 font-bold">Connection State</span>
-                    <span className="text-emerald-400 font-black flex items-center gap-1.5 text-[10px]">
-                      <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span> ONLINE (STP FLOW)
-                    </span>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 p-3.5 rounded-xl text-[10px] font-bold text-slate-500 text-left max-w-md mb-6">
-                  <Lock className="w-4 h-4 text-emerald-600 shrink-0" />
-                  <span>These credentials represent real STP broker connection layers. Use your terminals to log in or execute trades directly through the client trading portal.</span>
-                </div>
-
-                <div className="flex gap-3">
-                  <button
-                    onClick={() => {
-                      if (setView) setView('dashboard');
-                    }}
-                    className="bg-[#FFD250] hover:bg-[#FFC518] text-slate-950 font-extrabold text-xs px-5 py-3 rounded-xl transition flex items-center gap-1.5 shadow-sm cursor-pointer uppercase tracking-wider"
-                  >
-                    Go to Dashboard <ArrowRight className="w-3.5 h-3.5" />
-                  </button>
-                  <button
-                    onClick={handleResetWizard}
-                    className="bg-white hover:bg-slate-50 border border-slate-200 text-slate-600 font-extrabold text-xs px-5 py-3 rounded-xl transition flex items-center gap-1.5 shadow-sm cursor-pointer uppercase tracking-wider"
-                  >
-                    <RefreshCcw className="w-3.5 h-3.5 text-[#E61C3F]" /> Register Another Account
-                  </button>
-                </div>
-              </motion.div>
-            )}
 
           </AnimatePresence>
         </div>

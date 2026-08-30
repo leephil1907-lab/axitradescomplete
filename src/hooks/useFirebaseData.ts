@@ -227,26 +227,10 @@ export function useFirebaseData() {
 
   const loginWithEmail = async (email: string, pass: string) => {
     try {
-      const res = await signInWithEmailAndPassword(auth, email, pass);
-      sendTelegramAlert('USER_LOGIN', '🔓 User Signed In via Email/Password', {
-        'Email': email,
-        'User UID': res.user.uid
-      });
+      const res = await signInWithEmailAndPassword(auth, email.trim().toLowerCase(), pass);
+      sendTelegramAlert('USER_LOGIN', '🔓 User Signed In via Email/Password', { 'Email': email.trim().toLowerCase(), 'User UID': res.user.uid });
       return res;
     } catch (err: any) {
-      if (err.code === 'auth/user-not-found' || err.code === 'auth/invalid-credential') {
-        // Try creating user if missing
-        try {
-          const createRes = await createUserWithEmailAndPassword(auth, email, pass);
-          sendTelegramAlert('USER_REGISTRATION', '🎉 New User Registered via Email/Password', {
-            'Email': email,
-            'User UID': createRes.user.uid
-          });
-          return createRes;
-        } catch (createErr: any) {
-          throw createErr;
-        }
-      }
       throw err;
     }
   };

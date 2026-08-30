@@ -16,7 +16,7 @@ import RechartsCandlestickChart from './RechartsCandlestickChart';
 import AssetBrandLogo from './AssetBrandLogo';
 import CopyTradeSection from './CopyTradeSection';
 import IdentityVerificationModal from './IdentityVerificationModal';
-import { DEFAULT_MARKET_QUOTES } from '../data';
+
 
 interface DashboardViewProps {
   balance: number;
@@ -94,7 +94,7 @@ export default function DashboardView({
   formatCurrency = (amt) => `$${amt.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
   convertFromUSD = (amt) => amt
 }: DashboardViewProps) {
-  const [accountMode, setAccountMode] = useState<'live' | 'demo'>('live');
+  const [accountMode] = useState<'live' | 'demo'>('live');
   const [selectedSymbol, setSelectedSymbol] = useState<string>('EURUSD');
   const [categoryFilter, setCategoryFilter] = useState<string>('All');
   const [searchQuery, setSearchQuery] = useState<string>('');
@@ -152,17 +152,8 @@ export default function DashboardView({
         low: raw.low || (raw.price * 0.996)
       };
     }
-    // Default fallback quote
-    const fallbackPrice = DEFAULT_MARKET_QUOTES[selectedSymbol]?.price || (selectedSymbol === 'EURUSD' ? 1.0482 : selectedSymbol === 'BTCUSD' ? 96450 : selectedSymbol === 'XAUUSD' ? 2915.40 : 154.60);
-    return {
-      price: fallbackPrice,
-      bid: fallbackPrice - 0.0002,
-      ask: fallbackPrice + 0.0002,
-      spreadPips: activeInstrument.baseSpread,
-      change: DEFAULT_MARKET_QUOTES[selectedSymbol]?.change ?? 0.24,
-      high: fallbackPrice * 1.005,
-      low: fallbackPrice * 0.995
-    };
+    // No provider quote means no executable quote.
+    return { price: 0, bid: 0, ask: 0, spreadPips: 0, change: 0, high: 0, low: 0 };
   }, [quotes, selectedSymbol, activeInstrument]);
 
   // Filtered Instruments List
@@ -207,76 +198,19 @@ export default function DashboardView({
     return tradeVolume * 10;
   }, [tradeVolume, selectedSymbol]);
 
-  // Execute Market Order
-  const handleExecuteMarketOrder = (type: 'BUY' | 'SELL') => {
-    const execPrice = type === 'BUY' ? activeQuote.ask : activeQuote.bid;
-
-    if (calculatedMarginRequired > freeMargin) {
-      showToast('Insufficient free margin to execute this position size. Please deposit funds or reduce lot volume.', 'error');
+  // Execute Market Order: local browser-side fills are disabled.
+  const handleExecuteMarketOrder = (_type: 'BUY' | 'SELL') => {
+    if (!activeQuote.price || activeQuote.status === 'unavailable') {
+      showToast('Live execution is unavailable because no verified broker quote/execution gateway is connected.', 'error');
       return;
     }
-
-    setIsExecutingTrade(true);
-
-    setTimeout(() => {
-      const slNum = enableStopLoss && stopLossPrice ? parseFloat(stopLossPrice) : undefined;
-      const tpNum = enableTakeProfit && takeProfitPrice ? parseFloat(takeProfitPrice) : undefined;
-
-      const newOrder: TradeOrder = {
-        id: `AXI-${Math.floor(100000 + Math.random() * 900000)}`,
-        symbol: selectedSymbol,
-        type,
-        volume: Number(tradeVolume),
-        entryPrice: execPrice,
-        currentPrice: execPrice,
-        profit: 0,
-        sl: slNum,
-        tp: tpNum,
-        timestamp: new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
-      };
-
-      if (addOpenPosition) {
-        addOpenPosition(newOrder);
-      } else if (setOpenPositions) {
-        setOpenPositions(prev => [newOrder, ...prev]);
-      }
-
-      setIsExecutingTrade(false);
-      showToast(`🎯 EXECUTION FILLED: ${type} ${tradeVolume} Lot(s) of ${selectedSymbol} at ${execPrice.toFixed(activeInstrument.digits)} (Ticket #${newOrder.id})`, 'success');
-      
-      // Reset SL/TP fields
-      setStopLossPrice('');
-      setTakeProfitPrice('');
-      setEnableStopLoss(false);
-      setEnableTakeProfit(false);
-    }, 280);
+    showToast('Order not submitted: this deployment has no verified broker execution gateway. No simulated fill was created.', 'error');
   };
 
-  // Place Pending Order
+  // Pending orders require a broker-side execution service.
   const handlePlacePendingOrder = (e: React.FormEvent) => {
     e.preventDefault();
-    const targetP = parseFloat(pendingPrice);
-    if (!targetP || targetP <= 0) {
-      showToast('Please specify a valid pending trigger price.', 'error');
-      return;
-    }
-
-    const order: PendingOrder = {
-      id: `PEND-${Math.floor(100000 + Math.random() * 900000)}`,
-      symbol: selectedSymbol,
-      type: pendingType,
-      volume: tradeVolume,
-      targetPrice: targetP,
-      currentPrice: activeQuote.price,
-      timestamp: new Date().toLocaleTimeString(),
-      sl: enableStopLoss && stopLossPrice ? parseFloat(stopLossPrice) : undefined,
-      tp: enableTakeProfit && takeProfitPrice ? parseFloat(takeProfitPrice) : undefined
-    };
-
-    setPendingOrders(prev => [order, ...prev]);
-    setPendingPrice('');
-    showToast(`Pending Order placed: ${pendingType.replace('_', ' ')} ${tradeVolume} Lot ${selectedSymbol} @ ${targetP}`, 'success');
-    setActiveTab('pending');
+    showToast('Pending orders are unavailable until a verified broker execution gateway is connected.', 'error');
   };
 
   // Cancel Pending Order
@@ -285,43 +219,14 @@ export default function DashboardView({
     showToast(`Pending order #${id} cancelled.`, 'info');
   };
 
-  // Close Open Position
-  const handleClosePosition = (posId: string) => {
-    if (!setOpenPositions) return;
-    const pos = openPositions.find(p => p.id === posId);
-    if (!pos) return;
-
-    const curQ = quotes[pos.symbol];
-    const curP = curQ?.price || pos.currentPrice || pos.entryPrice;
-    const mult = pos.symbol.includes('BTC') ? 1 : pos.symbol.includes('XAU') ? 100 : pos.symbol.includes('JPY') ? 1000 : 100000;
-    const diff = pos.type === 'BUY' ? (curP - pos.entryPrice) : (pos.entryPrice - curP);
-    const finalProfit = diff * pos.volume * mult;
-
-    setOpenPositions(prev => prev.filter(p => p.id !== posId));
-    setLiveBalance(prev => prev + finalProfit);
-    setBalance(prev => prev + finalProfit);
-
-    showToast(`Position #${pos.id} (${pos.symbol}) closed. Realized P/L: ${finalProfit >= 0 ? '+' : ''}$${finalProfit.toFixed(2)}`, 'info');
+  // Position closing is server/execution-gateway controlled.
+  const handleClosePosition = (_posId: string) => {
+    showToast('Position close requests require the verified broker execution gateway. No local balance mutation was performed.', 'error');
   };
 
-  // Bulk Close All Positions
+  // Bulk close is server/execution-gateway controlled.
   const handleCloseAllPositions = () => {
-    if (!setOpenPositions || openPositions.length === 0) return;
-    
-    let totalRealized = 0;
-    openPositions.forEach(pos => {
-      const curQ = quotes[pos.symbol];
-      const curP = curQ?.price || pos.currentPrice || pos.entryPrice;
-      const mult = pos.symbol.includes('BTC') ? 1 : pos.symbol.includes('XAU') ? 100 : pos.symbol.includes('JPY') ? 1000 : 100000;
-      const diff = pos.type === 'BUY' ? (curP - pos.entryPrice) : (pos.entryPrice - curP);
-      totalRealized += (diff * pos.volume * mult);
-    });
-
-    setOpenPositions([]);
-    setLiveBalance(prev => prev + totalRealized);
-    setBalance(prev => prev + totalRealized);
-
-    showToast(`Closed all ${openPositions.length} active positions. Total P/L: ${totalRealized >= 0 ? '+' : ''}$${totalRealized.toFixed(2)}`, 'info');
+    showToast('Bulk close is unavailable until the broker execution gateway is connected.', 'error');
   };
 
   // Save Position SL/TP Modification
@@ -384,8 +289,8 @@ export default function DashboardView({
                 <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
               </span>
               <div className="text-[11px] font-mono">
-                <span className="text-slate-300 font-bold">AxiCorp-Live MT5</span>
-                <span className="text-slate-500 ml-1.5">(12ms • STP)</span>
+                <span className="text-slate-300 font-bold">Broker execution connection</span>
+                <span className="text-slate-500 ml-1.5">(status provider-controlled)</span>
               </div>
             </div>
 
@@ -401,23 +306,12 @@ export default function DashboardView({
                 }`}
               >
                 <ShieldCheck className="w-3 h-3" />
-                Live ECN (#8849201)
-              </button>
-              <button
-                type="button"
-                onClick={() => setAccountMode('demo')}
-                className={`px-3 py-1 rounded font-black uppercase text-[10px] tracking-wider transition cursor-pointer flex items-center gap-1.5 ${
-                  accountMode === 'demo'
-                    ? 'bg-slate-700 text-white shadow-xs'
-                    : 'text-slate-400 hover:text-slate-200'
-                }`}
-              >
-                Demo Practice
+                Live account
               </button>
             </div>
 
             <div className="hidden sm:flex items-center text-[11px] text-slate-400 gap-2 pl-2">
-              <span>Leverage: <strong className="text-slate-200 font-mono">1:500</strong></span>
+              <span>Leverage: <strong className="text-slate-200 font-mono">Provider controlled</strong></span>
               <span>•</span>
               <span>Currency: <strong className="text-slate-200 font-mono">{displayCurrency}</strong></span>
             </div>
@@ -552,11 +446,11 @@ export default function DashboardView({
           <div className="flex-1 overflow-y-auto divide-y divide-slate-800/40">
             {filteredInstruments.map((inst) => {
               const raw = quotes[inst.symbol];
-              const price = raw?.price || DEFAULT_MARKET_QUOTES[inst.symbol]?.price || (inst.symbol === 'EURUSD' ? 1.0482 : inst.symbol === 'BTCUSD' ? 96450 : 2915.40);
-              const spreadVal = raw?.askDiff || inst.baseSpread * 0.0001;
-              const bid = raw?.bid || (price - spreadVal / 2);
-              const ask = raw?.ask || (price + spreadVal / 2);
-              const change = raw?.change ?? DEFAULT_MARKET_QUOTES[inst.symbol]?.change ?? 0.12;
+              const price = raw?.price || 0;
+              const spreadVal = typeof raw?.askDiff === 'number' ? raw.askDiff : 0;
+              const bid = typeof raw?.bid === 'number' ? raw.bid : (price > 0 ? price - spreadVal / 2 : 0);
+              const ask = typeof raw?.ask === 'number' ? raw.ask : (price > 0 ? price + spreadVal / 2 : 0);
+              const change = typeof raw?.change === 'number' ? raw.change : 0;
               const isSelected = selectedSymbol === inst.symbol;
 
               return (
@@ -714,7 +608,7 @@ export default function DashboardView({
                 <span className="text-slate-400">1-Click</span>
                 <button
                   type="button"
-                  onClick={() => setOneClickTrading(!oneClickTrading)}
+                  onClick={() => showToast('1-Click trading is disabled until broker execution is verified.', 'info')}
                   className={`w-7 h-4 rounded-full transition relative cursor-pointer ${
                     oneClickTrading ? 'bg-emerald-500' : 'bg-slate-700'
                   }`}
