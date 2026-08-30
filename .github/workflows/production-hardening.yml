@@ -1,0 +1,129 @@
+name: Production hardening
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  harden:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Remove demo defaults and harden admin/funding UX
+        run: |
+          python3 <<'PY'
+          from pathlib import Path
+          import re
+
+          # Header: remove the hidden hard-coded admin password backdoor.
+          p = Path('src/components/Header.tsx')
+          s = p.read_text()
+          old = '''            onDoubleClick={(e) => {\n              e.preventDefault();\n              const pwd = window.prompt("Enter Admin Access Code:");\n              if (pwd === "axitrading2026") {\n                setView('admin');\n              } else if (pwd !== null && showToast) {\n                showToast("Invalid admin credentials", "error");\n              }\n            }}\n'''
+          s = s.replace(old, '')
+          # Make the language selector honest: selections persist, but do not pretend to translate the whole app.
+          s = s.replace("const [selectedLang, setSelectedLang] = useState('English');", "const [selectedLang, setSelectedLang] = useState(() => localStorage.getItem('axi_language') || 'English (Global)');")
+          s = s.replace("onClick={() => { setSelectedLang(lang.name); setShowLanguageModal(false); }}", "onClick={() => { localStorage.setItem('axi_language', lang.name); setSelectedLang(lang.name); setShowLanguageModal(false); }}")
+          p.write_text(s)
+
+          # Payment configuration: never ship real-looking wallet/account samples as defaults.
+          p = Path('src/services/paymentConfigService.ts')
+          s = p.read_text()
+          s = re.sub(r"export const defaultCryptoWallets: Record<string, CryptoWalletConfig> = \{.*?\n\};\n\nexport const defaultBankSettings", "export const defaultCryptoWallets: Record<string, CryptoWalletConfig> = {};\n\nexport const defaultBankSettings", s, flags=re.S)
+          s = re.sub(r"export const defaultPaymentMethods: PaymentMethodItem\[\] = \[.*?\n\];\n\nexport function getLocalPaymentConfig", "export const defaultPaymentMethods: PaymentMethodItem[] = [];\n\nexport function getLocalPaymentConfig", s, flags=re.S)
+          s = s.replace("autoApproveLimit: parsed.autoApproveLimit ?? 5000,", "autoApproveLimit: parsed.autoApproveLimit ?? 0,")
+          s = s.replace("requireKycForDeposit: parsed.requireKycForDeposit ?? false,", "requireKycForDeposit: parsed.requireKycForDeposit ?? true,")
+          s = s.replace("autoApproveLimit: 5000,", "autoApproveLimit: 0,")
+          s = s.replace("requireKycForDeposit: false,", "requireKycForDeposit: true,")
+          p.write_text(s)
+
+          # Funding view: render only payment methods actually supplied by the central configuration.
+          p = Path('src/components/FundsView.tsx')
+          s = p.read_text()
+          s = re.sub(r"  // Full Real-World Axi Payment Methods Catalogue.*?\n  const activeMethod = depositMethods\.find", "  // Only payment methods explicitly configured by the platform are offered.\n  // No wallet, bank account, processor or fee is fabricated in the client.\n  const depositMethods = (paymentConfig.paymentMethods || [])\n    .filter((method: any) => method && method.active)\n    .map((method: any) => ({\n      ...method,\n      iconId: method.iconName || method.id,\n      description: method.instructions || 'Payment method configured by the platform.',\n      badge: method.processingTime || 'Configured',\n      fee: `${Number(method.feePercent || 0)}% fee`,\n    }));\n\n  const activeMethod = depositMethods.find", s, flags=re.S)
+          # Remove fake Stripe return amount fallback.
+          s = s.replace("const amountNum = parseFloat(depositAmountParam || '0') || 500;", "const amountNum = parseFloat(depositAmountParam || '0') || 0;")
+          # Prevent submitting a funding request without an authenticated user.
+          marker = "  const handleTransferCompletionSubmit = (e: React.FormEvent) => {\n    e.preventDefault();"
+          replacement = "  const handleTransferCompletionSubmit = (e: React.FormEvent) => {\n    e.preventDefault();\n    if (!auth.currentUser) {\n      showToast('Please sign in before submitting a funding request.', 'error');\n      return;\n    }"
+          s = s.replace(marker, replacement)
+          p.write_text(s)
+
+          # Admin dashboard: no fake wallet/bank values in client defaults.
+          p = Path('src/components/AdminDashboardView.tsx')
+          s = p.read_text()
+          s = re.sub(r"  const defaultWallets = \{.*?\n  \};", "  const defaultWallets = {};", s, flags=re.S)
+          s = re.sub(r"    return \{\n      instructions: 'Please contact customer support via email to receive personalized bank wire routing instructions and account details for your deposit\.',\n      supportEmail: 'axicustomersupport@gmail.com'\n    \};", "    return { instructions: '', supportEmail: '' };", s)
+          # Remove local-only KYC status mutations; server remains source of truth.
+          s = s.replace("    safeStorage.setItem('axi_kyc_status', 'verified');\n", "")
+          s = s.replace("    safeStorage.setItem('axi_kyc_status', 'unverified');\n", "")
+          p.write_text(s)
+
+          # App: empty watchlist by default and block admin view for non-admin users.
+          p = Path('src/hooks/useFirebaseData.ts')
+          s = p.read_text()
+          s = s.replace("useState<string[]>(['BTCUSD', 'EURUSD', 'XAUUSD', 'AAPL'])", "useState<string[]>([])")
+          # Remove fabricated account metadata from the browser-side admin cache.
+          s = s.replace("accountNo: existingIndex >= 0 && userList[existingIndex].accountNo ? userList[existingIndex].accountNo : `AXI-MT5-${currentUser.uid.substring(0, 6).toUpperCase()}`,", "accountNo: existingIndex >= 0 ? (userList[existingIndex].accountNo || '') : '',")
+          s = s.replace("accountType: 'Standard ECN Account',\n              leverage: '1:500',", "accountType: existingIndex >= 0 ? (userList[existingIndex].accountType || '') : '',\n              leverage: existingIndex >= 0 ? (userList[existingIndex].leverage || '') : '',")
+          p.write_text(s)
+
+          p = Path('src/App.tsx')
+          s = p.read_text()
+          s = s.replace("const [referralInvites, setReferralInvites] = useState<ReferralInvite[]>(() => {", "const [referralInvites, setReferralInvites] = useState<ReferralInvite[]>(() => {")
+          # Referral rewards must never directly mint client balance in the browser.
+          s = re.sub(r"  const claimReferralBonus = \(amount: number, friendName: string\) => \{.*?\n  \};", "  const claimReferralBonus = (amount: number, friendName: string) => {\n    showToast(`Referral reward for ${friendName} is pending server verification. No balance was credited in the browser.`, 'info');\n  };", s, flags=re.S)
+          # Explicit admin gate.
+          admin_gate = """  const isAdminUser = !!user?.email && [\n    'leephil1907@gmail.com',\n    'admin@axi.com',\n    'axicustomersupport@gmail.com'\n  ].includes(user.email.toLowerCase());\n\n"""
+          anchor = "  // Only redirect away from login if authenticated, and away from private routes if not authenticated\n"
+          if admin_gate not in s:
+              s = s.replace(anchor, admin_gate + anchor)
+          s = s.replace("const secureViews: ViewType[] = ['dashboard', 'settings', 'admin', 'funds'];", "const secureViews: ViewType[] = ['dashboard', 'settings', 'admin', 'funds'];")
+          s = s.replace("if (currentView === 'login') {\n          setView('dashboard');", "if (currentView === 'login') {\n          setView('dashboard');")
+          # Add explicit redirect for authenticated non-admin users attempting the admin route.
+          target = "      if (user) {\n        // If user is logged in and currently on the login page, take them to their terminal\n"
+          repl = "      if (user) {\n        if (currentView === 'admin' && !isAdminUser) {\n          setView('dashboard');\n          return;\n        }\n        // If user is logged in and currently on the login page, take them to their terminal\n"
+          s = s.replace(target, repl)
+          # Disable the keyboard admin shortcut for non-admins.
+          s = s.replace("if ((e.metaKey || e.ctrlKey) && e.shiftKey && (e.key === 'a' || e.key === 'A')) {\n        e.preventDefault();\n        setView('admin');", "if ((e.metaKey || e.ctrlKey) && e.shiftKey && (e.key === 'a' || e.key === 'A')) {\n        if (!isAdminUser) return;\n        e.preventDefault();\n        setView('admin');")
+          # Make dependency correct for the shortcut effect.
+          s = s.replace("  }, []);\n  const [currentView, setView]", "  }, [isAdminUser]);\n  const [currentView, setView]", 1)
+          p.write_text(s)
+
+          # Railway: use a cheap health endpoint instead of market data for health checks.
+          p = Path('railway.json')
+          s = p.read_text().replace('"healthcheckPath": "/api/markets/quotes"', '"healthcheckPath": "/api/health"')
+          p.write_text(s)
+
+          # Server: add a deterministic health endpoint if it is not already present.
+          p = Path('server.ts')
+          s = p.read_text()
+          if "app.get('/api/health'" not in s:
+              anchor = "const app = express();\n"
+              s = s.replace(anchor, anchor + "\napp.get('/api/health', (_req, res) => { res.status(200).json({ ok: true, service: 'axi-trades', environment: process.env.NODE_ENV || 'development', timestamp: new Date().toISOString() }); });\n")
+          p.write_text(s)
+          PY
+
+      - name: Validate TypeScript build
+        run: |
+          npm ci
+          npm run build
+
+      - name: Commit production hardening
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src server.ts railway.json
+          if git diff --cached --quiet; then
+            echo "No changes required."
+          else
+            git commit -m "fix: remove remaining demo defaults and harden production flows"
+            git push origin main
+          fi
