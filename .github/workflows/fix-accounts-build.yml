@@ -1,0 +1,39 @@
+name: Fix Accounts Build
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'src/components/AccountsView.tsx'
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Fix async registration handler
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('src/components/AccountsView.tsx')
+          s = p.read_text()
+          old = '  const validateAndNext = () => {'
+          new = '  const validateAndNext = async () => {'
+          if old not in s:
+              raise SystemExit('target declaration not found')
+          s = s.replace(old, new, 1)
+          p.write_text(s)
+          PY
+      - name: Commit fix and remove temporary workflow
+        shell: bash
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add src/components/AccountsView.tsx
+          git rm .github/workflows/fix-accounts-build.yml
+          git commit -m 'fix: make account registration handler async'
+          git push
