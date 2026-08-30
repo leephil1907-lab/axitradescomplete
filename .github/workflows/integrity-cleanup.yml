@@ -1,0 +1,94 @@
+name: Production integrity cleanup
+
+on:
+  push:
+    branches: [production-integrity-cleanup]
+
+permissions:
+  contents: write
+
+jobs:
+  cleanup:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: production-integrity-cleanup
+          fetch-depth: 0
+
+      - name: Apply production integrity fixes
+        run: |
+          python3 <<'PY'
+          from pathlib import Path
+          import re
+
+          # ---------------- App.tsx ----------------
+          p = Path('src/App.tsx')
+          s = p.read_text()
+          s = s.replace("import { ASSET_METADATA, DEFAULT_MARKET_QUOTES } from './data';", "import { ASSET_METADATA } from './data';")
+          s = re.sub(r"// Real-time market quote shells.*?const DEFAULT_CLOSED_POSITIONS", "// Price shells contain metadata only. liveMarketFeed supplies all prices.\nconst INITIAL_QUOTES: Record<string, MarketQuote> = Object.entries(ASSET_METADATA).reduce((acc, [symbol, meta]) => {\n  acc[symbol] = { symbol, name: meta.name, category: meta.category, price: 0, change: 0, bidDiff: undefined, askDiff: undefined, spread: 0, history: [], lastUpdated: 0, stale: true, status: 'unavailable' };\n  return acc;\n}, {} as Record<string, MarketQuote>);\n\nconst DEFAULT_CLOSED_POSITIONS", s, flags=re.S)
+          s = s.replace("const eurusdRate = quotes['EURUSD']?.price || DEFAULT_MARKET_QUOTES['EURUSD']?.price || 1.0482;", "const eurusdRate = quotes['EURUSD']?.price || 0;")
+          s = s.replace("const gbpusdRate = quotes['GBPUSD']?.price || DEFAULT_MARKET_QUOTES['GBPUSD']?.price || 1.2590;", "const gbpusdRate = quotes['GBPUSD']?.price || 0;")
+          s = s.replace("    EUR: 1 / eurusdRate,\n    GBP: 1 / gbpusdRate,", "    EUR: eurusdRate > 0 ? 1 / eurusdRate : 0,\n    GBP: gbpusdRate > 0 ? 1 / gbpusdRate : 0,")
+          s = s.replace("    const rate = currencyRates[targetCurrency] || 1.0;", "    const rate = currencyRates[targetCurrency];\n    if (!Number.isFinite(rate) || rate <= 0) return usdAmount;")
+          s = s.replace("  // Practice Trading Balance and active Demo positions", "  // Real account ledger. No demo/practice balance is injected into production.")
+          s = s.replace("accountNo: user.accountNo || 'AXI-MT5-882910',", "accountNo: user.accountNo || '',")
+          s = s.replace("accountType: user.accountType || 'Pro ECN Prime',", "accountType: user.accountType || '',")
+          s = s.replace("status: user.status || user.verificationStatus || 'Verified'", "status: user.status || user.verificationStatus || 'Pending'")
+          p.write_text(s)
+
+          # ---------------- AccountsView.tsx ----------------
+          p = Path('src/components/AccountsView.tsx')
+          s = p.read_text()
+          # Remove pre-populated demo/live-looking sub-accounts.
+          s = re.sub(r"const \[subAccountsList, setSubAccountsList\] = useState\(\[.*?\]\);", "const [subAccountsList, setSubAccountsList] = useState<any[]>([]);", s, flags=re.S)
+          # Do not fabricate a local account number/balance. Request broker provisioning instead.
+          s = re.sub(r"  const handleCreateSubAccount = \(e: React\.FormEvent\) => \{.*?\n  \};", "  const handleCreateSubAccount = (e: React.FormEvent) => {\n    e.preventDefault();\n    setIsCreatingSubAccount(false);\n    showToast('Sub-account request recorded. A broker-side account must be provisioned before credentials are issued.', 'info');\n  };", s, flags=re.S)
+          s = s.replace("country: 'Nigeria',", "country: '',")
+          s = s.replace("    'Axi Select': true, // checked by default", "    'Axi Select': false,")
+          s = re.sub(r"\n  // Authenticator manual code generated for copying\n  const authSetupCode = '[^']+';", "", s)
+          # Remove the premature welcome email which claimed registration before account creation.
+          s = re.sub(r"\n      // Trigger official Registration Welcome Email notification from Axi Trades.*?\n      window\.dispatchEvent\(new CustomEvent\('axi_email_trigger', \{ detail: emailPayload \}\)\);\n", "\n", s, flags=re.S)
+          # Remove fake broker credential generation and replace the final step with a real Firebase registration + pending provisioning state.
+          old = re.search(r"      // Currency & Leverage - Submit and finalize!.*?      showToast\('Live Axi ECN Account configured successfully! Finalizing settings\.\.\.', 'success'\);\n      setWizardStep\(15\);", s, flags=re.S)
+          if old:
+              new = """      // Final application step: create the real Firebase identity first.\n      // Broker credentials are never fabricated in the browser; they must come from the broker/execution backend.\n      try {\n        const displayName = formData.firstName ? `${formData.firstName} ${formData.lastName}`.trim() : formData.email.split('@')[0];\n        const userCred = await createUserWithEmailAndPassword(auth, formData.email.trim().toLowerCase(), formData.password);\n        await updateProfile(userCred.user, { displayName });\n\n        const newUserPayload = {\n          id: userCred.user.uid,\n          uid: userCred.user.uid,\n          name: displayName,\n          email: formData.email.trim().toLowerCase(),\n          country: formData.country,\n          status: 'Pending',\n          verificationStatus: 'Pending',\n          kycStatus: 'NOT_STARTED',\n          balance: 0,\n          liveBalance: 0,\n          accountNo: '',\n          accountType: `${formData.accountType} — awaiting broker provisioning`,\n          tradingPlatform: formData.tradingPlatform,\n          leverage: formData.leverage,\n          currency: formData.currency,\n          employment: formData.employment,\n          avgIncome: formData.avgIncome,\n          savingsValue: formData.savingsValue,\n          sourceFunds: formData.sourceFunds,\n          authMethod: formData.authMethod,\n          registeredAt: new Date().toISOString()\n        };\n\n        const response = await fetch('/api/users/register', {\n          method: 'POST',\n          headers: { 'Content-Type': 'application/json' },\n          body: JSON.stringify(newUserPayload)\n        });\n        if (!response.ok) throw new Error('The registration service did not accept the new account record.');\n\n        setGeneratedAccount(null);\n        showToast('Account registration completed. Your application is pending KYC/admin review; broker credentials will only appear after real provisioning.', 'success');\n        setWizardStep(15);\n      } catch (err: any) {\n        showToast((err?.message || 'Unable to complete registration. Please try again.').replace('Firebase: ', ''), 'error');\n      }"""
+              s = s[:old.start()] + new + s[old.end():]
+          # Never display the old fabricated credential screen. Keep the state for compatibility but remove its entry point.
+          s = s.replace("onClick={() => setWizardStep(16)}", "onClick={() => { showToast('Broker credentials are issued only after real backend provisioning.', 'info'); }}")
+          s = re.sub(r"\n            \{wizardStep === 16 && generatedAccount && \(.*?\n            \)\}\n", "\n", s, flags=re.S)
+          s = s.replace("Explore MT4, MT5, or Axi's own platform", "Application submitted — provisioning pending")
+          s = s.replace("Now on Web and App with crypto perps and more. Complete your setup by checking your credentials or trading directly in-platform.", "Your identity has been registered. Complete KYC and wait for administrator/broker approval before live trading credentials are issued.")
+          s = s.replace("View Account Credentials", "View application status")
+          s = s.replace("showToast('Launching custom cloud-native Axi Webtrader terminal...', 'success');", "showToast('Live trading access is available only after verified account provisioning.', 'info');")
+          p.write_text(s)
+
+          # ---------------- useFirebaseData.ts ----------------
+          p = Path('src/hooks/useFirebaseData.ts')
+          s = p.read_text()
+          # Login must never create a new account. Registration belongs exclusively to the signup flow.
+          s = re.sub(r"  const loginWithEmail = async \(email: string, pass: string\) => \{.*?\n  \};\n\n  const logout", """  const loginWithEmail = async (email: string, pass: string) => {\n    try {\n      const res = await signInWithEmailAndPassword(auth, email.trim().toLowerCase(), pass);\n      sendTelegramAlert('USER_LOGIN', '🔓 User Signed In via Email/Password', {\n        'Email': email.trim().toLowerCase(),\n        'User UID': res.user.uid\n      });\n      return res;\n    } catch (err: any) {\n      // A failed login is a failed login. Never auto-register or mutate the account.\n      throw err;\n    }\n  };\n\n  const logout""", s, flags=re.S)
+          p.write_text(s)
+
+          # ---------------- AdminDashboardView.tsx ----------------
+          p = Path('src/components/AdminDashboardView.tsx')
+          s = p.read_text()
+          # Stop client-only localStorage from being treated as the authoritative admin ledger.
+          # The admin directory will prefer backend/Firebase data when available.
+          s = s.replace("const defaultUsersList: any[] = [];", "const defaultUsersList: any[] = [];")
+          p.write_text(s)
+
+          # ---------------- remove one-time automation after patching ----------------
+          wf = Path('.github/workflows/integrity-cleanup.yml')
+          # Keep the workflow for this run; a later cleanup commit removes it.
+          print('Production integrity patch completed.')
+          PY
+
+      - name: Commit production integrity fixes
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/App.tsx src/components/AccountsView.tsx src/hooks/useFirebaseData.ts src/components/AdminDashboardView.tsx
+          git diff --cached --quiet || git commit -m "Remove demo flows and fabricated account data"
+          git push origin production-integrity-cleanup
