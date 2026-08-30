@@ -1308,6 +1308,7 @@ app.get('/api/stripe/status', (req, res) => {
 // Endpoint to trigger a direct webhook Ping test
 app.post('/api/stripe/webhook/ping', (req, res) => {
   if (process.env.NODE_ENV === 'production') return res.status(404).json({ error: 'Test endpoint disabled in production.' });
+  if (process.env.NODE_ENV === 'production') return res.status(404).json({ error: 'Test endpoint disabled in production.' });
   const startTime = Date.now();
   const calculatedLatency = Math.max(1, Date.now() - startTime + 5);
   
@@ -1341,6 +1342,7 @@ app.post('/api/stripe/webhook/ping', (req, res) => {
 
 // Endpoint to toggle network state for testing
 app.post('/api/stripe/webhook/toggle-disconnect', (req, res) => {
+  if (process.env.NODE_ENV === 'production') return res.status(404).json({ error: 'Test endpoint disabled in production.' });
   if (process.env.NODE_ENV === 'production') return res.status(404).json({ error: 'Test endpoint disabled in production.' });
   const newStatus = webhookPingState.lastPingStatus === 'Active' ? 'Disconnected' : 'Active';
   webhookPingState.lastPingStatus = newStatus;
