@@ -39,27 +39,15 @@ import PromotionsView from './components/PromotionsView';
 import ForexVpsView from './components/ForexVpsView';
 import EconomicCalendar from './components/EconomicCalendar';
 import TawkToWidget from './components/TawkToWidget';
-import { ASSET_METADATA, DEFAULT_MARKET_QUOTES } from './data';
+import { ASSET_METADATA } from './data';
 import { liveMarketFeed } from './services/liveMarketFeed';
 
-// Real-time market quote shells dynamically constructed from asset metadata and realistic fallback quotes
+// Price shells contain metadata only. liveMarketFeed supplies all prices.
 const INITIAL_QUOTES: Record<string, MarketQuote> = Object.entries(ASSET_METADATA).reduce((acc, [symbol, meta]) => {
-  const fallback = DEFAULT_MARKET_QUOTES[symbol];
-  acc[symbol] = {
-    symbol,
-    name: meta.name,
-    category: meta.category,
-    price: fallback ? fallback.price : 1.0,
-    change: fallback ? fallback.change : 0,
-    bidDiff: fallback ? fallback.bidDiff : -0.0001,
-    askDiff: fallback ? fallback.askDiff : 0.0001,
-    spread: fallback ? fallback.spread : 0.0002,
-    history: fallback ? fallback.history : [1.0, 1.0]
-  };
+  acc[symbol] = { symbol, name: meta.name, category: meta.category, price: 0, change: 0, bidDiff: undefined, askDiff: undefined, spread: 0, history: [], lastUpdated: 0, stale: true, status: 'unavailable' };
   return acc;
 }, {} as Record<string, MarketQuote>);
 
-// Initial closed positions for trading history tracking
 const DEFAULT_CLOSED_POSITIONS: ClosedPosition[] = [];
 
 const DEFAULT_REFERRAL_INVITES: ReferralInvite[] = [];
@@ -149,13 +137,13 @@ export default function App() {
     showToast(`💱 Account & Portfolio display currency changed to ${newCurrency} (${newCurrency === 'EUR' ? '€' : newCurrency === 'GBP' ? '£' : '$'})`, 'success');
   };
 
-  const eurusdRate = quotes['EURUSD']?.price || DEFAULT_MARKET_QUOTES['EURUSD']?.price || 1.0482;
-  const gbpusdRate = quotes['GBPUSD']?.price || DEFAULT_MARKET_QUOTES['GBPUSD']?.price || 1.2590;
+  const eurusdRate = quotes['EURUSD']?.price || 0;
+  const gbpusdRate = quotes['GBPUSD']?.price || 0;
 
   const currencyRates: Record<DisplayCurrency, number> = useMemo(() => ({
     USD: 1.0,
-    EUR: 1 / eurusdRate,
-    GBP: 1 / gbpusdRate,
+    EUR: eurusdRate > 0 ? 1 / eurusdRate : 0,
+    GBP: gbpusdRate > 0 ? 1 / gbpusdRate : 0,
   }), [eurusdRate, gbpusdRate]);
 
   const currencySymbols: Record<DisplayCurrency, string> = {
@@ -165,7 +153,8 @@ export default function App() {
   };
 
   const convertFromUSD = (usdAmount: number, targetCurrency: DisplayCurrency = displayCurrency): number => {
-    const rate = currencyRates[targetCurrency] || 1.0;
+    const rate = currencyRates[targetCurrency];
+    if (!Number.isFinite(rate) || rate <= 0) return usdAmount;
     return usdAmount * rate;
   };
 
@@ -175,7 +164,7 @@ export default function App() {
     return `${symbol}${converted.toLocaleString(undefined, { minimumFractionDigits: decimals, maximumFractionDigits: decimals })}`;
   };
   
-  // Practice Trading Balance and active Demo positions
+  // Real account ledger. No demo/practice balance is injected into production.
   const {
     user,
     loading,
@@ -703,10 +692,10 @@ export default function App() {
         currentUser={user ? {
           name: user.displayName || user.name || (user.email ? user.email.split('@')[0] : 'Trader'),
           email: user.email || '',
-          accountNo: user.accountNo || 'AXI-MT5-882910',
+          accountNo: user.accountNo || '',
           balance: liveBalance,
-          accountType: user.accountType || 'Pro ECN Prime',
-          status: user.status || user.verificationStatus || 'Verified'
+          accountType: user.accountType || '',
+          status: user.status || user.verificationStatus || 'Pending'
         } : null}
       />
 
