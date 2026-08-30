@@ -1,0 +1,44 @@
+name: Post-hardening fix
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Correct admin gate placement
+        run: |
+          python3 <<'PY'
+          from pathlib import Path
+          import re
+          p = Path('src/App.tsx')
+          s = p.read_text()
+          # Remove the gate if the previous workflow inserted it before the auth hook.
+          s = re.sub(r"\n  const isAdminUser = !!user\?\.email && \[.*?\n  \].*?;\n\n", "\n", s, count=1, flags=re.S)
+          # Remove the keyboard shortcut dependency/gate; the actual route gate below is authoritative.
+          s = s.replace("        if (!isAdminUser) return;\n", "")
+          s = s.replace("  }, [isAdminUser]);\n  const [currentView, setView]", "  }, []);\n  const [currentView, setView", 1)
+          # Add the admin identity check after the Firebase auth state has been initialized.
+          anchor = "  } = useFirebaseData();\n"
+          gate = """  } = useFirebaseData();\n\n  const isAdminUser = !!user?.email && [\n    'leephil1907@gmail.com',\n    'admin@axi.com',\n    'axicustomersupport@gmail.com'\n  ].includes(user.email.toLowerCase());\n"""
+          if "const isAdminUser = !!user?.email" not in s:
+              s = s.replace(anchor, gate, 1)
+          # The private-route redirect must re-evaluate when the authenticated identity changes.
+          s = s.replace("  }, [user, loading, currentView]);", "  }, [user, loading, currentView, isAdminUser]);", 1)
+          p.write_text(s)
+          PY
+          npm ci
+          npm run build
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/App.tsx
+          if git diff --cached --quiet; then echo "No changes"; else git commit -m "fix: place admin authorization after auth initialization"; git push origin main; fi
