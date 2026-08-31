@@ -19,6 +19,7 @@ import LoginView from './components/LoginView';
 import AcademyView from './components/AcademyView';
 import AdminDashboardView from './components/AdminDashboardView';
 import ForgotPasswordModal from './components/ForgotPasswordModal';
+import EmailActionPage from './components/EmailActionPage';
 import InactivityTimerModal from './components/InactivityTimerModal';
 import OnboardingTourModal from './components/OnboardingTourModal';
 
@@ -53,6 +54,9 @@ const DEFAULT_CLOSED_POSITIONS: ClosedPosition[] = [];
 const DEFAULT_REFERRAL_INVITES: ReferralInvite[] = [];
 
 export default function App() {
+  // AXI_EMAIL_ACTION_ROUTING_V1
+  const ep=new URLSearchParams(window.location.search); const em=ep.get('mode'); const ec=ep.get('oobCode');
+  if((window.location.pathname==='/reset-password'||window.location.pathname==='/verify-email')&&em&&ec)return <EmailActionPage />;
   const [isCommandMenuOpen, setIsCommandMenuOpen] = useState(false);
   const [isQuickDepositOpen, setIsQuickDepositOpen] = useState(false);
 

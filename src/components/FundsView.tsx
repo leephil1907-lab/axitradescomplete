@@ -375,6 +375,10 @@ export default function FundsView({
       showToast('Please sign in before submitting a funding request.', 'error');
       return;
     }
+    if (!auth.currentUser) {
+      showToast('Please sign in before submitting a funding request.', 'error');
+      return;
+    }
     const amountNum = parseFloat(depositAmount);
     if (!amountNum || amountNum <= 0) {
       showToast('Please specify a valid deposit amount', 'error');

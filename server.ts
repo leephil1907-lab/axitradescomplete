@@ -6,6 +6,7 @@ import dotenv from 'dotenv';
 import { GoogleGenAI } from '@google/genai';
 import Stripe from 'stripe';
 import nodemailer from 'nodemailer';
+import { sendRegistrationEmails, sendPasswordResetEmail } from './server/emailService';
 import { hasPostgres, initPostgres, dbUsers, dbUpsertUser, dbUpdateUser, audit, dbAuditLogs, dbPaymentMethods, dbSavePaymentMethods, dbCreateFunding, dbFundingPending, dbCreditFunding } from './server/postgres';
 import YahooFinanceRaw from 'yahoo-finance2';
 
@@ -1634,6 +1635,8 @@ app.get('/api/users', async (req, res) => {
   res.json({ success: true, users: appUsersStore, total: appUsersStore.length, source: 'fallback' });
 });
 
+app.post('/api/auth/password-reset/request', async (req,res)=>{const email=String(req.body?.email||'').trim().toLowerCase();if(!email)return res.status(400).json({success:false,error:'Email address is required.'});try{await sendPasswordResetEmail(email)}catch(e){console.warn('[Axi password reset]',e)}return res.json({success:true});});
+
 // Register or synchronize a client account
 app.post('/api/users/register', async (req, res) => {
   const body = req.body || {};
@@ -1717,6 +1720,7 @@ app.post('/api/users/register', async (req, res) => {
   writeDataFile('users.json', appUsersStore);
   await dbUpsertUser(userData).catch((error) => console.error('Postgres new user sync failed:', error));
   await audit('USER_REGISTERED', { userId: userData.id, email: userData.email, metadata: { provider: userData.provider } }).catch(() => {});
+  void sendRegistrationEmails(userData);
   res.json({ success: true, user: userData, totalUsers: appUsersStore.length });
 });
 
