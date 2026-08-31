@@ -23,7 +23,6 @@ jobs:
           from pathlib import Path
           import re
 
-          # Add a server-side branded email service using SMTP credentials supplied only through Railway env vars.
           email_service = r'''import nodemailer from 'nodemailer';
 
           function getTransporter() {
@@ -52,7 +51,6 @@ jobs:
           '''
           Path('emailService.ts').write_text(email_service)
 
-          # Server: import branded email service and add registration/welcome and admin-send endpoints.
           p = Path('server.ts'); s = p.read_text()
           if "from './emailService'" not in s:
               s = s.replace("import nodemailer from 'nodemailer';", "import nodemailer from 'nodemailer';\nimport { sendAxiEmail } from './emailService';")
@@ -86,25 +84,20 @@ jobs:
               s = s.replace(marker, block)
           p.write_text(s)
 
-          # User registration: replace the browser-only fake email event with a real server email request.
           p = Path('src/hooks/useFirebaseData.ts'); s = p.read_text()
           old = re.compile(r"\s*// Trigger welcome email dispatch for new registration\n\s*const welcomeEmailPayload = \{.*?\n\s*\}, 1200\);", re.S)
-          s, n = old.subn("\n              // Send the real branded welcome email from the server. Browser events are not used as email delivery.\n              fetch('/api/email/registration', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email, name }) })\n                .then(async (r) => { if (!r.ok) console.warn('Welcome email was not sent:', await r.text()); })\n                .catch((err) => console.warn('Welcome email request failed:', err));", s, count=1)
-          # Remove the fake/demo fallback wording.
+          s, n = old.subn("\n              fetch('/api/email/registration', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email, name }) })\n                .then(async (r) => { if (!r.ok) console.warn('Welcome email was not sent:', await r.text()); })\n                .catch((err) => console.warn('Welcome email request failed:', err));", s, count=1)
           s = s.replace("'Guest / Demo Trader'", "'Unauthenticated user'")
           s = s.replace("demoBalance: currPracticeBal,", "demoBalance: 0,")
           s = s.replace("accountNo: existingIndex >= 0 && userList[existingIndex].accountNo ? userList[existingIndex].accountNo : `AXI-MT5-${currentUser.uid.substring(0, 6).toUpperCase()}`,", "accountNo: existingIndex >= 0 ? (userList[existingIndex].accountNo || '') : '',")
           s = s.replace("accountType: 'Standard ECN Account',\n              leverage: '1:500',\n              country: 'International'", "accountType: existingIndex >= 0 ? (userList[existingIndex].accountType || '') : '',\n              leverage: existingIndex >= 0 ? (userList[existingIndex].leverage || '') : '',\n              country: existingIndex >= 0 ? (userList[existingIndex].country || '') : ''")
           p.write_text(s)
 
-          # Admin: make payment details centrally persisted in Firestore, not only in one browser's localStorage.
           p = Path('src/components/AdminDashboardView.tsx'); s = p.read_text()
-          # Remove shipped payment samples from this component.
           s = re.sub(r"  const defaultWallets = \{.*?\n  \};", "  const defaultWallets = {};", s, flags=re.S)
           s = re.sub(r"    return \{\n      instructions: 'Please contact customer support via email to receive personalized bank wire routing instructions and account details for your deposit\.',\n      supportEmail: 'axicustomersupport@gmail.com'\n    \};", "    return { instructions: '', supportEmail: '' };", s)
           s = s.replace("  const saveBankSettings = () => {\n    safeStorage.setItem('axi_admin_bank_settings', JSON.stringify(bankSettings));\n    showToast('Bank instructions updated successfully.', 'success');\n  };", "  const saveBankSettings = async () => {\n    try { await setDoc(doc(db, 'system_config', 'bank_settings'), { ...bankSettings, updatedAt: Date.now() }, { merge: true }); safeStorage.setItem('axi_admin_bank_settings', JSON.stringify(bankSettings)); showToast('Bank payment details updated.', 'success'); } catch (e) { showToast('Unable to save bank details. Check admin permissions.', 'error'); }\n  };")
           s = s.replace("  const saveWalletSettings = () => {\n    safeStorage.setItem('axi_admin_wallet_settings', JSON.stringify(walletSettings));\n    showToast('Crypto wallet addresses updated successfully.', 'success');\n  };", "  const saveWalletSettings = async () => {\n    try { await setDoc(doc(db, 'system_config', 'wallets'), { ...walletSettings, updatedAt: Date.now() }, { merge: true }); safeStorage.setItem('axi_admin_wallet_settings', JSON.stringify(walletSettings)); showToast('Crypto payment details updated.', 'success'); } catch (e) { showToast('Unable to save wallet details. Check admin permissions.', 'error'); }\n  };")
-          # Remove fabricated admin-user defaults in the real-time directory.
           s = s.replace("const demoBal = Number(data.balance ?? 10000);", "const demoBal = Number(data.balance ?? 0);")
           s = s.replace("const pnlPerc = Number(data.pnlPercentage ?? data.pnlOverride?.pnlPercentage ?? 24.5);", "const pnlPerc = Number(data.pnlPercentage ?? data.pnlOverride?.pnlPercentage ?? 0);")
           s = s.replace("accountNo: data.accountNo || `AXI-MT5-${uid.substring(0, 6).toUpperCase()}`,", "accountNo: data.accountNo || '',")
@@ -112,19 +105,20 @@ jobs:
           s = s.replace("leverage: data.leverage || '1:500',", "leverage: data.leverage || '',")
           s = s.replace("country: data.country || 'International'", "country: data.country || ''")
           p.write_text(s)
-
-          # Ensure the production build does not depend on the email package existing separately.
-          # Railway must provide SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS, EMAIL_FROM and ADMIN_API_KEY.
           PY
 
+      - name: Install PostgreSQL driver
+        run: npm install pg --save
+
+      - name: Apply PostgreSQL funding persistence
+        run: node .github/scripts/finish-postgres-funding.mjs
+
       - name: Validate production build
-        run: |
-          npm ci
-          npm run build
+        run: npm ci && npm run build
 
       - name: Commit changes
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add emailService.ts server.ts src/components/AdminDashboardView.tsx src/hooks/useFirebaseData.ts
-          if git diff --cached --quiet; then echo "No changes required"; else git commit -m "feat: branded email delivery and central admin payment controls"; git push origin main; fi
+          git add emailService.ts server.ts src/components/AdminDashboardView.tsx src/hooks/useFirebaseData.ts package.json package-lock.json .github/scripts/finish-postgres-funding.mjs
+          if git diff --cached --quiet; then echo "No changes required"; else git commit -m "feat: persist admin funding and payment settings [postgres-funding]"; git push origin main; fi
