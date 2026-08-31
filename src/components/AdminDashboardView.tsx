@@ -195,7 +195,8 @@ export default function AdminDashboardView({
     window.addEventListener('axi_user_chat_message_event', handleUserMsg);
     window.addEventListener('axi_tawk_visitor_message', handleTawkVisitorMsg);
 
-    return () => {
+    return (
+    <AdminFundingQueue showToast={showToast} />) => {
       window.removeEventListener('axi_chat_transfer_event', handleChatTransfer);
       window.removeEventListener('axi_user_chat_message_event', handleUserMsg);
       window.removeEventListener('axi_tawk_visitor_message', handleTawkVisitorMsg);
