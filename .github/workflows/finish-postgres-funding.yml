@@ -1,0 +1,36 @@
+name: Finish Postgres funding persistence
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  migrate:
+    if: "!contains(github.event.head_commit.message, '[postgres-funding]')"
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Install PostgreSQL driver
+        run: npm install pg --save
+      - name: Apply Postgres funding persistence
+        run: node .github/scripts/finish-postgres-funding.mjs
+      - name: Verify build
+        run: npm run build
+      - name: Commit
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add package.json package-lock.json server.ts .github/scripts/finish-postgres-funding.mjs
+          git diff --cached --quiet && exit 0
+          git commit -m "feat: persist admin funding and payment settings in postgres [postgres-funding]"
+          git push origin HEAD:main
