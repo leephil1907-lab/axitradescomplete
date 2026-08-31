@@ -1,0 +1,9 @@
+{
+  "auth": {
+    "providers": {
+      "googleSignIn": {
+        "oAuthBrandDisplayName": "AXITRADES"
+      }
+    }
+  }
+}
