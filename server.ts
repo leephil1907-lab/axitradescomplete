@@ -6,6 +6,7 @@ import dotenv from 'dotenv';
 import { GoogleGenAI } from '@google/genai';
 import Stripe from 'stripe';
 import nodemailer from 'nodemailer';
+import { hasPostgres, initPostgres, dbUsers, dbUpsertUser, dbUpdateUser, audit, dbAuditLogs, dbPaymentMethods, dbSavePaymentMethods, dbCreateFunding, dbFundingPending, dbCreditFunding } from './server/postgres';
 import YahooFinanceRaw from 'yahoo-finance2';
 
 function createYahooFinanceClient() {
@@ -45,6 +46,11 @@ try {
 }
 
 const app = express();
+
+// POSTGRES_PERSISTENCE_MARKER
+initPostgres().then(() => { if (hasPostgres()) console.log('PostgreSQL persistence initialized'); }).catch((error) => {
+  console.error('PostgreSQL initialization failed; application will retain its existing fallback stores:', error);
+});
 
 app.get('/api/health', (_req, res) => { res.status(200).json({ ok: true, service: 'axi-trades', environment: process.env.NODE_ENV || 'development', timestamp: new Date().toISOString() }); });
 
@@ -253,23 +259,27 @@ app.post('/api/webhook/trading-signals', (req, res) => {
 
 
 // Production funding review endpoints. Stripe payments are never auto-credited.
-app.get('/api/admin/funding/pending', (_req, res) => {
+app.get('/api/admin/funding/pending', async (_req, res) => {
+  const persisted = await dbFundingPending().catch(() => null);
+  if (persisted) return res.json({ deposits: persisted, source: 'postgres' });
   const deposits = readDataFile<any[]>('pendingDeposits.json', []);
-  res.json({ deposits: deposits.filter(d => !d.creditedByAdmin && d.status !== 'Rejected') });
+  res.json({ deposits: deposits.filter(d => !d.creditedByAdmin && d.status !== 'Rejected'), source: 'fallback' });
 });
 
-app.post('/api/admin/funding/:id/credit', (req, res) => {
+app.post('/api/admin/funding/:id/credit', async (req, res) => {
   const id = String(req.params.id || '');
   const deposits = readDataFile<any[]>('pendingDeposits.json', []);
   const index = deposits.findIndex(d => d.id === id);
   if (index < 0) return res.status(404).json({ error: 'Funding record not found' });
+  const persistedCredit = await dbCreditFunding(id, String(req.headers['x-admin-email'] || 'admin')).catch(() => null);
   const deposit = deposits[index];
   if (deposit.creditedByAdmin || deposit.status === 'Credited') return res.status(409).json({ error: 'Funding record has already been credited' });
   const creditedBalance = Number(req.body?.creditedBalance);
   if (!Number.isFinite(creditedBalance) || creditedBalance < 0) return res.status(400).json({ error: 'Invalid credited balance' });
   deposits[index] = { ...deposit, status: 'Credited', creditedByAdmin: true, creditedAt: new Date().toISOString(), creditedBalance, creditedUserId: String(req.body?.userId || '') };
   writeDataFile('pendingDeposits.json', deposits);
-  res.json({ success: true, deposit: deposits[index] });
+  await audit('ADMIN_FUNDING_CREDIT', { actor: String(req.headers['x-admin-email'] || 'admin'), userId: String(req.body?.userId || ''), metadata: { fundingId: id, creditedBalance } }).catch(() => {});
+  res.json({ success: true, deposit: deposits[index], persisted: Boolean(persistedCredit) });
 });
 
 app.post('/api/admin/funding/:id/reject', (req, res) => {
@@ -285,7 +295,12 @@ app.post('/api/admin/funding/:id/reject', (req, res) => {
 
 const PAYMENT_METHODS_FILE = 'paymentMethods.json';
 
-app.get('/api/admin/payment-methods', (_req, res) => {
+app.get('/api/admin/payment-methods', async (_req, res) => {
+  const persistedMethods = await dbPaymentMethods().catch(() => null);
+  if (persistedMethods) {
+    const methods = Object.fromEntries(persistedMethods.map((row) => [row.method_type, { ...(row.details || {}), enabled: row.enabled }]));
+    return res.json({ success: true, methods, source: 'postgres' });
+  }
   const methods = readDataFile<any>(PAYMENT_METHODS_FILE, {
     bankTransfer: { enabled: false, bankName: '', accountName: '', accountNumber: '', routingNumber: '', swiftBic: '', currency: '', instructions: '' },
     instantTransfer: { enabled: false, providerName: '', accountName: '', accountNumber: '', instructions: '' },
@@ -294,7 +309,7 @@ app.get('/api/admin/payment-methods', (_req, res) => {
   res.json({ success: true, methods });
 });
 
-app.post('/api/admin/payment-methods', (req, res) => {
+app.post('/api/admin/payment-methods', async (req, res) => {
   const incoming = req.body || {};
   const methods = {
     bankTransfer: { enabled: Boolean(incoming.bankTransfer?.enabled), bankName: String(incoming.bankTransfer?.bankName || '').trim(), accountName: String(incoming.bankTransfer?.accountName || '').trim(), accountNumber: String(incoming.bankTransfer?.accountNumber || '').trim(), routingNumber: String(incoming.bankTransfer?.routingNumber || '').trim(), swiftBic: String(incoming.bankTransfer?.swiftBic || '').trim(), currency: String(incoming.bankTransfer?.currency || '').trim(), instructions: String(incoming.bankTransfer?.instructions || '').trim() },
@@ -302,7 +317,14 @@ app.post('/api/admin/payment-methods', (req, res) => {
     crypto: { enabled: Boolean(incoming.crypto?.enabled), asset: String(incoming.crypto?.asset || '').trim(), network: String(incoming.crypto?.network || '').trim(), address: String(incoming.crypto?.address || '').trim(), memo: String(incoming.crypto?.memo || '').trim(), instructions: String(incoming.crypto?.instructions || '').trim() }
   };
   writeDataFile(PAYMENT_METHODS_FILE, methods);
+  await dbSavePaymentMethods(methods, String(req.headers['x-admin-email'] || 'admin')).catch((error) => console.error('Postgres payment settings sync failed:', error));
+  await audit('ADMIN_PAYMENT_METHODS_UPDATED', { actor: String(req.headers['x-admin-email'] || 'admin'), metadata: methods }).catch(() => {});
   res.json({ success: true, methods });
+});
+
+app.get('/api/admin/activity', async (req, res) => {
+  const logs = await dbAuditLogs(Number(req.query.limit || 200)).catch(() => null);
+  res.json({ success: true, logs: logs || [], source: logs ? 'postgres' : 'unavailable' });
 });
 
 const PORT = Number(process.env.PORT) || 3000;
@@ -1604,16 +1626,16 @@ function notifyTelegram(title: string, fields: Record<string, any>) {
 // ----------------------------------------------------
 
 // Get all registered users (for Admin Dashboard & client sync)
-app.get('/api/users', (req, res) => {
-  res.json({
-    success: true,
-    users: appUsersStore,
-    total: appUsersStore.length
-  });
+app.get('/api/users', async (req, res) => {
+  try {
+    const persisted = await dbUsers();
+    if (persisted) return res.json({ success: true, users: persisted.map((u) => ({ ...u, verificationStatus: u.verification_status, kycStatus: u.kyc_status, demoBalance: Number(u.demo_balance), balance: Number(u.balance) })), total: persisted.length, source: 'postgres' });
+  } catch (error) { console.error('Postgres users read failed:', error); }
+  res.json({ success: true, users: appUsersStore, total: appUsersStore.length, source: 'fallback' });
 });
 
 // Register or synchronize a client account
-app.post('/api/users/register', (req, res) => {
+app.post('/api/users/register', async (req, res) => {
   const body = req.body || {};
   const email = (body.email || '').trim().toLowerCase();
   if (!email) {
@@ -1671,6 +1693,8 @@ app.post('/api/users/register', (req, res) => {
     };
     appUsersStore[existingIdx] = merged;
     writeDataFile('users.json', appUsersStore);
+    await dbUpsertUser(merged).catch((error) => console.error('Postgres user sync failed:', error));
+    await audit('USER_LOGIN_SYNC', { userId: merged.id, email: merged.email }).catch(() => {});
     // Return the MERGED record (with preserved admin fields) so the client
     // never sees a downgraded status in the response.
     res.json({ success: true, user: merged, totalUsers: appUsersStore.length });
@@ -1691,11 +1715,13 @@ app.post('/api/users/register', (req, res) => {
   });
 
   writeDataFile('users.json', appUsersStore);
+  await dbUpsertUser(userData).catch((error) => console.error('Postgres new user sync failed:', error));
+  await audit('USER_REGISTERED', { userId: userData.id, email: userData.email, metadata: { provider: userData.provider } }).catch(() => {});
   res.json({ success: true, user: userData, totalUsers: appUsersStore.length });
 });
 
 // Update specific user balance
-app.put('/api/users/:id/balance', (req, res) => {
+app.put('/api/users/:id/balance', async (req, res) => {
   const userId = req.params.id;
   const { balance, demoBalance, reason } = req.body;
 
@@ -1709,6 +1735,8 @@ app.put('/api/users/:id/balance', (req, res) => {
   user.updatedAt = new Date().toISOString();
 
   writeDataFile('users.json', appUsersStore);
+  await dbUpdateUser(userId, { balance: user.balance, demoBalance: user.demoBalance }).catch((error) => console.error('Postgres balance sync failed:', error));
+  await audit('ADMIN_BALANCE_UPDATE', { userId: user.id, email: user.email, metadata: { balance: user.balance, reason: reason || 'Admin balance adjustment' } }).catch(() => {});
 
   notifyTelegram('ADMIN_USER_BALANCE_UPDATE', {
     'User': `${user.name} (${user.email})`,
@@ -1720,7 +1748,7 @@ app.put('/api/users/:id/balance', (req, res) => {
 });
 
 // Update user verification status (Admin action)
-app.put('/api/users/:id/status', (req, res) => {
+app.put('/api/users/:id/status', async (req, res) => {
   const userId = req.params.id;
   const { status, verificationStatus, kycStatus } = req.body;
 
@@ -1735,6 +1763,8 @@ app.put('/api/users/:id/status', (req, res) => {
   user.updatedAt = new Date().toISOString();
 
   writeDataFile('users.json', appUsersStore);
+  await dbUpdateUser(userId, { status: user.status, verificationStatus: user.verificationStatus, kycStatus: user.kycStatus }).catch((error) => console.error('Postgres status sync failed:', error));
+  await audit('ADMIN_USER_STATUS_UPDATE', { userId: user.id, email: user.email, metadata: { status: user.status, verificationStatus: user.verificationStatus, kycStatus: user.kycStatus } }).catch(() => {});
   res.json({ success: true, user });
 });
 
