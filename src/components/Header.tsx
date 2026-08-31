@@ -60,7 +60,7 @@ export default function Header({
   const [activeDropdown, setActiveDropdown] = useState<string | null>(null);
   const [activeMobileDropdown, setActiveMobileDropdown] = useState<string | null>(null);
   const [showLanguageModal, setShowLanguageModal] = useState(false);
-  const [selectedLang, setSelectedLang] = useState('English');
+  const [selectedLang, setSelectedLang] = useState(() => localStorage.getItem('axi_language') || 'English (Global)');
   const [userDropdownOpen, setUserDropdownOpen] = useState(false);
 
   // Primary navigation categories aligned with www.axi.com
@@ -191,15 +191,6 @@ export default function Header({
           <button 
             type="button"
             onClick={() => handleNav('home')} 
-            onDoubleClick={(e) => {
-              e.preventDefault();
-              const pwd = window.prompt("Enter Admin Access Code:");
-              if (pwd === "axitrading2026") {
-                setView('admin');
-              } else if (pwd !== null && showToast) {
-                showToast("Invalid admin credentials", "error");
-              }
-            }}
             className="flex items-center cursor-pointer group shrink-0 bg-transparent border-0 p-0 text-left"
             id="logo-brand"
             title="Axi - Return to Home"
@@ -652,7 +643,7 @@ export default function Header({
               {languages.map((lang, idx) => (
                 <button
                   key={idx}
-                  onClick={() => { setSelectedLang(lang.name); setShowLanguageModal(false); }}
+                  onClick={() => { localStorage.setItem('axi_language', lang.name); setSelectedLang(lang.name); setShowLanguageModal(false); }}
                   className={`flex items-center gap-3 p-2.5 rounded-lg border text-left text-xs transition cursor-pointer ${
                     selectedLang === lang.name ? 'border-[#F5CE47] bg-[#F5CE47]/10 text-white font-bold' : 'border-neutral-800 hover:bg-neutral-800 text-neutral-300'
                   }`}

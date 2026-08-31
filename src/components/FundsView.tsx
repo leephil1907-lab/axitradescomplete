@@ -295,7 +295,7 @@ export default function FundsView({
     const paymentIntentResult = urlParams.get('payment_intent_result');
 
     if (depositSuccess && sessionId) {
-      const amountNum = parseFloat(depositAmountParam || '0') || 500;
+      const amountNum = parseFloat(depositAmountParam || '0') || 0;
       const txId = `DEP-STRIPE-${sessionId.substring(sessionId.length - 6).toUpperCase()}`;
       
       const newTx = {
@@ -328,179 +328,17 @@ export default function FundsView({
 
   const quickAmounts = ['100', '250', '500', '1000', '2500', '5000', '10000'];
 
-  // Full Real-World Axi Payment Methods Catalogue including Skrill, Neteller, Card, Bank Wire, Crypto
-  const depositMethods = [
-    {
-      id: 'card',
-      category: 'fiat',
-      name: 'Credit / Debit Card (Visa, Mastercard)',
-      badge: 'Instant Deposit',
-      iconId: 'visa',
-      description: 'Instant deposit to your live trading balance with 3D Secure verification',
-      fee: '0% Free',
-      processingTime: 'Instant'
-    },
-    {
-      id: 'skrill',
-      category: 'ewallet',
-      name: 'Skrill Digital Wallet',
-      badge: 'E-Wallet • Instant',
-      iconId: 'skrill',
-      description: 'Official Axi Skrill integration for instant deposits worldwide',
-      fee: '0% Free',
-      processingTime: 'Instant'
-    },
-    {
-      id: 'neteller',
-      category: 'ewallet',
-      name: 'Neteller Payment',
-      badge: 'E-Wallet • Instant',
-      iconId: 'neteller',
-      description: 'Instant transfer via Neteller e-wallet merchant transfer',
-      fee: '0% Free',
-      processingTime: 'Instant'
-    },
-    {
-      id: 'perfectmoney',
-      category: 'ewallet',
-      name: 'Perfect Money',
-      badge: 'Global E-Money',
-      iconId: 'perfectmoney',
-      description: 'Direct transfer to official Axi Perfect Money account',
-      fee: '0% Free',
-      processingTime: 'Instant'
-    },
-    {
-      id: 'bank_wire',
-      category: 'fiat',
-      name: 'Direct International Bank Wire (SWIFT / SEPA)',
-      badge: 'Global Wire',
-      iconId: 'bank_wire',
-      description: 'Direct wire transfer to Axi Segregated Client Custody Account',
-      fee: '0% Free',
-      processingTime: '1-3 Business Days'
-    },
-    {
-      id: 'bank_instant',
-      category: 'fiat',
-      name: 'Instant Bank Transfer & ACH',
-      badge: 'Direct Clearing',
-      iconId: 'bank',
-      description: 'Instant bank transfer and electronic ACH deposit',
-      fee: '0% Free',
-      processingTime: 'Instant / Same-Day'
-    },
-    {
-      id: 'usdt_trc20',
-      category: 'crypto',
-      name: 'Tether USD (USDT - TRON TRC20)',
-      badge: 'Fastest Crypto',
-      iconId: 'usdt_trc20',
-      description: 'Lowest network gas fee with 2-minute blockchain confirmation',
-      fee: '0% Free',
-      processingTime: '2 mins'
-    },
-    {
-      id: 'btc',
-      category: 'crypto',
-      name: 'Bitcoin (BTC - Bitcoin Mainnet)',
-      badge: 'Direct Blockchain',
-      iconId: 'btc',
-      description: 'Native Bitcoin network deposit with real-time block explorer hash verification',
-      fee: '0% Free',
-      processingTime: '10-30 mins'
-    },
-    {
-      id: 'eth',
-      category: 'crypto',
-      name: 'Ethereum (ETH - ERC20)',
-      badge: 'Smart Contract',
-      iconId: 'eth',
-      description: 'Ethereum ERC20 network instant balance credit',
-      fee: '0% Free',
-      processingTime: '2-5 mins'
-    },
-    {
-      id: 'usdt_erc20',
-      category: 'crypto',
-      name: 'Tether USD (USDT - Ethereum ERC20)',
-      badge: 'ERC20 Token',
-      iconId: 'usdt_erc20',
-      description: 'USDT on Ethereum Mainnet (ERC20 standard)',
-      fee: '0% Free',
-      processingTime: '2-5 mins'
-    },
-    {
-      id: 'usdt_bep20',
-      category: 'crypto',
-      name: 'Tether USD (USDT - BNB BEP20)',
-      badge: 'BNB Chain',
-      iconId: 'usdt_bep20',
-      description: 'USDT on BNB Smart Chain with ultra-low gas fee',
-      fee: '0% Free',
-      processingTime: 'Instant'
-    },
-    {
-      id: 'usdc',
-      category: 'crypto',
-      name: 'USD Coin (USDC - Ethereum ERC20)',
-      badge: 'Regulated Stablecoin',
-      iconId: 'usdc',
-      description: '100% reserve-backed USDC deposit on ERC20 network',
-      fee: '0% Free',
-      processingTime: '2-5 mins'
-    },
-    {
-      id: 'sol',
-      category: 'crypto',
-      name: 'Solana (SOL - Solana Mainnet)',
-      badge: 'Sub-second Finality',
-      iconId: 'sol',
-      description: 'Solana native network deposit with sub-cent fee',
-      fee: '0% Free',
-      processingTime: 'Instant'
-    },
-    {
-      id: 'bnb',
-      category: 'crypto',
-      name: 'BNB (BNB - BNB Smart Chain)',
-      badge: 'BEP20 Mainnet',
-      iconId: 'bnb',
-      description: 'BNB Chain native coin transfer',
-      fee: '0% Free',
-      processingTime: 'Instant'
-    },
-    {
-      id: 'xrp',
-      category: 'crypto',
-      name: 'Ripple (XRP - Ripple Ledger)',
-      badge: 'Requires Memo Tag',
-      iconId: 'xrp',
-      description: 'Ripple Ledger instant settlement (Destination Tag: 1076756)',
-      fee: '0% Free',
-      processingTime: 'Instant'
-    },
-    {
-      id: 'ton',
-      category: 'crypto',
-      name: 'Toncoin (TON - TON Mainnet)',
-      badge: 'Requires Memo Tag',
-      iconId: 'ton',
-      description: 'TON Open Network transfer (Comment / Memo: 1076756)',
-      fee: '0% Free',
-      processingTime: 'Instant'
-    },
-    {
-      id: 'xlm',
-      category: 'crypto',
-      name: 'Stellar Lumens (XLM - Stellar Network)',
-      badge: 'Requires Memo Tag',
-      iconId: 'xlm',
-      description: 'Stellar Network instant transfer (Memo: 1076756)',
-      fee: '0% Free',
-      processingTime: 'Instant'
-    }
-  ];
+  // Only payment methods explicitly configured by the platform are offered.
+  // No wallet, bank account, processor or fee is fabricated in the client.
+  const depositMethods = (paymentConfig.paymentMethods || [])
+    .filter((method: any) => method && method.active)
+    .map((method: any) => ({
+      ...method,
+      iconId: method.iconName || method.id,
+      description: method.instructions || 'Payment method configured by the platform.',
+      badge: method.processingTime || 'Configured',
+      fee: `${Number(method.feePercent || 0)}% fee`,
+    }));
 
   const activeMethod = depositMethods.find(m => m.id === selectedMethodId) || depositMethods[0];
   const activeCryptoWallet = cryptoWallets[selectedMethodId] || (selectedMethodId === 'usdt_trc20' ? cryptoWallets.usdt : null);
@@ -533,6 +371,10 @@ export default function FundsView({
   // Real-world Transfer Confirmation Handler with Mandatory Validation
   const handleTransferCompletionSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!auth.currentUser) {
+      showToast('Please sign in before submitting a funding request.', 'error');
+      return;
+    }
     const amountNum = parseFloat(depositAmount);
     if (!amountNum || amountNum <= 0) {
       showToast('Please specify a valid deposit amount', 'error');

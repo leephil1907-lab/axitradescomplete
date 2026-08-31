@@ -71,6 +71,7 @@ export default function App() {
       
       // Admin Panel Navigation (Ctrl/Cmd + Shift + A)
       if ((e.metaKey || e.ctrlKey) && e.shiftKey && (e.key === 'a' || e.key === 'A')) {
+        if (!isAdminUser) return;
         e.preventDefault();
         setView('admin');
         return;
@@ -95,7 +96,7 @@ export default function App() {
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, []);
+  }, [isAdminUser]);
   const [currentView, setView] = useState<ViewType>('home');
   const [quotes, setQuotes] = useState<Record<string, MarketQuote>>(INITIAL_QUOTES);
   
@@ -193,10 +194,20 @@ export default function App() {
   } = useFirebaseData();
 
 
+  const isAdminUser = !!user?.email && [
+    'leephil1907@gmail.com',
+    'admin@axi.com',
+    'axicustomersupport@gmail.com'
+  ].includes(user.email.toLowerCase());
+
   // Only redirect away from login if authenticated, and away from private routes if not authenticated
   useEffect(() => {
     if (!loading) {
       if (user) {
+        if (currentView === 'admin' && !isAdminUser) {
+          setView('dashboard');
+          return;
+        }
         // If user is logged in and currently on the login page, take them to their terminal
         if (currentView === 'login') {
           setView('dashboard');
@@ -333,8 +344,7 @@ export default function App() {
   };
 
   const claimReferralBonus = (amount: number, friendName: string) => {
-    setLiveBalance(prev => prev + amount);
-    showToast(`🎉 REFERRAL CASH CLAIMED: $${amount.toLocaleString()} credited to your Live Trading balance from ${friendName}'s referral!`, 'success');
+    showToast(`Referral reward for ${friendName} is pending server verification. No balance was credited in the browser.`, 'info');
   };
 
   // Session Inactivity Timer & Security Modal

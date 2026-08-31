@@ -99,20 +99,7 @@ export default function AdminDashboardView({
 
 
   // Wallet Settings State
-  const defaultWallets = {
-    'btc': { address: 'bc1qutexfu6n36kg5cw4c0a35m4yd9m4jsz5gup89q', network: 'Bitcoin Mainnet' },
-    'eth': { address: '0xAeAd2Eab191a75A5a4175B1d5C1f2f84C3aE74c7', network: 'Ethereum (ERC20)' },
-    'usdt': { address: 'TTH6p3Ead58f4tsEdQVf5jt5eWw3xcXGpE', network: 'TRON (TRC20)' },
-    'usdt_trc20': { address: 'TTH6p3Ead58f4tsEdQVf5jt5eWw3xcXGpE', network: 'TRON (TRC20)' },
-    'usdt_erc20': { address: '0xAeAd2Eab191a75A5a4175B1d5C1f2f84C3aE74c7', network: 'Ethereum (ERC20)' },
-    'usdt_bep20': { address: '0xAeAd2Eab191a75A5a4175B1d5C1f2f84C3aE74c7', network: 'BNB Smart Chain (BEP20)' },
-    'usdc': { address: '0xAeAd2Eab191a75A5a4175B1d5C1f2f84C3aE74c7', network: 'Ethereum (ERC20)' },
-    'sol': { address: 'CabeRS9oCQkr2xCrss8FFMeL1G6jtdy7zuZxH9VqqfLF', network: 'Solana Mainnet' },
-    'bnb': { address: '0xAeAd2Eab191a75A5a4175B1d5C1f2f84C3aE74c7', network: 'BNB Smart Chain (BEP20)' },
-    'xrp': { address: 'rwyQp3eC5j6AumcptZhfmiXAykpeswZKeJ', memo: '1076756', network: 'Ripple (XRP) Ledger' },
-    'ton': { address: 'EQAj7vKLbaWjaNbAuAKP1e1HwmdYZ2vJ2xtWU8qq3JafkfxF', memo: '1076756', network: 'TON Mainnet' },
-    'xlm': { address: 'GCU3D3YPWLE625CYFUCYQD4KDZNQXR26JLA3YV7H3RXUZJQTKAFZWAJM', memo: '1076756', network: 'Stellar Network' }
-  };
+  const defaultWallets = {};
 
   const [walletSettings, setWalletSettings] = useState(() => {
     const saved = safeStorage.getItem('axi_admin_wallet_settings');
@@ -128,10 +115,7 @@ export default function AdminDashboardView({
     if (saved) {
       try { return JSON.parse(saved); } catch (e) {}
     }
-    return {
-      instructions: 'Please contact customer support via email to receive personalized bank wire routing instructions and account details for your deposit.',
-      supportEmail: 'axicustomersupport@gmail.com'
-    };
+    return { instructions: '', supportEmail: '' };
   });
 
   const saveBankSettings = () => {
@@ -260,7 +244,6 @@ export default function AdminDashboardView({
   });
 
   const handleApproveKYC = (docItem: any, creditAmountBonus: number = 0) => {
-    safeStorage.setItem('axi_kyc_status', 'verified');
     const updatedDocs = kycDocs.map(d => d.id === docItem.id ? { ...d, status: 'Approved' } : d);
     setKycDocs(updatedDocs);
     safeStorage.setItem('axi_kyc_docs', JSON.stringify(updatedDocs));
@@ -295,7 +278,6 @@ export default function AdminDashboardView({
   };
 
   const handleRejectKYC = (docItem: any) => {
-    safeStorage.setItem('axi_kyc_status', 'unverified');
     const updatedDocs = kycDocs.map(d => d.id === docItem.id ? { ...d, status: 'Rejected' } : d);
     setKycDocs(updatedDocs);
     safeStorage.setItem('axi_kyc_docs', JSON.stringify(updatedDocs));

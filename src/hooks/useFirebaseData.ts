@@ -19,7 +19,7 @@ export function useFirebaseData() {
   const [transactions, setTransactions] = useState<any[]>([]);
   const [priceAlerts, setPriceAlerts] = useState<PriceAlert[]>([]);
   const [paymentMethods, setPaymentMethods] = useState<UserPaymentMethod[]>([]);
-  const [watchlist, setWatchlist] = useState<string[]>(['BTCUSD', 'EURUSD', 'XAUUSD', 'AAPL']);
+  const [watchlist, setWatchlist] = useState<string[]>([]);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
@@ -95,9 +95,9 @@ export function useFirebaseData() {
               registeredAt: existingIndex >= 0 && userList[existingIndex].registeredAt ? userList[existingIndex].registeredAt : new Date().toISOString().replace('T', ' ').substring(0, 16),
               lastActive: 'Active Now (' + new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) + ' UTC)',
               provider: currentUser.providerData[0]?.providerId || 'Email/Password',
-              accountNo: existingIndex >= 0 && userList[existingIndex].accountNo ? userList[existingIndex].accountNo : `AXI-MT5-${currentUser.uid.substring(0, 6).toUpperCase()}`,
-              accountType: 'Standard ECN Account',
-              leverage: '1:500',
+              accountNo: existingIndex >= 0 ? (userList[existingIndex].accountNo || '') : '',
+              accountType: existingIndex >= 0 ? (userList[existingIndex].accountType || '') : '',
+              leverage: existingIndex >= 0 ? (userList[existingIndex].leverage || '') : '',
               country: 'International'
             };
 

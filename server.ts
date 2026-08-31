@@ -46,6 +46,8 @@ try {
 
 const app = express();
 
+app.get('/api/health', (_req, res) => { res.status(200).json({ ok: true, service: 'axi-trades', environment: process.env.NODE_ENV || 'development', timestamp: new Date().toISOString() }); });
+
 // Force HTTPS and set security headers in production
 app.use((req, res, next) => {
   res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains; preload');

@@ -69,80 +69,7 @@ export const defaultMaintenanceMode: MaintenanceModeConfig = {
   disableTrading: true
 };
 
-export const defaultCryptoWallets: Record<string, CryptoWalletConfig> = {
-  btc: {
-    address: 'bc1qutexfu6n36kg5cw4c0a35m4yd9m4jsz5gup89q',
-    network: 'Bitcoin Mainnet',
-    memo: '',
-    active: true
-  },
-  eth: {
-    address: '0xAeAd2Eab191a75A5a4175B1d5C1f2f84C3aE74c7',
-    network: 'Ethereum (ERC20)',
-    memo: '',
-    active: true
-  },
-  usdt: {
-    address: 'TTH6p3Ead58f4tsEdQVf5jt5eWw3xcXGpE',
-    network: 'TRON (TRC20)',
-    memo: '',
-    active: true
-  },
-  usdt_trc20: {
-    address: 'TTH6p3Ead58f4tsEdQVf5jt5eWw3xcXGpE',
-    network: 'TRON (TRC20)',
-    memo: '',
-    active: true
-  },
-  usdt_erc20: {
-    address: '0xAeAd2Eab191a75A5a4175B1d5C1f2f84C3aE74c7',
-    network: 'Ethereum (ERC20)',
-    memo: '',
-    active: true
-  },
-  usdt_bep20: {
-    address: '0xAeAd2Eab191a75A5a4175B1d5C1f2f84C3aE74c7',
-    network: 'BNB Smart Chain (BEP20)',
-    memo: '',
-    active: true
-  },
-  usdc: {
-    address: '0xAeAd2Eab191a75A5a4175B1d5C1f2f84C3aE74c7',
-    network: 'Ethereum (ERC20)',
-    memo: '',
-    active: true
-  },
-  sol: {
-    address: 'CabeRS9oCQkr2xCrss8FFMeL1G6jtdy7zuZxH9VqqfLF',
-    network: 'Solana Mainnet',
-    memo: '',
-    active: true
-  },
-  bnb: {
-    address: '0xAeAd2Eab191a75A5a4175B1d5C1f2f84C3aE74c7',
-    network: 'BNB Smart Chain (BEP20)',
-    memo: '',
-    active: true
-  },
-  xrp: {
-    address: 'rwyQp3eC5j6AumcptZhfmiXAykpeswZKeJ',
-    network: 'Ripple (XRP) Ledger',
-    memo: '1076756',
-    active: true
-  },
-  ton: {
-    address: 'EQAj7vKLbaWjaNbAuAKP1e1HwmdYZ2vJ2xtWU8qq3JafkfxF',
-    network: 'TON Mainnet',
-    memo: '1076756',
-    active: true
-  },
-  xlm: {
-    address: 'GCU3D3YPWLE625CYFUCYQD4KDZNQXR26JLA3YV7H3RXUZJQTKAFZWAJM',
-    network: 'Stellar Network',
-    memo: '1076756',
-    active: true
-  }
-};
+export const defaultCryptoWallets: Record<string, CryptoWalletConfig> = {};
 
 export const defaultBankSettings: BankSettingsConfig = {
   bankName: '',
@@ -156,189 +83,7 @@ export const defaultBankSettings: BankSettingsConfig = {
   active: false
 };
 
-export const defaultPaymentMethods: PaymentMethodItem[] = [
-  {
-    id: 'card',
-    name: 'Credit / Debit Card (Visa, MasterCard, Amex)',
-    type: 'card',
-    currency: 'USD',
-    active: true,
-    minDeposit: 50,
-    maxDeposit: 50000,
-    feePercent: 0,
-    processingTime: 'Instant',
-    instructions: 'Direct 3D Secure instant card deposit processed securely via Stripe Payment Gateway.'
-  },
-  {
-    id: 'bank_instant',
-    name: 'Instant Bank Transfer & ACH',
-    type: 'bank',
-    currency: 'USD',
-    active: true,
-    minDeposit: 50,
-    maxDeposit: 100000,
-    feePercent: 0,
-    processingTime: 'Instant / Same-Day',
-    instructions: 'Direct instant bank transfer and ACH deposit powered by Stripe Payment Gateway.'
-  },
-  {
-    id: 'usdt_trc20',
-    name: 'Tether USD (USDT - TRC20)',
-    type: 'crypto',
-    currency: 'USDT',
-    active: true,
-    minDeposit: 20,
-    maxDeposit: 1000000,
-    feePercent: 0,
-    processingTime: 'Instant - 2 Mins',
-    walletAddress: defaultCryptoWallets.usdt.address,
-    network: defaultCryptoWallets.usdt.network,
-    instructions: 'Direct blockchain transfer to TRON TRC20 wallet address. Verified via onchain transaction hash.'
-  },
-  {
-    id: 'usdt_erc20',
-    name: 'Tether USD (USDT - ERC20)',
-    type: 'crypto',
-    currency: 'USDT',
-    active: true,
-    minDeposit: 50,
-    maxDeposit: 1000000,
-    feePercent: 0,
-    processingTime: '2-5 Mins',
-    walletAddress: defaultCryptoWallets.usdt_erc20.address,
-    network: defaultCryptoWallets.usdt_erc20.network,
-    instructions: 'Direct blockchain transfer to Ethereum ERC20 wallet address.'
-  },
-  {
-    id: 'usdt_bep20',
-    name: 'Tether USD (USDT - BEP20)',
-    type: 'crypto',
-    currency: 'USDT',
-    active: true,
-    minDeposit: 20,
-    maxDeposit: 1000000,
-    feePercent: 0,
-    processingTime: 'Instant',
-    walletAddress: defaultCryptoWallets.usdt_bep20.address,
-    network: defaultCryptoWallets.usdt_bep20.network,
-    instructions: 'Direct blockchain transfer to BNB Smart Chain BEP20 wallet address.'
-  },
-  {
-    id: 'btc',
-    name: 'Bitcoin (BTC)',
-    type: 'crypto',
-    currency: 'BTC',
-    active: true,
-    minDeposit: 100,
-    maxDeposit: 500000,
-    feePercent: 0,
-    processingTime: '10-30 Mins (1 Confirmation)',
-    walletAddress: defaultCryptoWallets.btc.address,
-    network: defaultCryptoWallets.btc.network,
-    instructions: 'Direct blockchain transfer to Bitcoin Mainnet address.'
-  },
-  {
-    id: 'eth',
-    name: 'Ethereum (ETH)',
-    type: 'crypto',
-    currency: 'ETH',
-    active: true,
-    minDeposit: 100,
-    maxDeposit: 500000,
-    feePercent: 0,
-    processingTime: '2-5 Mins',
-    walletAddress: defaultCryptoWallets.eth.address,
-    network: defaultCryptoWallets.eth.network,
-    instructions: 'Direct blockchain transfer to Ethereum ERC20 address.'
-  },
-  {
-    id: 'usdc',
-    name: 'USD Coin (USDC - ERC20)',
-    type: 'crypto',
-    currency: 'USDC',
-    active: true,
-    minDeposit: 50,
-    maxDeposit: 500000,
-    feePercent: 0,
-    processingTime: '2-5 Mins',
-    walletAddress: defaultCryptoWallets.usdc.address,
-    network: defaultCryptoWallets.usdc.network,
-    instructions: 'Direct blockchain transfer to USDC Ethereum ERC20 address.'
-  },
-  {
-    id: 'sol',
-    name: 'Solana (SOL)',
-    type: 'crypto',
-    currency: 'SOL',
-    active: true,
-    minDeposit: 50,
-    maxDeposit: 250000,
-    feePercent: 0,
-    processingTime: 'Instant',
-    walletAddress: defaultCryptoWallets.sol.address,
-    network: defaultCryptoWallets.sol.network,
-    instructions: 'Direct blockchain transfer to Solana Mainnet address.'
-  },
-  {
-    id: 'bnb',
-    name: 'BNB Smart Chain (BNB)',
-    type: 'crypto',
-    currency: 'BNB',
-    active: true,
-    minDeposit: 50,
-    maxDeposit: 250000,
-    feePercent: 0,
-    processingTime: 'Instant',
-    walletAddress: defaultCryptoWallets.bnb.address,
-    network: defaultCryptoWallets.bnb.network,
-    instructions: 'Direct blockchain transfer to BNB Smart Chain address.'
-  },
-  {
-    id: 'xrp',
-    name: 'Ripple (XRP)',
-    type: 'crypto',
-    currency: 'XRP',
-    active: true,
-    minDeposit: 50,
-    maxDeposit: 250000,
-    feePercent: 0,
-    processingTime: 'Instant',
-    walletAddress: defaultCryptoWallets.xrp.address,
-    network: defaultCryptoWallets.xrp.network,
-    memo: defaultCryptoWallets.xrp.memo,
-    instructions: 'Direct transfer to Ripple Ledger. Destination Tag 1076756 is required.'
-  },
-  {
-    id: 'ton',
-    name: 'Toncoin (TON)',
-    type: 'crypto',
-    currency: 'TON',
-    active: true,
-    minDeposit: 20,
-    maxDeposit: 250000,
-    feePercent: 0,
-    processingTime: 'Instant',
-    walletAddress: defaultCryptoWallets.ton.address,
-    network: defaultCryptoWallets.ton.network,
-    memo: defaultCryptoWallets.ton.memo,
-    instructions: 'Direct transfer to TON Mainnet. Comment / Memo 1076756 is required.'
-  },
-  {
-    id: 'xlm',
-    name: 'Stellar Lumens (XLM)',
-    type: 'crypto',
-    currency: 'XLM',
-    active: true,
-    minDeposit: 20,
-    maxDeposit: 250000,
-    feePercent: 0,
-    processingTime: 'Instant',
-    walletAddress: defaultCryptoWallets.xlm.address,
-    network: defaultCryptoWallets.xlm.network,
-    memo: defaultCryptoWallets.xlm.memo,
-    instructions: 'Direct transfer to Stellar Network. Memo 1076756 is required.'
-  }
-];
+export const defaultPaymentMethods: PaymentMethodItem[] = [];
 
 export function getLocalPaymentConfig(): CentralPaymentConfig {
   try {
@@ -357,8 +102,8 @@ export function getLocalPaymentConfig(): CentralPaymentConfig {
         cryptoWallets: { ...defaultCryptoWallets, ...(parsed.cryptoWallets || {}) },
         bankSettings: sanitizeBank(parsed.bankSettings),
         paymentMethods: parsed.paymentMethods || defaultPaymentMethods,
-        autoApproveLimit: parsed.autoApproveLimit ?? 5000,
-        requireKycForDeposit: parsed.requireKycForDeposit ?? false,
+        autoApproveLimit: parsed.autoApproveLimit ?? 0,
+        requireKycForDeposit: parsed.requireKycForDeposit ?? true,
         maintenanceMode: { ...defaultMaintenanceMode, ...(parsed.maintenanceMode || {}) }
       };
     }
@@ -377,8 +122,8 @@ export function getLocalPaymentConfig(): CentralPaymentConfig {
       cryptoWallets,
       bankSettings,
       paymentMethods,
-      autoApproveLimit: 5000,
-      requireKycForDeposit: false,
+      autoApproveLimit: 0,
+      requireKycForDeposit: true,
       maintenanceMode: defaultMaintenanceMode
     };
   } catch (err) {
@@ -388,8 +133,8 @@ export function getLocalPaymentConfig(): CentralPaymentConfig {
       cryptoWallets: defaultCryptoWallets,
       bankSettings: defaultBankSettings,
       paymentMethods: defaultPaymentMethods,
-      autoApproveLimit: 5000,
-      requireKycForDeposit: false,
+      autoApproveLimit: 0,
+      requireKycForDeposit: true,
       maintenanceMode: defaultMaintenanceMode
     };
   }
