@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "tsx server.ts",
-    "build": "vite build && esbuild server.ts --bundle --platform=node --format=cjs --packages=external --sourcemap --outfile=dist/server.cjs",
+    "build": "node scripts/apply-email-hardening.mjs && vite build && esbuild server.ts --bundle --platform=node --format=cjs --packages=external --sourcemap --outfile=dist/server.cjs",
     "start": "node dist/server.cjs",
     "clean": "rm -rf dist",
     "lint": "tsc --noEmit"
@@ -23,6 +23,7 @@
     "esbuild": "^0.25.12",
     "express": "^4.21.2",
     "firebase": "^12.16.0",
+    "firebase-admin": "^13.8.0",
     "lightweight-charts": "^5.2.0",
     "lucide-react": "^0.546.0",
     "motion": "^12.23.24",
@@ -42,6 +43,6 @@
     "@types/node": "^22.14.0",
     "@types/nodemailer": "^8.0.1",
     "autoprefixer": "^10.4.21",
-    "tailwindcss": "^4.1.14"
+    "tailwindcss": "^4.1.21"
   }
 }
