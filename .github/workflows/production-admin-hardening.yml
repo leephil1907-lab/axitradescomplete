@@ -1,0 +1,30 @@
+name: Production admin hardening
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  harden:
+    if: "!contains(github.event.head_commit.message, '[admin-hardening]')"
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Apply production-safe admin defaults
+        run: node .github/scripts/production-admin-hardening.mjs
+
+      - name: Commit changes
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/components/AdminDashboardView.tsx
+          git diff --cached --quiet && exit 0
+          git commit -m "chore: remove demo admin defaults [admin-hardening]"
+          git push origin HEAD:main
