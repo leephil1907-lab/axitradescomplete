@@ -283,6 +283,28 @@ app.post('/api/admin/funding/:id/reject', (req, res) => {
   res.json({ success: true, deposit: deposits[index] });
 });
 
+const PAYMENT_METHODS_FILE = 'paymentMethods.json';
+
+app.get('/api/admin/payment-methods', (_req, res) => {
+  const methods = readDataFile<any>(PAYMENT_METHODS_FILE, {
+    bankTransfer: { enabled: false, bankName: '', accountName: '', accountNumber: '', routingNumber: '', swiftBic: '', currency: '', instructions: '' },
+    instantTransfer: { enabled: false, providerName: '', accountName: '', accountNumber: '', instructions: '' },
+    crypto: { enabled: false, asset: '', network: '', address: '', memo: '', instructions: '' }
+  });
+  res.json({ success: true, methods });
+});
+
+app.post('/api/admin/payment-methods', (req, res) => {
+  const incoming = req.body || {};
+  const methods = {
+    bankTransfer: { enabled: Boolean(incoming.bankTransfer?.enabled), bankName: String(incoming.bankTransfer?.bankName || '').trim(), accountName: String(incoming.bankTransfer?.accountName || '').trim(), accountNumber: String(incoming.bankTransfer?.accountNumber || '').trim(), routingNumber: String(incoming.bankTransfer?.routingNumber || '').trim(), swiftBic: String(incoming.bankTransfer?.swiftBic || '').trim(), currency: String(incoming.bankTransfer?.currency || '').trim(), instructions: String(incoming.bankTransfer?.instructions || '').trim() },
+    instantTransfer: { enabled: Boolean(incoming.instantTransfer?.enabled), providerName: String(incoming.instantTransfer?.providerName || '').trim(), accountName: String(incoming.instantTransfer?.accountName || '').trim(), accountNumber: String(incoming.instantTransfer?.accountNumber || '').trim(), instructions: String(incoming.instantTransfer?.instructions || '').trim() },
+    crypto: { enabled: Boolean(incoming.crypto?.enabled), asset: String(incoming.crypto?.asset || '').trim(), network: String(incoming.crypto?.network || '').trim(), address: String(incoming.crypto?.address || '').trim(), memo: String(incoming.crypto?.memo || '').trim(), instructions: String(incoming.crypto?.instructions || '').trim() }
+  };
+  writeDataFile(PAYMENT_METHODS_FILE, methods);
+  res.json({ success: true, methods });
+});
+
 const PORT = Number(process.env.PORT) || 3000;
 
 // Shared Gemini client setup

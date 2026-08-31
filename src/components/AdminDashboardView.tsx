@@ -9,6 +9,7 @@ import AdminLiveSiteEditor from './AdminLiveSiteEditor';
 import AdminUserPnlControl from './AdminUserPnlControl';
 import AdminSystemIntegrationStatus from './AdminSystemIntegrationStatus';
 import AdminFundingQueue from './AdminFundingQueue';
+import AdminPaymentMethods from './AdminPaymentMethods';
 import { sendTelegramAlert } from '../utils/telegram';
 import { safeStorage } from '../utils/storage';
 import { db } from '../firebase';
@@ -76,7 +77,7 @@ export default function AdminDashboardView({
   ) => {
     const newLog = {
       id: `LOG-${Math.floor(100000 + Math.random() * 900000)}`,
-      adminId: 'ADMIN-CORE-01 (You)',
+      adminId: (typeof window !== 'undefined' && window.localStorage.getItem('axi_admin_email')) || 'Authenticated Admin',
       category,
       targetUser,
       actionDetails,
@@ -194,8 +195,7 @@ export default function AdminDashboardView({
     window.addEventListener('axi_user_chat_message_event', handleUserMsg);
     window.addEventListener('axi_tawk_visitor_message', handleTawkVisitorMsg);
 
-    return (
-    <AdminFundingQueue showToast={showToast} />) => {
+    return () => {
       window.removeEventListener('axi_chat_transfer_event', handleChatTransfer);
       window.removeEventListener('axi_user_chat_message_event', handleUserMsg);
       window.removeEventListener('axi_tawk_visitor_message', handleTawkVisitorMsg);
@@ -264,8 +264,8 @@ export default function AdminDashboardView({
 
     const payload = {
       id: `email_${Date.now()}`,
-      recipientEmail: docItem.userEmail || 'trader@axi.com',
-      recipientName: docItem.user || 'Trader Client',
+      recipientEmail: docItem.userEmail || '',
+      recipientName: docItem.user || docItem.userEmail || '',
       type: 'KYCApproved',
       subject: '✅ Axi Trades - KYC Identity Verification Approved',
       status: 'Approved',
@@ -908,13 +908,7 @@ export default function AdminDashboardView({
     if (saved) {
       try { return JSON.parse(saved); } catch (e) {}
     }
-    return [
-      { code: 'USD', name: 'US Dollar', symbol: '$', rateToUsd: 1.0, isBase: true },
-      { code: 'EUR', name: 'Euro', symbol: '€', rateToUsd: 0.92, isBase: false },
-      { code: 'GBP', name: 'British Pound', symbol: '£', rateToUsd: 0.79, isBase: false },
-      { code: 'JPY', name: 'Japanese Yen', symbol: '¥', rateToUsd: 155.2, isBase: false },
-      { code: 'AUD', name: 'Australian Dollar', symbol: 'A$', rateToUsd: 1.52, isBase: false }
-    ];
+    return [];
   });
 
   const updateCurrencyField = (code: string, field: string, value: any) => {
@@ -1923,6 +1917,7 @@ export default function AdminDashboardView({
           {/* WALLET SETTINGS TAB */}
           {activeTab === 'walletSettings' && (
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
+              <AdminPaymentMethods showToast={showToast} />
               <AdminManageWallet />
             </motion.div>
           )}
