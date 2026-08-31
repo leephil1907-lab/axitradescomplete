@@ -670,26 +670,26 @@ export default function AdminDashboardView({
   const [showAddUserModal, setShowAddUserModal] = useState(false);
   const [newClientName, setNewClientName] = useState('');
   const [newClientEmail, setNewClientEmail] = useState('');
-  const [newClientInitialBalance, setNewClientInitialBalance] = useState('1000');
-  const [newClientStatus, setNewClientStatus] = useState('Verified');
+  const [newClientInitialBalance, setNewClientInitialBalance] = useState('');
+  const [newClientStatus, setNewClientStatus] = useState('Pending Verification');
 
   // Email Broadcast Composer State
   const [emailRecipient, setEmailRecipient] = useState('ALL');
-  const [emailSubject, setEmailSubject] = useState('Important Account Notice from Axi Administration');
+  const [emailSubject, setEmailSubject] = useState('');
   const [emailType, setEmailType] = useState('Custom');
-  const [emailBody, setEmailBody] = useState('Dear Valued Trader,\n\nPlease be advised that our market execution servers and liquidity routes have been optimized for higher execution speeds.\n\nBest regards,\nAxi Support Team');
+  const [emailBody, setEmailBody] = useState('');
 
   // Google SMTP Server Configuration & Live Testing State
   const [smtpConfig, setSmtpConfig] = useState({
-    host: 'smtp.gmail.com',
-    port: '465',
-    user: 'axicustomersupport@gmail.com',
+    host: '',
+    port: '',
+    user: '',
     pass: '',
-    fromName: 'Axi Trades Official',
-    fromEmail: 'axicustomersupport@gmail.com',
+    fromName: 'AXITRADES',
+    fromEmail: '',
     isConfigured: false
   });
-  const [testEmailRecipient, setTestEmailRecipient] = useState('axicustomersupport@gmail.com');
+  const [testEmailRecipient, setTestEmailRecipient] = useState('');
   const [testEmailTemplate, setTestEmailTemplate] = useState('Registration');
   const [isSendingTest, setIsSendingTest] = useState(false);
   const [isSavingSmtp, setIsSavingSmtp] = useState(false);
@@ -779,14 +779,14 @@ export default function AdminDashboardView({
       try { return JSON.parse(saved); } catch (e) {}
     }
     return {
-      active: true,
-      name: 'Axi Neural Quant Bot v4',
-      strategy: 'High Frequency Arbitrage',
-      frequency: '15 seconds',
-      maxAllocationUsd: 25000,
-      winRateSim: 88.5,
-      monthlyTargetYield: 18.4,
-      riskLevel: 'Moderate'
+      active: false,
+      name: '',
+      strategy: '',
+      frequency: '',
+      maxAllocationUsd: 0,
+      winRateSim: null,
+      monthlyTargetYield: null,
+      riskLevel: ''
     };
   });
 
@@ -809,10 +809,10 @@ export default function AdminDashboardView({
       try { return JSON.parse(saved); } catch (e) {}
     }
     return {
-      automatedTradingEnabled: true,
-      maxBotLeverage: '1:500',
+      automatedTradingEnabled: false,
+      maxBotLeverage: '',
       circuitBreakerEnabled: true,
-      circuitBreakerThreshold: 15
+      circuitBreakerThreshold: 0
     };
   });
 
@@ -843,11 +843,7 @@ export default function AdminDashboardView({
     if (saved) {
       try { return JSON.parse(saved); } catch (e) {}
     }
-    return [
-      { id: 'plan-1', name: 'Starter Alpha Plan', minDeposit: 500, maxDeposit: 5000, dailyRoi: 1.8, durationDays: 14, active: true },
-      { id: 'plan-2', name: 'Pro Growth Quant Plan', minDeposit: 5000, maxDeposit: 25000, dailyRoi: 2.5, durationDays: 30, active: true },
-      { id: 'plan-3', name: 'Institutional Prime Plan', minDeposit: 25000, maxDeposit: 250000, dailyRoi: 3.4, durationDays: 60, active: true }
-    ];
+    return [];
   });
 
   const saveInvestmentPlans = (plans: any[]) => {
@@ -873,14 +869,7 @@ export default function AdminDashboardView({
     if (saved) {
       try { return JSON.parse(saved); } catch (e) {}
     }
-    return [
-      { id: 'p1', symbol: 'EURUSD', category: 'Forex Major', spreadPips: 0.2, leverage: '1:500', active: true },
-      { id: 'p2', symbol: 'GBPUSD', category: 'Forex Major', spreadPips: 0.4, leverage: '1:500', active: true },
-      { id: 'p3', symbol: 'BTCUSD', category: 'Crypto', spreadPips: 12.0, leverage: '1:100', active: true },
-      { id: 'p4', symbol: 'ETHUSD', category: 'Crypto', spreadPips: 1.5, leverage: '1:100', active: true },
-      { id: 'p5', symbol: 'XAUUSD', category: 'Commodities', spreadPips: 0.15, leverage: '1:500', active: true },
-      { id: 'p6', symbol: 'NVDA', category: 'US Stocks', spreadPips: 0.05, leverage: '1:20', active: true }
-    ];
+    return [];
   });
 
   const togglePairStatus = (id: string) => {
