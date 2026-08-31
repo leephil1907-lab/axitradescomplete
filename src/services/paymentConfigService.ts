@@ -1,4 +1,4 @@
-import { doc, onSnapshot, setDoc, getDoc } from 'firebase/firestore';
+import { doc, onSnapshot, setDoc } from 'firebase/firestore';
 import { db } from '../firebase';
 import { safeStorage } from '../utils/storage';
 
@@ -102,13 +102,13 @@ export function getLocalPaymentConfig(): CentralPaymentConfig {
         cryptoWallets: { ...defaultCryptoWallets, ...(parsed.cryptoWallets || {}) },
         bankSettings: sanitizeBank(parsed.bankSettings),
         paymentMethods: parsed.paymentMethods || defaultPaymentMethods,
-        autoApproveLimit: parsed.autoApproveLimit ?? 0,
+        // Production safety: automatic approval is opt-in and disabled by default.
+        autoApproveLimit: 0,
         requireKycForDeposit: parsed.requireKycForDeposit ?? true,
         maintenanceMode: { ...defaultMaintenanceMode, ...(parsed.maintenanceMode || {}) }
       };
     }
 
-    // Check individual items fallback
     const savedWallets = safeStorage.getItem('axi_admin_wallet_settings');
     const savedBank = safeStorage.getItem('axi_admin_bank_settings');
     const savedMethods = safeStorage.getItem('axi_payment_methods');
@@ -175,14 +175,11 @@ export function subscribeSystemConfigWallets(
             usdc: data.usdc || defaultCryptoWallets.usdc,
             sol: data.sol || defaultCryptoWallets.sol
           };
-          
-          // Sync with local config
           const currentConfig = getLocalPaymentConfig();
           const updatedConfig = { ...currentConfig, cryptoWallets: wallets };
           saveLocalPaymentConfig(updatedConfig);
           onData(wallets, true);
         } else {
-          // Bootstrap system_config/wallets if missing
           const current = getLocalPaymentConfig().cryptoWallets;
           setDoc(sysDocRef, { ...current, updatedAt: Date.now() }, { merge: true }).catch(() => {});
           onData(current, true);
@@ -215,14 +212,10 @@ export async function updateSystemConfigWallets(
 
   let firestoreSynced = false;
   try {
-    // 1. Update dedicated system_config/wallets document
     const sysDocRef = doc(db, 'system_config', 'wallets');
     await setDoc(sysDocRef, { ...wallets, updatedAt: Date.now() }, { merge: true });
-
-    // 2. Also sync config/paymentConfig document
     const configDocRef = doc(db, 'config', 'paymentConfig');
     await setDoc(configDocRef, { cryptoWallets: wallets, updatedAt: Date.now() }, { merge: true });
-
     firestoreSynced = true;
   } catch (err: any) {
     console.warn('Firestore system_config/wallets write warning:', err?.message || err);
@@ -240,7 +233,6 @@ export async function updateSystemConfigWallets(
 export function subscribePaymentConfig(
   onData: (config: CentralPaymentConfig, isLiveFirestore: boolean) => void
 ): () => void {
-  // First send immediate local data
   const initialLocal = getLocalPaymentConfig();
   onData(initialLocal, false);
 
@@ -257,19 +249,16 @@ export function subscribePaymentConfig(
             updatedAt: data.updatedAt || Date.now(),
             cryptoWallets: { ...defaultCryptoWallets, ...(data.cryptoWallets || {}) },
             bankSettings: { ...defaultBankSettings, ...(data.bankSettings || {}) },
-            paymentMethods: data.paymentMethods && data.paymentMethods.length > 0 
-              ? data.paymentMethods 
-              : defaultPaymentMethods,
-            autoApproveLimit: data.autoApproveLimit ?? 5000,
-            requireKycForDeposit: data.requireKycForDeposit ?? false,
+            paymentMethods: data.paymentMethods && data.paymentMethods.length > 0 ? data.paymentMethods : defaultPaymentMethods,
+            // Never inherit a positive auto-approval limit from stale/mock configuration.
+            autoApproveLimit: 0,
+            requireKycForDeposit: data.requireKycForDeposit ?? true,
             maintenanceMode: { ...defaultMaintenanceMode, ...(data.maintenanceMode || {}) }
           };
 
-          // Cache locally
           saveLocalPaymentConfig(merged);
           onData(merged, true);
         } else {
-          // If doc doesn't exist in Firestore yet, push initial defaults to Firestore
           const initial = getLocalPaymentConfig();
           setDoc(configDocRef, initial, { merge: true }).catch(err => {
             console.warn('Could not bootstrap initial Firestore payment config:', err);
@@ -320,10 +309,12 @@ export function subscribePaymentConfig(
 export async function updateCentralPaymentConfig(config: CentralPaymentConfig): Promise<{ success: boolean; firestoreSynced: boolean; message: string }> {
   const updatedConfig = {
     ...config,
+    // Admin must explicitly choose a positive limit if automatic approval is ever enabled.
+    autoApproveLimit: Math.max(0, Number(config.autoApproveLimit || 0)),
+    requireKycForDeposit: config.requireKycForDeposit ?? true,
     updatedAt: Date.now()
   };
 
-  // Always save locally first for instantaneous UI update
   saveLocalPaymentConfig(updatedConfig);
 
   let firestoreSynced = false;
@@ -331,7 +322,6 @@ export async function updateCentralPaymentConfig(config: CentralPaymentConfig): 
     const configDocRef = doc(db, 'config', 'paymentConfig');
     await setDoc(configDocRef, updatedConfig, { merge: true });
 
-    // Also sync dedicated system_config/wallets document
     if (config.cryptoWallets) {
       const sysDocRef = doc(db, 'system_config', 'wallets');
       await setDoc(sysDocRef, { ...config.cryptoWallets, updatedAt: Date.now() }, { merge: true });
@@ -345,7 +335,7 @@ export async function updateCentralPaymentConfig(config: CentralPaymentConfig): 
   return {
     success: true,
     firestoreSynced,
-    message: firestoreSynced 
+    message: firestoreSynced
       ? 'Payment configuration updated & synchronized to Firestore central documents (/config/paymentConfig & /system_config/wallets)!'
       : 'Payment configuration saved locally (Firestore offline/sync fallback active).'
   };
