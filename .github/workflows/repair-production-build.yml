@@ -20,10 +20,10 @@ jobs:
       - name: Repair production source
         shell: bash
         run: |
+          git checkout ab7b6562484e1a3f7e150d6b19b21306fd2579a9 -- src/App.tsx
           python3 - <<'PY'
           from pathlib import Path
 
-          # Fix duplicate declarations introduced by the automated Postgres wiring.
           p = Path('server.ts')
           s = p.read_text()
           duplicate = "  const persistedCredit = await dbCreditFunding(id, String(req.headers['x-admin-email'] || 'admin')).catch(() => null);\n  const persistedCredit = await dbCreditFunding(id, String(req.headers['x-admin-email'] || 'admin')).catch(() => null);"
@@ -34,22 +34,18 @@ jobs:
           s = s.replace(duplicate_methods, single_methods, 1)
           p.write_text(s)
 
-          # Remove the admin flag from a keyboard-effect dependency before its declaration.
           p = Path('src/App.tsx')
           s = p.read_text()
           s = s.replace("        if (!isAdminUser) return;\n", "", 1)
-          s = s.replace("  }, [isAdminUser]);\n  const [currentView, setView]", "  }, []);\n  const [currentView, setView", 1)
+          s = s.replace("  }, [isAdminUser]);\n  const [currentView, setView] = useState<ViewType>('home');", "  }, []);\n  const [currentView, setView] = useState<ViewType>('home');", 1)
           p.write_text(s)
 
-          # Remove the dead demo-only login notice.
           p = Path('src/components/LoginView.tsx')
           s = p.read_text()
           old = "        <div className=\"mt-6 rounded-xl bg-slate-50 p-3 text-[10px] leading-5 text-slate-500 dark:bg-slate-950\">Demo credentials, preset accounts and automatic access have been removed. A valid Firebase-authenticated account is required for the private portal.</div>\n"
           s = s.replace(old, '', 1)
           p.write_text(s)
 
-          # The account-opening wizard currently has no real server-side TOTP enrollment source.
-          # Keep the UI compile-safe without inventing a credential.
           p = Path('src/components/AccountsView.tsx')
           s = p.read_text()
           anchor = "  const [showTradingPassword, setShowTradingPassword] = useState(false);\n"
@@ -57,7 +53,6 @@ jobs:
               s = s.replace(anchor, anchor + "  const authSetupCode = formData.authCode || '';\n", 1)
           p.write_text(s)
 
-          # Dashboard is production live-account only; remove the unused mode setter.
           p = Path('src/components/DashboardView.tsx')
           s = p.read_text()
           s = s.replace("                onClick={() => setAccountMode('live')}\n", "", 1)
@@ -73,7 +68,7 @@ jobs:
             git config user.name 'github-actions[bot]'
             git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
             git add server.ts src/App.tsx src/components/LoginView.tsx src/components/AccountsView.tsx src/components/DashboardView.tsx
-            git commit -m 'fix: repair production TypeScript errors and remove demo messaging'
+            git commit -m 'fix: restore complete App and repair production TypeScript errors'
             git push origin HEAD:main
           fi
 
