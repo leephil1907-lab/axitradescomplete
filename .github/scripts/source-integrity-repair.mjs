@@ -27,6 +27,21 @@ const anchor = "app.use(express.json());";
 if (s.includes(anchor) && !s.includes("app.use('/api/admin', requireAdmin);")) {
   s = s.replace(anchor, `${anchor}\n\napp.use('/api/admin', requireAdmin);`);
 }
-
 fs.writeFileSync(p, s);
-console.log('Source integrity repair applied.');
+
+// All password-reset emails use Axi Trades SMTP branding, never Firebase's client email sender.
+const settingsPath = 'src/components/SettingsView.tsx';
+let settings = fs.readFileSync(settingsPath, 'utf8');
+settings = settings.replace(/, sendPasswordResetEmail(?=\s*\})/, '');
+const oldReset = "await sendPasswordResetEmail(auth, user.email);\n      showToast('Password reset email sent! Check your inbox.', 'success');";
+const newReset = "const response = await fetch('/api/auth/password-reset/request', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email: user.email }) });\n      if (!response.ok) throw new Error('Password recovery is temporarily unavailable.');\n      showToast('Axi Trades password reset email sent. Check your inbox.', 'success');";
+settings = settings.replace(oldReset, newReset);
+fs.writeFileSync(settingsPath, settings);
+
+// Ensure transactional messages have an Axi reply-to address.
+const emailPath = 'server/emailService.ts';
+let email = fs.readFileSync(emailPath, 'utf8');
+email = email.replace("from:`\\\"${process.env.SMTP_FROM_NAME||'Axi Trades Official'}\\\" <${process.env.SMTP_FROM_EMAIL||'no-reply@axitrades.com'}>`,to,subject,html:html(title,pre,body),text:", "from:`\\\"${process.env.SMTP_FROM_NAME||'Axi Trades Official'}\\\" <${process.env.SMTP_FROM_EMAIL||'no-reply@axitrades.com'}>`,replyTo:process.env.SMTP_REPLY_TO||'support@axitrades.com',to,subject,html:html(title,pre,body),text:");
+fs.writeFileSync(emailPath, email);
+
+console.log('Source integrity and Axi email branding repair applied.');
