@@ -274,6 +274,7 @@ app.post('/api/admin/funding/:id/credit', async (req, res) => {
   if (index < 0) return res.status(404).json({ error: 'Funding record not found' });
   const persistedCredit = await dbCreditFunding(id, String(req.headers['x-admin-email'] || 'admin')).catch(() => null);
   const persistedCredit = await dbCreditFunding(id, String(req.headers['x-admin-email'] || 'admin')).catch(() => null);
+  const persistedCredit = await dbCreditFunding(id, String(req.headers['x-admin-email'] || 'admin')).catch(() => null);
   const deposit = deposits[index];
   if (deposit.creditedByAdmin || deposit.status === 'Credited') return res.status(409).json({ error: 'Funding record has already been credited' });
   const creditedBalance = Number(req.body?.creditedBalance);
@@ -298,6 +299,11 @@ app.post('/api/admin/funding/:id/reject', (req, res) => {
 const PAYMENT_METHODS_FILE = 'paymentMethods.json';
 
 app.get('/api/admin/payment-methods', async (_req, res) => {
+  const persistedMethods = await dbPaymentMethods().catch(() => null);
+  if (persistedMethods) {
+    const methods = Object.fromEntries(persistedMethods.map((row) => [row.method_type, { ...(row.details || {}), enabled: row.enabled }]));
+    return res.json({ success: true, methods, source: 'postgres' });
+  }
   const persistedMethods = await dbPaymentMethods().catch(() => null);
   if (persistedMethods) {
     const methods = Object.fromEntries(persistedMethods.map((row) => [row.method_type, { ...(row.details || {}), enabled: row.enabled }]));
