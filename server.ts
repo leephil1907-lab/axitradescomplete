@@ -273,7 +273,6 @@ app.post('/api/admin/funding/:id/credit', async (req, res) => {
   const index = deposits.findIndex(d => d.id === id);
   if (index < 0) return res.status(404).json({ error: 'Funding record not found' });
   const persistedCredit = await dbCreditFunding(id, String(req.headers['x-admin-email'] || 'admin')).catch(() => null);
-  const persistedCredit = await dbCreditFunding(id, String(req.headers['x-admin-email'] || 'admin')).catch(() => null);
   const deposit = deposits[index];
   if (deposit.creditedByAdmin || deposit.status === 'Credited') return res.status(409).json({ error: 'Funding record has already been credited' });
   const creditedBalance = Number(req.body?.creditedBalance);
