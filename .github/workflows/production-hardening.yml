@@ -30,6 +30,9 @@ jobs:
       - name: Apply production hardening
         run: node .github/scripts/production-hardening.mjs
 
+      - name: Repair source integrity
+        run: node .github/scripts/source-integrity-repair.mjs
+
       - name: TypeScript check
         run: npx tsc --noEmit
 
@@ -43,6 +46,6 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add server.ts server/adminAuth.ts src/utils/authHeaders.ts src/components/AdminFundingQueue.tsx src/components/AdminPaymentMethods.tsx src/hooks/useFirebaseData.ts src/firebase.ts .github/scripts/production-hardening.mjs
+          git add server.ts server/adminAuth.ts src/utils/authHeaders.ts src/components/AdminFundingQueue.tsx src/components/AdminPaymentMethods.tsx src/hooks/useFirebaseData.ts src/firebase.ts .github/scripts/production-hardening.mjs .github/scripts/source-integrity-repair.mjs
           git diff --cached --quiet || git commit -m "security: enforce server auth and remove simulated production data"
           git push
