@@ -302,20 +302,7 @@ app.get('/api/admin/payment-methods', async (_req, res) => {
     const methods = Object.fromEntries(persistedMethods.map((row) => [row.method_type, { ...(row.details || {}), enabled: row.enabled }]));
     return res.json({ success: true, methods, source: 'postgres' });
   }
-  if (persistedMethods) {
-    const methods = Object.fromEntries(persistedMethods.map((row) => [row.method_type, { ...(row.details || {}), enabled: row.enabled }]));
-    return res.json({ success: true, methods, source: 'postgres' });
-  }
-  const persistedMethods = await dbPaymentMethods().catch(() => null);
-  if (persistedMethods) {
-    const methods = Object.fromEntries(persistedMethods.map((row) => [row.method_type, { ...(row.details || {}), enabled: row.enabled }]));
-    return res.json({ success: true, methods, source: 'postgres' });
-  }
-  const methods = readDataFile<any>(PAYMENT_METHODS_FILE, {
-    bankTransfer: { enabled: false, bankName: '', accountName: '', accountNumber: '', routingNumber: '', swiftBic: '', currency: '', instructions: '' },
-    instantTransfer: { enabled: false, providerName: '', accountName: '', accountNumber: '', instructions: '' },
-    crypto: { enabled: false, asset: '', network: '', address: '', memo: '', instructions: '' }
-  });
+  const methods = readDataFile<any>(PAYMENT_METHODS_FILE, {});
   res.json({ success: true, methods });
 });
 
