@@ -75,7 +75,6 @@ export default function App() {
       
       // Admin Panel Navigation (Ctrl/Cmd + Shift + A)
       if ((e.metaKey || e.ctrlKey) && e.shiftKey && (e.key === 'a' || e.key === 'A')) {
-        if (!isAdminUser) return;
         e.preventDefault();
         setView('admin');
         return;
@@ -100,8 +99,8 @@ export default function App() {
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isAdminUser]);
-  const [currentView, setView] = useState<ViewType>('home');
+  }, []);
+  const [currentView, setView = useState<ViewType>('home');
   const [quotes, setQuotes] = useState<Record<string, MarketQuote>>(INITIAL_QUOTES);
   
   // Theme state: dark / light mode toggle

@@ -425,6 +425,7 @@ export default function AccountsView({
 
   const [showPassword, setShowPassword] = useState(false);
   const [showTradingPassword, setShowTradingPassword] = useState(false);
+  const authSetupCode = formData.authCode || '';
 
 
   // State to generate secure live credentials

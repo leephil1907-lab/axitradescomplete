@@ -298,7 +298,6 @@ export default function DashboardView({
             <div className="flex items-center bg-[#0B0F17] rounded-lg p-0.5 border border-slate-800 text-xs">
               <button
                 type="button"
-                onClick={() => setAccountMode('live')}
                 className={`px-3 py-1 rounded font-black uppercase text-[10px] tracking-wider transition cursor-pointer flex items-center gap-1.5 ${
                   accountMode === 'live'
                     ? 'bg-[#E3000F] text-white shadow-xs'
