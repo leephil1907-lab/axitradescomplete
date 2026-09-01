@@ -18,10 +18,10 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Setup Node
+      - name: Setup Node 22
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: npm
 
       - name: Install dependencies
@@ -34,10 +34,26 @@ jobs:
         run: node .github/scripts/source-integrity-repair.mjs
 
       - name: TypeScript check
-        run: npx tsc --noEmit
+        run: npm run lint
 
       - name: Production build
         run: npm run build
+
+      - name: Startup smoke test
+        run: |
+          set -e
+          npm start > /tmp/axitrades-start.log 2>&1 &
+          PID=$!
+          trap 'kill $PID 2>/dev/null || true' EXIT
+          for i in $(seq 1 30); do
+            if curl -fsS http://127.0.0.1:8080/ >/dev/null; then
+              echo "AxiTrades production server responded successfully."
+              exit 0
+            fi
+            sleep 1
+          done
+          cat /tmp/axitrades-start.log
+          exit 1
 
       - name: Security audit
         run: npm audit --audit-level=high
