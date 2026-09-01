@@ -32,6 +32,12 @@ jobs:
           duplicate_methods = "  const persistedMethods = await dbPaymentMethods().catch(() => null);\n  if (persistedMethods) {\n    const methods = Object.fromEntries(persistedMethods.map((row) => [row.method_type, { ...(row.details || {}), enabled: row.enabled }]));\n    return res.json({ success: true, methods, source: 'postgres' });\n  }\n  const persistedMethods = await dbPaymentMethods().catch(() => null);"
           single_methods = "  const persistedMethods = await dbPaymentMethods().catch(() => null);\n  if (persistedMethods) {\n    const methods = Object.fromEntries(persistedMethods.map((row) => [row.method_type, { ...(row.details || {}), enabled: row.enabled }]));\n    return res.json({ success: true, methods, source: 'postgres' });\n  }"
           s = s.replace(duplicate_methods, single_methods, 1)
+          # Collapse the three-way duplicated payment-method persistence block left by earlier automation.
+          triple_methods = "  const persistedMethods = await dbPaymentMethods().catch(() => null);\n  if (persistedMethods) {\n    const methods = Object.fromEntries(persistedMethods.map((row) => [row.method_type, { ...(row.details || {}), enabled: row.enabled }]));\n    return res.json({ success: true, methods, source: 'postgres' });\n  }\n  if (persistedMethods) {\n    const methods = Object.fromEntries(persistedMethods.map((row) => [row.method_type, { ...(row.details || {}), enabled: row.enabled }]));\n    return res.json({ success: true, methods, source: 'postgres' });\n  }\n  const persistedMethods = await dbPaymentMethods().catch(() => null);\n  if (persistedMethods) {\n    const methods = Object.fromEntries(persistedMethods.map((row) => [row.method_type, { ...(row.details || {}), enabled: row.enabled }]));\n    return res.json({ success: true, methods, source: 'postgres' });\n  }"
+          s = s.replace(triple_methods, single_methods, 1)
+          # Never fall back to sample payment-method credentials in production.
+          sample_methods = "  const methods = readDataFile<any>(PAYMENT_METHODS_FILE, {\n    bankTransfer: { enabled: false, bankName: '', accountName: '', accountNumber: '', routingNumber: '', swiftBic: '', currency: '', instructions: '' },\n    instantTransfer: { enabled: false, providerName: '', accountName: '', accountNumber: '', instructions: '' },\n    crypto: { enabled: false, asset: '', network: '', address: '', memo: '', instructions: '' }\n  });"
+          s = s.replace(sample_methods, "  const methods = readDataFile<any>(PAYMENT_METHODS_FILE, {});", 1)
           p.write_text(s)
 
           p = Path('src/App.tsx')
@@ -68,7 +74,7 @@ jobs:
             git config user.name 'github-actions[bot]'
             git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
             git add server.ts src/App.tsx src/components/LoginView.tsx src/components/AccountsView.tsx src/components/DashboardView.tsx
-            git commit -m 'fix: restore complete App and repair production TypeScript errors'
+            git commit -m 'fix: deduplicate production persistence wiring and remove sample payment data'
             git push origin HEAD:main
           fi
 
