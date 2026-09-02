@@ -1,0 +1,66 @@
+name: Final production verification
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/scripts/finalize-production.mjs'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  finalize:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Apply cleanup
+        run: node .github/scripts/finalize-production.mjs
+
+      - name: TypeScript check
+        run: npm run lint
+
+      - name: Production build
+        run: npm run build
+
+      - name: Startup health check
+        run: |
+          set -e
+          npm start > /tmp/axitrades-start.log 2>&1 &
+          PID=$!
+          trap 'kill $PID 2>/dev/null || true' EXIT
+          for i in $(seq 1 30); do
+            if curl -fsS http://127.0.0.1:8080/api/health >/dev/null; then
+              echo 'Production API health check passed.'
+              exit 0
+            fi
+            sleep 1
+          done
+          cat /tmp/axitrades-start.log
+          exit 1
+
+      - name: Commit verified cleanup
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add server.ts
+          if git diff --cached --quiet; then
+            echo 'No source changes required.'
+          else
+            git commit -m 'security: finalize production webhook and persistence cleanup'
+            git push
+          fi
