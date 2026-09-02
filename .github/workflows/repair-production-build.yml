@@ -1,77 +1,23 @@
 name: Repair and verify production build
 
 on:
-  push:
-    branches: [main]
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
-  repair-and-verify:
+  verify:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
 
       - name: Setup Node 22
         uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: npm
-
-      - name: Repair production source
-        shell: bash
-        run: |
-          git checkout ab7b6562484e1a3f7e150d6b19b21306fd2579a9 -- src/App.tsx
-          python3 - <<'PY'
-          from pathlib import Path
-
-          p = Path('server.ts')
-          s = p.read_text()
-          line = "  const persistedCredit = await dbCreditFunding(id, String(req.headers['x-admin-email'] || 'admin')).catch(() => null);"
-          while (s.count(line) > 1):
-              first = s.find(line)
-              second = s.find(line, first + len(line))
-              s = s[:second] + s[second + len(line):]
-
-          block = "  const persistedMethods = await dbPaymentMethods().catch(() => null);\n  if (persistedMethods) {\n    const methods = Object.fromEntries(persistedMethods.map((row) => [row.method_type, { ...(row.details || {}), enabled: row.enabled }]));\n    return res.json({ success: true, methods, source: 'postgres' });\n  }"
-          first = s.find(block)
-          if first >= 0:
-              rest = s[first + len(block):]
-              while rest.startswith("\n  if (persistedMethods) {"):
-                  end = rest.find("\n  const ", 1)
-                  if end < 0: break
-                  rest = rest[end:]
-              s = s[:first] + block + rest
-          p.write_text(s)
-
-          p = Path('src/App.tsx')
-          s = p.read_text()
-          s = s.replace("        if (!isAdminUser) return;\n", "", 1)
-          s = s.replace("  }, [isAdminUser]);\n  const [currentView, setView] = useState<ViewType>('home');", "  }, []);\n  const [currentView, setView] = useState<ViewType>('home');", 1)
-          p.write_text(s)
-
-          p = Path('src/components/LoginView.tsx')
-          s = p.read_text()
-          s = s.replace("        <div className=\"mt-6 rounded-xl bg-slate-50 p-3 text-[10px] leading-5 text-slate-500 dark:bg-slate-950\">Demo credentials, preset accounts and automatic access have been removed. A valid Firebase-authenticated account is required for the private portal.</div>\n", '', 1)
-          p.write_text(s)
-
-          p = Path('src/components/AccountsView.tsx')
-          s = p.read_text()
-          anchor = "  const [showTradingPassword, setShowTradingPassword] = useState(false);\n"
-          if "const authSetupCode =" not in s and anchor in s:
-              s = s.replace(anchor, anchor + "  const authSetupCode = formData.authCode || '';\n", 1)
-          p.write_text(s)
-
-          p = Path('src/components/DashboardView.tsx')
-          s = p.read_text()
-          s = s.replace("                onClick={() => setAccountMode('live')}\n", "", 1)
-          p.write_text(s)
-          PY
 
       - name: Install dependencies
         run: npm ci
@@ -90,26 +36,10 @@ jobs:
           trap 'kill $PID 2>/dev/null || true' EXIT
           for i in $(seq 1 30); do
             if curl -fsS http://127.0.0.1:8080/api/health >/dev/null; then
-              echo "AxiTrades production server responded successfully."
+              echo 'AxiTrades production server responded successfully.'
               exit 0
             fi
             sleep 1
           done
           cat /tmp/axitrades-start.log
           exit 1
-
-      - name: Security audit
-        run: npm audit --audit-level=high
-
-      - name: Commit source repairs
-        shell: bash
-        run: |
-          if git diff --quiet; then
-            echo 'No source repairs required.'
-          else
-            git config user.name 'github-actions[bot]'
-            git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-            git add server.ts src/App.tsx src/components/LoginView.tsx src/components/AccountsView.tsx src/components/DashboardView.tsx
-            git commit -m 'fix: repair production source and verify Node 22 build'
-            git push origin HEAD:main
-          fi
