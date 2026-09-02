@@ -10,13 +10,12 @@ const duplicateLines = [
   "  const persistedMethods = await dbPaymentMethods().catch(() => null);",
 ];
 for (const line of duplicateLines) {
-  while (s.includes(line + '\n' + line)) {
-    s = s.replace(line + '\n' + line, line);
-  }
+  while (s.includes(line + '\n' + line)) s = s.replace(line + '\n' + line, line);
 }
 
-// Normalize the admin payment-method read route and make it fail closed when
-// PostgreSQL is unavailable instead of silently falling back to a local file.
+// Normalize the admin payment-method read route and fail closed when PostgreSQL
+// is unavailable. This also removes any duplicate declarations left by older
+// repair workflows.
 const pmStart = s.indexOf("app.get('/api/admin/payment-methods'");
 const pmPost = s.indexOf("app.post('/api/admin/payment-methods'", pmStart);
 if (pmStart !== -1 && pmPost !== -1) {
@@ -33,25 +32,47 @@ if (pmStart !== -1 && pmPost !== -1) {
   s = s.slice(0, pmStart) + pmBlock + s.slice(pmPost);
 }
 
-// Stripe webhooks must be cryptographically verified. Never accept an
-// unsigned request as a payment event.
-const insecureStripe = /if \(stripe && webhookSecret && sig\) \{[\s\S]*?\n  \} catch \(err: any\) \{/;
-const secureStripe = `if (!stripe || !webhookSecret || !sig) {
+// Rebuild only the Stripe signature-verification prefix. The previous regex
+// could leave an unmatched outer try/catch, so use stable route markers.
+const stripeStart = s.indexOf("app.post('/api/stripe/webhook'");
+const pingMarker = s.indexOf('  // Record active ping activity', stripeStart);
+const tryMarker = s.indexOf('  try {', stripeStart);
+if (stripeStart !== -1 && tryMarker !== -1 && pingMarker !== -1 && tryMarker < pingMarker) {
+  const verification = `  try {
+    if (!stripe || !webhookSecret || !sig) {
       return res.status(503).send('Stripe webhook verification is not configured');
     }
-    try {
-      event = stripe.webhooks.constructEvent(req.body, sig, webhookSecret);
-    } catch (err: any) {`;
-s = s.replace(insecureStripe, secureStripe);
+    event = stripe.webhooks.constructEvent(req.body, sig, webhookSecret);
+  } catch (err: any) {
+    console.error(\`⚠️ Webhook signature verification failed:\`, err.message);
 
-// Trading signal webhooks must fail closed when the shared secret is absent
-// or incorrect. Authentication is not execution: the response must not claim
-// that a broker order was executed unless a real execution gateway is wired.
+    // Update ping activity for verification failures.
+    webhookPingState.lastPingTimestamp = Date.now();
+    webhookPingState.lastPingEvent = 'verification.failed';
+    webhookPingState.lastPingStatus = 'Disconnected';
+    webhookPingState.lastPingLatencyMs = Date.now() - startTime;
+    webhookPingState.history.unshift({
+      timestamp: new Date().toISOString(),
+      event: 'verification.failed',
+      status: 'Disconnected',
+      latencyMs: Date.now() - startTime,
+      source: 'Stripe Signature Verification'
+    });
+    if (webhookPingState.history.length > 20) webhookPingState.history.pop();
+
+    return res.status(400).send(\`Webhook Error: \${err.message}\`);
+  }
+
+`;
+  s = s.slice(0, tryMarker) + verification + s.slice(pingMarker);
+}
+
+// Trading signal webhooks must fail closed when the shared secret is absent or
+// incorrect. Authentication is not execution, so don't claim broker execution.
 s = s.replace(
   "  if (expectedSecret && secretHeader !== expectedSecret) {",
   "  if (!expectedSecret || secretHeader !== expectedSecret) {"
 );
-
 s = s.replace(
   "message: 'Webhook signal received and processed by Axi execution gateway',",
   "message: 'Webhook signal received and authenticated; execution requires a configured broker execution gateway',"
