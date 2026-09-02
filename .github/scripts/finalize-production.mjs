@@ -3,6 +3,13 @@ import fs from 'node:fs';
 const path = 'server.ts';
 let s = fs.readFileSync(path, 'utf8');
 
+// Ensure the middleware used by protected admin routes is imported.
+const adminImport = "import { requireAdmin } from './server/adminAuth';";
+if (!s.includes(adminImport)) {
+  const anchor = "import YahooFinanceRaw from 'yahoo-finance2';";
+  s = s.includes(anchor) ? s.replace(anchor, `${anchor}\n${adminImport}`) : `${adminImport}\n${s}`;
+}
+
 // Remove accidental consecutive duplicate declarations deterministically.
 const duplicateLines = [
   "  const persistedCredit = await dbCreditFunding(id, String((req as any).adminEmail || 'unknown-admin')).catch(() => null);",
@@ -14,8 +21,7 @@ for (const line of duplicateLines) {
 }
 
 // Normalize the admin payment-method read route and fail closed when PostgreSQL
-// is unavailable. This also removes any duplicate declarations left by older
-// repair workflows.
+// is unavailable. This also removes duplicate declarations left by older repair workflows.
 const pmStart = s.indexOf("app.get('/api/admin/payment-methods'");
 const pmPost = s.indexOf("app.post('/api/admin/payment-methods'", pmStart);
 if (pmStart !== -1 && pmPost !== -1) {
@@ -32,9 +38,7 @@ if (pmStart !== -1 && pmPost !== -1) {
   s = s.slice(0, pmStart) + pmBlock + s.slice(pmPost);
 }
 
-// Rebuild only the Stripe signature-verification prefix using stable route
-// markers, so the cleanup can safely repair both the original and any
-// previously malformed intermediate version.
+// Rebuild only the Stripe signature-verification prefix using stable route markers.
 const stripeStart = s.indexOf("app.post('/api/stripe/webhook'");
 const pingMarker = s.indexOf('  // Record active ping activity', stripeStart);
 const tryMarker = s.indexOf('  try {', stripeStart);
@@ -68,8 +72,7 @@ if (stripeStart !== -1 && tryMarker !== -1 && pingMarker !== -1 && tryMarker < p
   s = s.slice(0, tryMarker) + verification + s.slice(pingMarker);
 }
 
-// Trading signal webhooks must fail closed when the shared secret is absent or
-// incorrect. Authentication is not execution, so don't claim broker execution.
+// Trading signal webhooks must fail closed when the shared secret is absent or incorrect.
 s = s.replace(
   "  if (expectedSecret && secretHeader !== expectedSecret) {",
   "  if (!expectedSecret || secretHeader !== expectedSecret) {"
@@ -81,4 +84,4 @@ s = s.replace(
 
 fs.writeFileSync(path, s);
 console.log('Idempotent production cleanup completed.');
-// Final cleanup rerun marker: 2026-09-02.
+// Final cleanup rerun marker: 2026-09-02 admin middleware.
