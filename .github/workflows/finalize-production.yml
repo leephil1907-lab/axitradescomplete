@@ -38,6 +38,9 @@ jobs:
         run: npm run build
 
       - name: Startup health check
+        env:
+          PORT: 8080
+          NODE_ENV: production
         run: |
           set -e
           npm start > /tmp/axitrades-start.log 2>&1 &
