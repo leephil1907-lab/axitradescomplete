@@ -32,8 +32,9 @@ if (pmStart !== -1 && pmPost !== -1) {
   s = s.slice(0, pmStart) + pmBlock + s.slice(pmPost);
 }
 
-// Rebuild only the Stripe signature-verification prefix. The previous regex
-// could leave an unmatched outer try/catch, so use stable route markers.
+// Rebuild only the Stripe signature-verification prefix using stable route
+// markers, so the cleanup can safely repair both the original and any
+// previously malformed intermediate version.
 const stripeStart = s.indexOf("app.post('/api/stripe/webhook'");
 const pingMarker = s.indexOf('  // Record active ping activity', stripeStart);
 const tryMarker = s.indexOf('  try {', stripeStart);
@@ -80,3 +81,4 @@ s = s.replace(
 
 fs.writeFileSync(path, s);
 console.log('Idempotent production cleanup completed.');
+// Final cleanup rerun marker: 2026-09-02.
