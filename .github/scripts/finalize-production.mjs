@@ -84,4 +84,4 @@ s = s.replace(
 
 fs.writeFileSync(path, s);
 console.log('Idempotent production cleanup completed.');
-// Final cleanup rerun marker: 2026-09-02 admin middleware.
+// Final verified repair trigger: 2026-09-02.
