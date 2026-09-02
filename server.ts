@@ -9,6 +9,7 @@ import nodemailer from 'nodemailer';
 import { sendRegistrationEmails, sendPasswordResetEmail } from './server/emailService';
 import { hasPostgres, initPostgres, dbUsers, dbUpsertUser, dbUpdateUser, audit, dbAuditLogs, dbPaymentMethods, dbSavePaymentMethods, dbCreateFunding, dbFundingPending, dbCreditFunding } from './server/postgres';
 import YahooFinanceRaw from 'yahoo-finance2';
+import { requireAdmin } from './server/adminAuth';
 
 function createYahooFinanceClient() {
   try {
@@ -102,17 +103,14 @@ app.post('/api/stripe/webhook', express.raw({ type: 'application/json' }), async
   let event;
 
   try {
-    if (stripe && webhookSecret && sig) {
-      event = stripe.webhooks.constructEvent(req.body, sig, webhookSecret);
-    } else {
-      // Fallback if webhook secret isn't configured yet
-      const bodyString = Buffer.isBuffer(req.body) ? req.body.toString('utf8') : req.body;
-      event = typeof bodyString === 'string' ? JSON.parse(bodyString) : bodyString;
+    if (!stripe || !webhookSecret || !sig) {
+      return res.status(503).send('Stripe webhook verification is not configured');
     }
+    event = stripe.webhooks.constructEvent(req.body, sig, webhookSecret);
   } catch (err: any) {
     console.error(`⚠️ Webhook signature verification failed:`, err.message);
-    
-    // Update ping activity for error
+
+    // Update ping activity for verification failures.
     webhookPingState.lastPingTimestamp = Date.now();
     webhookPingState.lastPingEvent = 'verification.failed';
     webhookPingState.lastPingStatus = 'Disconnected';
@@ -236,7 +234,7 @@ app.post('/api/webhook/trading-signals', (req, res) => {
   const secretHeader = req.headers['x-webhook-secret'] || req.headers['authorization'];
   const expectedSecret = process.env.WEBHOOK_SECRET;
 
-  if (expectedSecret && secretHeader !== expectedSecret) {
+  if (!expectedSecret || secretHeader !== expectedSecret) {
     return res.status(401).json({ error: 'Unauthorized webhook request' });
   }
 
@@ -252,7 +250,7 @@ app.post('/api/webhook/trading-signals', (req, res) => {
 
   res.json({
     status: 'success',
-    message: 'Webhook signal received and processed by Axi execution gateway',
+    message: 'Webhook signal received and authenticated; execution requires a configured broker execution gateway',
     signal: { symbol, action, price, quantity, comment },
     timestamp: new Date().toISOString()
   });
@@ -272,7 +270,6 @@ app.post('/api/admin/funding/:id/credit', async (req, res) => {
   const deposits = readDataFile<any[]>('pendingDeposits.json', []);
   const index = deposits.findIndex(d => d.id === id);
   if (index < 0) return res.status(404).json({ error: 'Funding record not found' });
-  const persistedCredit = await dbCreditFunding(id, String(req.headers['x-admin-email'] || 'admin')).catch(() => null);
   const persistedCredit = await dbCreditFunding(id, String(req.headers['x-admin-email'] || 'admin')).catch(() => null);
   const deposit = deposits[index];
   if (deposit.creditedByAdmin || deposit.status === 'Credited') return res.status(409).json({ error: 'Funding record has already been credited' });
@@ -297,23 +294,13 @@ app.post('/api/admin/funding/:id/reject', (req, res) => {
 
 const PAYMENT_METHODS_FILE = 'paymentMethods.json';
 
-app.get('/api/admin/payment-methods', async (_req, res) => {
+app.get('/api/admin/payment-methods', requireAdmin, async (_req, res) => {
   const persistedMethods = await dbPaymentMethods().catch(() => null);
   if (persistedMethods) {
     const methods = Object.fromEntries(persistedMethods.map((row) => [row.method_type, { ...(row.details || {}), enabled: row.enabled }]));
     return res.json({ success: true, methods, source: 'postgres' });
   }
-  if (persistedMethods) {
-    const methods = Object.fromEntries(persistedMethods.map((row) => [row.method_type, { ...(row.details || {}), enabled: row.enabled }]));
-    return res.json({ success: true, methods, source: 'postgres' });
-  }
-  const persistedMethods = await dbPaymentMethods().catch(() => null);
-  if (persistedMethods) {
-    const methods = Object.fromEntries(persistedMethods.map((row) => [row.method_type, { ...(row.details || {}), enabled: row.enabled }]));
-    return res.json({ success: true, methods, source: 'postgres' });
-  }
-  const methods = readDataFile<any>(PAYMENT_METHODS_FILE, {});
-  res.json({ success: true, methods });
+  return res.status(503).json({ success: false, error: 'Payment methods storage is unavailable' });
 });
 
 app.post('/api/admin/payment-methods', async (req, res) => {
