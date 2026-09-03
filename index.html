@@ -12,10 +12,86 @@
     <link rel="preconnect" href="https://cdn.fontshare.com" crossorigin>
     <link href="https://api.fontshare.com/v2/css?f[]=general-sans@400,500,600,700&f[]=clash-display@400,500,600,700&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+    <style>
+      /* Keep Google's translation controls invisible; the site's own language selector remains the UI. */
+      .goog-te-banner-frame.skiptranslate,
+      .goog-te-banner-frame,
+      .goog-te-gadget,
+      .goog-tooltip,
+      .goog-te-balloon-frame { display: none !important; }
+      body { top: 0 !important; }
+      #google_translate_element { position: fixed; width: 1px; height: 1px; overflow: hidden; opacity: 0; pointer-events: none; left: -9999px; top: -9999px; }
+    </style>
+    <script>
+      // EUR is the platform's default display currency for new visitors/users.
+      try {
+        if (!localStorage.getItem('axi_display_currency')) {
+          localStorage.setItem('axi_display_currency', 'EUR');
+        }
+      } catch (_) {}
+
+      // The existing Axi language selector stores its choice as axi_language.
+      // This bridge makes that selection actually translate the rendered website.
+      (function () {
+        var languageCodes = {
+          'English (Global)': '',
+          'العربية': 'ar',
+          '中文': 'zh-CN',
+          'Español': 'es',
+          'Français': 'fr',
+          'Bahasa Indonesia': 'id',
+          'Italiano': 'it',
+          '日本語': 'ja',
+          '한국어': 'ko',
+          'Português': 'pt',
+          'ภาษาไทย': 'th',
+          'Tiếng Việt': 'vi'
+        };
+
+        window.googleTranslateElementInit = function () {
+          if (!window.google || !window.google.translate) return;
+          new window.google.translate.TranslateElement({
+            pageLanguage: 'en',
+            includedLanguages: Object.keys(languageCodes).map(function (name) { return languageCodes[name]; }).filter(Boolean).join(','),
+            autoDisplay: false,
+            multilanguagePage: true
+          }, 'google_translate_element');
+          window.__axiGoogleTranslateReady = true;
+        };
+
+        function applyAxiLanguage() {
+          var selected = 'English (Global)';
+          try { selected = localStorage.getItem('axi_language') || selected; } catch (_) {}
+          var target = Object.prototype.hasOwnProperty.call(languageCodes, selected) ? languageCodes[selected] : '';
+          var combo = document.querySelector('.goog-te-combo');
+          if (!combo) return false;
+          if (combo.value !== target) {
+            combo.value = target;
+            combo.dispatchEvent(new Event('change', { bubbles: true }));
+          }
+          return true;
+        }
+
+        var lastLanguage = null;
+        setInterval(function () {
+          var selected = 'English (Global)';
+          try { selected = localStorage.getItem('axi_language') || selected; } catch (_) {}
+          if (selected !== lastLanguage) {
+            lastLanguage = selected;
+            var applied = applyAxiLanguage();
+            if (!applied) {
+              setTimeout(applyAxiLanguage, 800);
+              setTimeout(applyAxiLanguage, 2000);
+            }
+          }
+        }, 500);
+      })();
+    </script>
+    <script src="https://translate.google.com/translate_a/element.js?cb=googleTranslateElementInit" async></script>
   </head>
   <body class="h-full font-sans antialiased bg-slate-950 text-slate-100 selection:bg-[#E3000F] selection:text-white">
+    <div id="google_translate_element" aria-hidden="true"></div>
     <div id="root" class="h-full"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
-
