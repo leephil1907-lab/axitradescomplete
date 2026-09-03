@@ -35,8 +35,10 @@ const oldAdminState = `const [adminEmail,setAdminEmail]=useState('');\n  const [
 const newAdminState = `const [adminPassword,setAdminPassword]=useState('');`;
 if (admin.includes(oldAdminState)) admin = admin.replace(oldAdminState, newAdminState);
 
+// production-admin-local-auth.mjs injects the trimmed email form. Match that exact
+// generated payload so the email state and request body are removed together.
 admin = admin.replace(
-  `body:JSON.stringify({email:adminEmail,password:adminPassword})`,
+  `body:JSON.stringify({email:adminEmail.trim(),password:adminPassword})`,
   `body:JSON.stringify({password:adminPassword})`
 );
 
