@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Banknote, Bitcoin, CreditCard, RefreshCw, Save, Smartphone } from 'lucide-react';
+import { authHeaders } from '../utils/authHeaders';
 
 type PaymentMethods = {
   bankTransfer: { enabled: boolean; bankName: string; accountName: string; accountNumber: string; routingNumber: string; swiftBic: string; currency: string; instructions: string };
@@ -21,7 +22,8 @@ export default function AdminPaymentMethods({ showToast }: { showToast: (message
   const load = async () => {
     setLoading(true);
     try {
-      const res = await fetch('/api/admin/payment-methods');
+      const headers = await authHeaders();
+      const res = await fetch('/api/admin/payment-methods', { headers });
       const data = await res.json();
       if (!res.ok || !data.success) throw new Error(data.error || 'Unable to load payment settings');
       setMethods({ ...empty, ...data.methods, bankTransfer: { ...empty.bankTransfer, ...(data.methods?.bankTransfer || {}) }, instantTransfer: { ...empty.instantTransfer, ...(data.methods?.instantTransfer || {}) }, crypto: { ...empty.crypto, ...(data.methods?.crypto || {}) } });
@@ -39,7 +41,8 @@ export default function AdminPaymentMethods({ showToast }: { showToast: (message
   const save = async () => {
     setSaving(true);
     try {
-      const res = await fetch('/api/admin/payment-methods', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(methods) });
+      const headers = await authHeaders({ 'Content-Type': 'application/json' });
+      const res = await fetch('/api/admin/payment-methods', { method: 'POST', headers, body: JSON.stringify(methods) });
       const data = await res.json();
       if (!res.ok || !data.success) throw new Error(data.error || 'Unable to save payment settings');
       showToast('Payment details saved successfully.', 'success');
