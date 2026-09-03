@@ -9,7 +9,7 @@
   },
   "scripts": {
     "dev": "tsx server.ts",
-    "build": "node .github/scripts/production-hardening.mjs && node scripts/production-finalize.mjs && node scripts/apply-postgres-operational-persistence.mjs && node scripts/apply-authenticated-user-api.mjs && node scripts/production-real-funding.mjs && node scripts/apply-email-hardening.mjs && node .github/scripts/production-ui-hardening.mjs && node .github/scripts/production-admin-hardening.mjs && node scripts/production-admin-local-auth.mjs && node scripts/production-admin-flow-fix.mjs && node scripts/production-admin-route-finalize.mjs && node scripts/production-admin-click-finalize.mjs && node scripts/production-mobile-admin-route.mjs && node scripts/production-multi-wallet-payment-methods.mjs && node scripts/production-payment-branding.mjs && vite build && esbuild server.ts --bundle --platform=node --format=cjs --packages=external --sourcemap --outfile=dist/server.cjs",
+    "build": "node .github/scripts/production-hardening.mjs && node scripts/production-finalize.mjs && node scripts/apply-postgres-operational-persistence.mjs && node scripts/apply-authenticated-user-api.mjs && node scripts/production-real-funding.mjs && node scripts/apply-email-hardening.mjs && node .github/scripts/production-ui-hardening.mjs && node .github/scripts/production-admin-hardening.mjs && node scripts/production-admin-local-auth.mjs && node scripts/production-admin-flow-fix.mjs && node scripts/production-admin-route-finalize.mjs && node scripts/production-admin-click-finalize.mjs && node scripts/production-mobile-admin-route.mjs && node scripts/production-multi-wallet-payment-methods.mjs && node scripts/production-quick-deposit-payment-methods.mjs && node scripts/production-payment-branding.mjs && vite build && esbuild server.ts --bundle --platform=node --format=cjs --packages=external --sourcemap --outfile=dist/server.cjs",
     "start": "node dist/server.cjs",
     "clean": "rm -rf dist",
     "lint": "tsc --noEmit"
@@ -22,7 +22,7 @@
     "@stripe/react-stripe-js": "^6.8.0",
     "@stripe/stripe-js": "^9.10.0",
     "@tailwindcss/vite": "^4.1.14",
-    "@vitejs/plugin-react": "^5.0.4",
+    "@vitejs/plugin-react": "^5.0.0",
     "dotenv": "^17.2.3",
     "esbuild": "^0.25.12",
     "express": "^4.21.2",
