@@ -343,6 +343,9 @@ export default function FundsView({
   const activeMethod = depositMethods.find(m => m.id === selectedMethodId) || depositMethods[0];
   const activeCryptoWallet = cryptoWallets[selectedMethodId] || (selectedMethodId === 'usdt_trc20' ? cryptoWallets.usdt : null);
 
+  // Diagnostic logging: payment configuration can legitimately load asynchronously.
+  if (import.meta.env.DEV) console.debug('[FundsView] activeMethod:', activeMethod);
+
   const handleCopy = (text: string, key: string) => {
     copyToClipboard(text);
     setCopiedKey(key);
@@ -398,8 +401,8 @@ export default function FundsView({
       amount: amountNum,
       date: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' }),
       status: 'Pending Verification',
-      method: activeMethod.name,
-      network: activeCryptoWallet?.network || activeMethod.name,
+      method: activeMethod?.name || selectedMethodId,
+      network: activeCryptoWallet?.network || activeMethod?.name || selectedMethodId,
       recipient: activeCryptoWallet?.address || bankSettings.accountNumber,
       txHash: txHashOrRef.trim() || 'Provided via receipt',
       senderName: senderAccountName.trim() || 'Authorized Client Account',
@@ -848,7 +851,7 @@ export default function FundsView({
                       : 'U39281094 (Axi Corp)'
                   );
                   const methodInstructions = customMethodConfig?.instructions || (
-                    `Transfer funds to the official Axi ${activeMethod.name} account below, then enter your transaction reference ID to confirm:`
+                    `Transfer funds to the official Axi ${activeMethod?.name || selectedMethodId} account below, then enter your transaction reference ID to confirm:`
                   );
 
                   return (
@@ -856,7 +859,7 @@ export default function FundsView({
                       <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 text-xs text-slate-700 space-y-2">
                         <div className="font-bold text-slate-900 flex items-center gap-2">
                           <PaymentMethodBrandIcon id={selectedMethodId} className="w-6 h-4" />
-                          {activeMethod.name} Instructions
+                          {activeMethod?.name || selectedMethodId} Instructions
                         </div>
                         <p>{methodInstructions}</p>
                         <div className="bg-white p-3 rounded-lg border border-slate-200 space-y-1">
@@ -881,7 +884,7 @@ export default function FundsView({
                       <form onSubmit={handleTransferCompletionSubmit} className="space-y-3">
                         <div>
                           <label className="text-[10px] font-bold uppercase tracking-wider text-slate-600 block mb-1">
-                            Your {activeMethod.name} Transaction ID / Ref *
+                            Your {activeMethod?.name || selectedMethodId} Transaction ID / Ref *
                           </label>
                           <input
                             type="text"
@@ -927,7 +930,7 @@ export default function FundsView({
                           className="w-full bg-slate-900 hover:bg-slate-800 active:bg-black text-white font-black py-3.5 px-4 rounded-xl text-xs uppercase tracking-wider transition flex items-center justify-center gap-2 cursor-pointer shadow-sm"
                         >
                           <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-                          Confirm {activeMethod.name} Transfer
+                          Confirm {activeMethod?.name || selectedMethodId} Transfer
                         </button>
                       </form>
                     </div>
@@ -1057,7 +1060,7 @@ export default function FundsView({
                 )}
 
                 {/* Method 4: Cryptocurrency Deposit */}
-                {activeMethod.category === 'crypto' && (
+                {activeMethod?.category === 'crypto' && (
                   <div className="space-y-4">
                     <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 text-center">
                       <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-500 block mb-2">
@@ -1107,7 +1110,7 @@ export default function FundsView({
                           <div>
                             <div className="flex items-center justify-between mb-1">
                               <label className="text-[10px] font-bold uppercase tracking-wider text-amber-700 block">
-                                Destination Memo / Tag (Required for {activeMethod.name})
+                                Destination Memo / Tag (Required for {activeMethod?.name || selectedMethodId})
                               </label>
                               <span className="text-[10px] font-bold text-amber-800">Click memo to copy</span>
                             </div>
