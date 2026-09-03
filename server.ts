@@ -262,7 +262,7 @@ app.use((req, res, next) => {
 
 // General Express JSON middleware for all other API routes
 app.use(express.json());
-app.post('/api/admin/login',(req,res)=>{if(!adminLoginConfigured())return res.status(503).json({error:'Administrator authentication is not configured'});const token=authenticateAdminCredentials(String(req.body?.email||''),String(req.body?.password||''));if(!token)return res.status(401).json({error:'Incorrect administrator email or password.'});return res.json({token,expiresIn:43200});});
+app.post('/api/admin/login',(req,res)=>{if(!adminLoginConfigured())return res.status(503).json({error:'Administrator authentication is not configured'});const token=authenticateAdminCredentials(String(req.body?.email||process.env.ADMIN_EMAIL||''),String(req.body?.password||''));if(!token)return res.status(401).json({error:'Incorrect administrator email or password.'});return res.json({token,expiresIn:43200});});
 
 // POSTGRES_OPERATIONAL_ROUTES_MARKER
 // Production operational records are persisted in PostgreSQL. These routes are
