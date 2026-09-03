@@ -6,7 +6,7 @@
   "engines": {"node": ">=22 <23", "npm": ">=10"},
   "scripts": {
     "dev": "tsx server.ts",
-    "build": "node .github/scripts/production-hardening.mjs && node scripts/production-finalize.mjs && node scripts/apply-postgres-operational-persistence.mjs && node scripts/apply-authenticated-user-api.mjs && node scripts/apply-email-hardening.mjs && node .github/scripts/production-ui-hardening.mjs && node scripts/production-admin-funding-ui.mjs && vite build && esbuild server.ts --bundle --platform=node --format=cjs --packages=external --sourcemap --outfile=dist/server.cjs",
+    "build": "node .github/scripts/production-hardening.mjs && node scripts/production-finalize.mjs && node scripts/apply-postgres-operational-persistence.mjs && node scripts/apply-authenticated-user-api.mjs && node scripts/apply-email-hardening.mjs && node .github/scripts/production-ui-hardening.mjs && node scripts/production-admin-funding-ui.mjs && node scripts/production-admin-local-auth.mjs && vite build && esbuild server.ts --bundle --platform=node --format=cjs --packages=external --sourcemap --outfile=dist/server.cjs",
     "start": "node dist/server.cjs",
     "clean": "rm -rf dist",
     "lint": "tsc --noEmit"
