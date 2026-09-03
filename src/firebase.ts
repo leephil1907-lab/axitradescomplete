@@ -16,7 +16,9 @@ const config = {
 const databaseId = import.meta.env.VITE_FIREBASE_DATABASE_ID || (defaultConfig as Record<string, string>).firestoreDatabaseId;
 
 const app = initializeApp(config);
-export const db = getFirestore(app, databaseId);
+
+// A missing/empty Firestore database id must not be passed to getFirestore().
+// The default database is the normal Firebase production configuration.
+export const db = databaseId ? getFirestore(app, databaseId) : getFirestore(app);
 export const auth = getAuth(app);
 export const storage = getStorage(app);
-
