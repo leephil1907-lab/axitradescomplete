@@ -105,15 +105,15 @@ export default function TawkToWidget({ currentUser }: TawkToWidgetProps) {
               <div className="w-5 h-5 rounded-full bg-[#E3000F] flex items-center justify-center overflow-hidden shrink-0">
                 <AxiLogo variant="white" size="sm" className="h-3 w-auto" />
               </div>
-              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
-              <span className="text-xs font-black uppercase text-emerald-400">Axi Live Officer Online</span>
+              <span className="w-2 h-2 rounded-full bg-[#E3000F] animate-ping" />
+              <span className="text-xs font-black uppercase text-[#FFD250]">Axi Live Officer Online</span>
             </div>
             <p className="text-xs text-slate-300 leading-relaxed">
               Need assistance with deposits, withdrawals, or account verification? Click to start live chat.
             </p>
             <button
               onClick={handleLaunchChat}
-              className="mt-3 w-full bg-[#E3000F] hover:bg-[#c0000d] text-white text-xs font-black py-2 rounded-xl flex items-center justify-center gap-1.5 transition cursor-pointer shadow-md"
+              className="mt-3 w-full bg-[#E3000F] hover:bg-[#CC000D] text-white text-xs font-black py-2 rounded-xl flex items-center justify-center gap-1.5 transition cursor-pointer shadow-md"
             >
               <MessageSquare className="w-3.5 h-3.5" /> Start Live Conversation
             </button>
@@ -131,24 +131,24 @@ export default function TawkToWidget({ currentUser }: TawkToWidgetProps) {
         onClick={handleLaunchChat}
         onMouseEnter={() => setShowQuickPopup(true)}
         onMouseLeave={() => setShowQuickPopup(false)}
-        className="bg-slate-950 hover:bg-slate-900 text-white pl-4 pr-5 py-3 rounded-full shadow-2xl flex items-center gap-3 border-2 border-emerald-500/80 cursor-pointer group transition-all"
-        style={{ boxShadow: '0 10px 30px -5px rgba(0, 0, 0, 0.8), 0 0 15px 0 rgba(16, 185, 129, 0.4)' }}
+        className="bg-slate-950 hover:bg-slate-900 text-white pl-4 pr-5 py-3 rounded-full shadow-2xl flex items-center gap-3 border-2 border-[#E3000F] cursor-pointer group transition-all"
+        style={{ boxShadow: '0 10px 30px -5px rgba(0, 0, 0, 0.8), 0 0 15px 0 rgba(227, 0, 15, 0.28)' }}
         aria-label="Open Axi Live Support Chat"
       >
         <div className="relative flex items-center justify-center">
           <div className="w-9 h-9 rounded-full bg-[#E3000F] flex items-center justify-center text-white font-black text-xs shadow-md overflow-hidden">
             <AxiLogo variant="white" size="sm" className="h-5 w-auto" />
           </div>
-          <span className="absolute -top-0.5 -right-0.5 w-3 h-3 bg-emerald-400 border-2 border-slate-950 rounded-full animate-ping" />
-          <span className="absolute -top-0.5 -right-0.5 w-3 h-3 bg-emerald-500 border-2 border-slate-950 rounded-full" />
+          <span className="absolute -top-0.5 -right-0.5 w-3 h-3 bg-[#FFD250] border-2 border-slate-950 rounded-full animate-ping" />
+          <span className="absolute -top-0.5 -right-0.5 w-3 h-3 bg-[#FFD250] border-2 border-slate-950 rounded-full" />
         </div>
 
         <div className="flex flex-col text-left">
           <span className="text-xs font-black tracking-wide text-white flex items-center gap-1">
             Live Support
           </span>
-          <span className="text-[10px] text-emerald-400 font-bold flex items-center gap-1">
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span> 24/7 Live Online
+          <span className="text-[10px] text-[#FFD250] font-bold flex items-center gap-1">
+            <span className="w-1.5 h-1.5 rounded-full bg-[#FFD250]"></span> 24/7 Live Online
           </span>
         </div>
       </motion.button>
