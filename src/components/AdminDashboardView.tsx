@@ -3,125 +3,29 @@ import { useSiteCMS } from '../hooks/useSiteCMS';
 import { ViewType, DisplayCurrency } from '../types';
 import AdminFundingQueue from './AdminFundingQueue';
 import AdminPaymentMethods from './AdminPaymentMethods';
+import { authHeaders } from '../utils/authHeaders';
+import { RefreshCw, CheckCircle2, XCircle, Users, ShieldCheck } from 'lucide-react';
 
-interface AdminDashboardViewProps {
-  transactions: any[];
-  updateTransactionStatus: (id: string, status: string) => void;
-  setLiveBalance: React.Dispatch<React.SetStateAction<number>>;
-  liveBalance: number;
-  setView: (view: ViewType) => void;
-  showToast: (msg: string, type: 'success' | 'error' | 'info') => void;
-  displayCurrency?: DisplayCurrency;
-  setDisplayCurrency?: (curr: DisplayCurrency) => void;
-  formatCurrency?: (usdAmount: number, targetCurrency?: DisplayCurrency, decimals?: number) => string;
-}
+interface Props { transactions:any[]; updateTransactionStatus:(id:string,status:string)=>void; setLiveBalance:React.Dispatch<React.SetStateAction<number>>; liveBalance:number; setView:(view:ViewType)=>void; showToast:(msg:string,type:'success'|'error'|'info')=>void; displayCurrency?:DisplayCurrency; setDisplayCurrency?:(curr:DisplayCurrency)=>void; formatCurrency?:(usdAmount:number,targetCurrency?:DisplayCurrency,decimals?:number)=>string; }
+interface UserRecord { id:string; name?:string; email:string; status?:string; verificationStatus?:string; kycStatus?:string; balance?:number; registered_at?:string; registeredAt?:string; }
+interface KycRecord { id:string; user?:string; userEmail?:string; type?:string; status?:string; submittedAt?:string; documents?:Array<{label:string;url:string;fileName:string}>; rejectionReason?:string; }
 
-export default function AdminDashboardView({
-  setView,
-  showToast,
-  transactions,
-  updateTransactionStatus,
-  setLiveBalance,
-  liveBalance,
-  displayCurrency = 'USD',
-  setDisplayCurrency,
-  formatCurrency = (amt) => `$${amt.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-}: AdminDashboardViewProps) {
-  const { cmsContent } = useSiteCMS();
-  const [activeTab, setActiveTab] = useState<'overview' | 'funding' | 'payments'>('overview');
-  const [adminNote, setAdminNote] = useState('');
-
-  useEffect(() => {
-    document.title = 'AXITRADES Admin';
-  }, []);
-
-  const pendingCount = transactions.filter((tx) => {
-    const status = String(tx?.status ?? '').toLowerCase();
-    return status.includes('pending') || status.includes('awaiting');
-  }).length;
-
-  const handleStatusUpdate = (id: string, status: string) => {
-    updateTransactionStatus(id, status);
-    showToast(`Transaction ${id} updated to ${status}.`, 'success');
-  };
-
-  return (
-    <div className="min-h-screen bg-slate-950 text-white">
-      <header className="border-b border-white/10 px-6 py-5">
-        <div className="mx-auto flex max-w-7xl items-center justify-between gap-4">
-          <div>
-            <h1 className="text-2xl font-bold tracking-tight">AXITRADES Admin</h1>
-            <p className="mt-1 text-sm text-slate-400">Production operations and funding control</p>
-          </div>
-          <button
-            type="button"
-            onClick={() => setView('dashboard' as ViewType)}
-            className="rounded-lg border border-white/10 px-4 py-2 text-sm hover:bg-white/5"
-          >
-            Back to Dashboard
-          </button>
-        </div>
-      </header>
-
-      <main className="mx-auto max-w-7xl space-y-6 p-6">
-        <section className="grid gap-4 md:grid-cols-3">
-          <div className="rounded-xl border border-white/10 bg-white/[0.03] p-5">
-            <p className="text-xs uppercase tracking-wider text-slate-400">Available Balance</p>
-            <p className="mt-2 text-2xl font-semibold">{formatCurrency(liveBalance, displayCurrency)}</p>
-          </div>
-          <div className="rounded-xl border border-white/10 bg-white/[0.03] p-5">
-            <p className="text-xs uppercase tracking-wider text-slate-400">Pending Transactions</p>
-            <p className="mt-2 text-2xl font-semibold">{pendingCount}</p>
-          </div>
-          <div className="rounded-xl border border-white/10 bg-white/[0.03] p-5">
-            <p className="text-xs uppercase tracking-wider text-slate-400">Currency</p>
-            <p className="mt-2 text-2xl font-semibold">{displayCurrency}</p>
-          </div>
-        </section>
-
-        <nav className="flex flex-wrap gap-2 border-b border-white/10 pb-3">
-          {(['overview', 'funding', 'payments'] as const).map((tab) => (
-            <button
-              key={tab}
-              type="button"
-              onClick={() => setActiveTab(tab)}
-              className={`rounded-lg px-4 py-2 text-sm font-medium ${activeTab === tab ? 'bg-white text-slate-950' : 'bg-white/5 text-slate-300 hover:bg-white/10'}`}
-            >
-              {tab === 'overview' ? 'Overview' : tab === 'funding' ? 'Funding' : 'Payment Settings'}
-            </button>
-          ))}
-        </nav>
-
-        {activeTab === 'overview' && (
-          <section className="rounded-xl border border-white/10 bg-white/[0.03] p-6">
-            <h2 className="text-lg font-semibold">Transaction controls</h2>
-            <p className="mt-1 text-sm text-slate-400">Only real transaction records should appear here. No demo records are created by this component.</p>
-            <div className="mt-5 space-y-3">
-              {transactions.length === 0 ? (
-                <div className="rounded-lg border border-dashed border-white/10 p-6 text-center text-sm text-slate-500">No transaction records available.</div>
-              ) : transactions.map((tx) => (
-                <div key={String(tx.id)} className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-white/10 p-4">
-                  <div>
-                    <p className="font-medium">{String(tx.id)}</p>
-                    <p className="text-sm text-slate-400">{String(tx.status ?? 'Unknown')}</p>
-                  </div>
-                  <div className="flex gap-2">
-                    <button type="button" onClick={() => handleStatusUpdate(String(tx.id), 'Approved')} className="rounded-md bg-white px-3 py-2 text-sm font-medium text-slate-950">Approve</button>
-                    <button type="button" onClick={() => handleStatusUpdate(String(tx.id), 'Rejected')} className="rounded-md border border-white/10 px-3 py-2 text-sm">Reject</button>
-                  </div>
-                </div>
-              ))}
-            </div>
-            <div className="mt-6">
-              <label htmlFor="admin-note" className="mb-2 block text-sm text-slate-400">Admin note</label>
-              <textarea id="admin-note" value={adminNote} onChange={(e) => setAdminNote(e.target.value)} className="min-h-24 w-full rounded-lg border border-white/10 bg-black/20 p-3 outline-none" placeholder="Enter a real operational note..." />
-            </div>
-          </section>
-        )}
-
-        {activeTab === 'funding' && <AdminFundingQueue showToast={showToast} />}
-        {activeTab === 'payments' && <AdminPaymentMethods showToast={showToast} />}
-      </main>
-    </div>
-  );
+export default function AdminDashboardView({ setView, showToast, transactions, updateTransactionStatus, liveBalance, displayCurrency='USD', formatCurrency=(amt)=>`$${amt.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}` }: Props) {
+  const { cmsContent } = useSiteCMS(); void cmsContent;
+  const [activeTab,setActiveTab]=useState<'overview'|'users'|'kyc'|'funding'|'payments'>('overview');
+  const [users,setUsers]=useState<UserRecord[]>([]); const [kyc,setKyc]=useState<KycRecord[]>([]); const [loadingUsers,setLoadingUsers]=useState(false); const [loadingKyc,setLoadingKyc]=useState(false);
+  useEffect(()=>{document.title='AXITRADES Admin';},[]);
+  const loadUsers=async()=>{setLoadingUsers(true);try{const r=await fetch('/api/users',{headers:await authHeaders()});const d=await r.json();if(!r.ok)throw new Error(d.error||'Failed to load users');setUsers(Array.isArray(d.users)?d.users:[]);}catch(e:any){showToast(e.message||'Could not load users','error');}finally{setLoadingUsers(false);}};
+  const loadKyc=async()=>{setLoadingKyc(true);try{const r=await fetch('/api/kyc/list',{headers:await authHeaders()});const d=await r.json();if(!r.ok)throw new Error(d.error||'Failed to load KYC');setKyc(Array.isArray(d.documents)?d.documents:[]);}catch(e:any){showToast(e.message||'Could not load KYC submissions','error');}finally{setLoadingKyc(false);}};
+  useEffect(()=>{if(activeTab==='users')void loadUsers();if(activeTab==='kyc')void loadKyc();},[activeTab]);
+  const kycAction=async(id:string,action:'approve'|'reject')=>{let reason='';if(action==='reject'){reason=window.prompt('Enter the reason for rejecting this KYC submission:')||'';if(!reason.trim()){showToast('A rejection reason is required.','error');return;}}try{const r=await fetch(`/api/kyc/${action}`,{method:'POST',headers:await authHeaders({'Content-Type':'application/json'}),body:JSON.stringify({id,...(reason?{reason}: {})})});const d=await r.json();if(!r.ok)throw new Error(d.error||`KYC ${action} failed`);showToast(`KYC ${action}ed successfully.`,'success');await loadKyc();}catch(e:any){showToast(e.message||`KYC ${action} failed`,'error');}};
+  const pendingCount=transactions.filter(tx=>/pending|awaiting/i.test(String(tx?.status||''))).length;
+  const tabs=[['overview','Overview'],['users','Users'],['kyc','KYC Review'],['funding','Funding'],['payments','Payment Settings']] as const;
+  return <div className="min-h-screen bg-slate-950 text-white"><header className="border-b border-white/10 px-6 py-5"><div className="mx-auto flex max-w-7xl items-center justify-between gap-4"><div><h1 className="text-2xl font-bold">AXITRADES Admin</h1><p className="mt-1 text-sm text-slate-400">Production operations — authenticated administrator access</p></div><button type="button" onClick={()=>setView('dashboard')} className="rounded-lg border border-white/10 px-4 py-2 text-sm">Back to Dashboard</button></div></header>
+  <main className="mx-auto max-w-7xl space-y-6 p-6"><section className="grid gap-4 md:grid-cols-3"><div className="rounded-xl border border-white/10 bg-white/[.03] p-5"><p className="text-xs uppercase text-slate-400">Available Balance</p><p className="mt-2 text-2xl font-semibold">{formatCurrency(liveBalance,displayCurrency)}</p></div><div className="rounded-xl border border-white/10 bg-white/[.03] p-5"><p className="text-xs uppercase text-slate-400">Pending Transactions</p><p className="mt-2 text-2xl font-semibold">{pendingCount}</p></div><div className="rounded-xl border border-white/10 bg-white/[.03] p-5"><p className="text-xs uppercase text-slate-400">Registered Users</p><p className="mt-2 text-2xl font-semibold">{users.length || '—'}</p></div></section>
+  <nav className="flex flex-wrap gap-2 border-b border-white/10 pb-3">{tabs.map(([id,label])=><button key={id} type="button" onClick={()=>setActiveTab(id)} className={`rounded-lg px-4 py-2 text-sm font-medium ${activeTab===id?'bg-white text-slate-950':'bg-white/5 text-slate-300'}`}>{label}</button>)}</nav>
+  {activeTab==='overview'&&<section className="rounded-xl border border-white/10 bg-white/[.03] p-6"><h2 className="text-lg font-semibold">Transaction controls</h2><p className="mt-1 text-sm text-slate-400">Only persisted transaction records are actionable here.</p><div className="mt-5 space-y-3">{transactions.length===0?<div className="rounded-lg border border-dashed border-white/10 p-6 text-center text-sm text-slate-500">No transaction records available.</div>:transactions.map(tx=><div key={String(tx.id)} className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-white/10 p-4"><div><p className="font-medium">{String(tx.id)}</p><p className="text-sm text-slate-400">{String(tx.status||'Unknown')}</p></div><div className="flex gap-2"><button type="button" onClick={()=>{updateTransactionStatus(String(tx.id),'Approved');showToast(`Transaction ${tx.id} updated.`,'success')}} className="rounded-md bg-white px-3 py-2 text-sm font-medium text-slate-950">Approve</button><button type="button" onClick={()=>{updateTransactionStatus(String(tx.id),'Rejected');showToast(`Transaction ${tx.id} updated.`,'success')}} className="rounded-md border border-white/10 px-3 py-2 text-sm">Reject</button></div></div>)}</div></section>}
+  {activeTab==='users'&&<section className="rounded-xl border border-white/10 bg-white/[.03] p-6"><div className="flex items-center justify-between"><div><h2 className="text-lg font-semibold flex items-center gap-2"><Users className="w-5 h-5"/>Registered users</h2><p className="text-sm text-slate-400">Loaded from the authenticated server registry.</p></div><button onClick={()=>void loadUsers()} disabled={loadingUsers} className="rounded-lg border border-white/10 px-3 py-2 text-sm flex items-center gap-2"><RefreshCw className={`w-4 h-4 ${loadingUsers?'animate-spin':''}`}/>Refresh</button></div><div className="mt-5 overflow-x-auto"><table className="w-full text-left text-sm"><thead className="text-slate-400"><tr><th className="p-3">User</th><th className="p-3">Status</th><th className="p-3">KYC</th><th className="p-3">Balance</th><th className="p-3">Registered</th></tr></thead><tbody>{users.map(u=><tr key={u.id} className="border-t border-white/10"><td className="p-3"><div className="font-medium">{u.name||'—'}</div><div className="text-xs text-slate-400">{u.email}</div></td><td className="p-3">{u.status||'Pending'}</td><td className="p-3">{u.kycStatus||'NOT_STARTED'}</td><td className="p-3">{formatCurrency(Number(u.balance||0),displayCurrency)}</td><td className="p-3 text-slate-400">{u.registered_at||u.registeredAt||'—'}</td></tr>)}</tbody></table>{!users.length&&!loadingUsers&&<p className="py-8 text-center text-sm text-slate-500">No server-side users returned.</p>}</div></section>}
+  {activeTab==='kyc'&&<section className="rounded-xl border border-white/10 bg-white/[.03] p-6"><div className="flex items-center justify-between"><div><h2 className="text-lg font-semibold flex items-center gap-2"><ShieldCheck className="w-5 h-5"/>Manual KYC review</h2><p className="text-sm text-slate-400">Approve or reject only after reviewing the submitted documents.</p></div><button onClick={()=>void loadKyc()} disabled={loadingKyc} className="rounded-lg border border-white/10 px-3 py-2 text-sm flex items-center gap-2"><RefreshCw className={`w-4 h-4 ${loadingKyc?'animate-spin':''}`}/>Refresh</button></div><div className="mt-5 space-y-4">{kyc.map(d=><div key={d.id} className="rounded-xl border border-white/10 p-4"><div className="flex flex-wrap justify-between gap-3"><div><div className="font-semibold">{d.user||'—'}</div><div className="text-xs text-slate-400">{d.userEmail||'—'} · {d.type||'Identity verification'}</div></div><span className="text-xs font-bold">{d.status||'Under Review'}</span></div>{d.documents?.length?<div className="mt-3 flex flex-wrap gap-2">{d.documents.map((doc,i)=><a key={i} href={doc.url} target="_blank" rel="noreferrer" className="rounded-md border border-white/10 px-3 py-2 text-xs text-slate-200 hover:bg-white/5">View {doc.label||doc.fileName}</a>)}</div>:null}<div className="mt-4 flex gap-2"><button type="button" onClick={()=>void kycAction(d.id,'approve')} className="rounded-md bg-emerald-500/20 px-3 py-2 text-xs text-emerald-300 flex items-center gap-1"><CheckCircle2 className="w-4 h-4"/>Approve</button><button type="button" onClick={()=>void kycAction(d.id,'reject')} className="rounded-md bg-rose-500/20 px-3 py-2 text-xs text-rose-300 flex items-center gap-1"><XCircle className="w-4 h-4"/>Reject</button></div></div>)}{!kyc.length&&!loadingKyc&&<p className="py-8 text-center text-sm text-slate-500">No KYC submissions available for review.</p>}</div></section>}
+  {activeTab==='funding'&&<AdminFundingQueue showToast={showToast}/>} {activeTab==='payments'&&<AdminPaymentMethods showToast={showToast}/>}</main></div>;
 }
