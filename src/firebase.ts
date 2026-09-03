@@ -4,21 +4,23 @@ import { getFirestore } from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
 import defaultConfig from '../firebase-applet-config.json';
 
+// Firebase's generated web configuration is the canonical configuration for
+// this application. Do not allow unrelated Railway/NEXT_PUBLIC variables to
+// silently override the Web API key and cause auth/invalid-api-key at startup.
 const config = {
-  apiKey: import.meta.env.VITE_FIREBASE_API_KEY || defaultConfig.apiKey,
-  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || defaultConfig.authDomain,
-  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || defaultConfig.projectId,
-  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || defaultConfig.storageBucket,
-  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || defaultConfig.messagingSenderId,
-  appId: import.meta.env.VITE_FIREBASE_APP_ID || defaultConfig.appId,
+  apiKey: defaultConfig.apiKey,
+  authDomain: defaultConfig.authDomain,
+  projectId: defaultConfig.projectId,
+  storageBucket: defaultConfig.storageBucket,
+  messagingSenderId: defaultConfig.messagingSenderId,
+  appId: defaultConfig.appId,
 };
 
-const databaseId = import.meta.env.VITE_FIREBASE_DATABASE_ID || (defaultConfig as Record<string, string>).firestoreDatabaseId;
+const databaseId = (defaultConfig as Record<string, string>).firestoreDatabaseId;
 
 const app = initializeApp(config);
 
 // A missing/empty Firestore database id must not be passed to getFirestore().
-// The default database is the normal Firebase production configuration.
 export const db = databaseId ? getFirestore(app, databaseId) : getFirestore(app);
 export const auth = getAuth(app);
 export const storage = getStorage(app);
