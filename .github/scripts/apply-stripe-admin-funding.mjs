@@ -2,7 +2,6 @@ import fs from 'node:fs';
 
 const serverPath = 'server.ts';
 let server = fs.readFileSync(serverPath, 'utf8');
-
 const marker = "const PORT = Number(process.env.PORT) || 3000;";
 if (!server.includes(marker)) throw new Error('server PORT marker not found');
 if (!server.includes("/api/admin/funding/pending")) {
@@ -12,7 +11,6 @@ app.get('/api/admin/funding/pending', (_req, res) => {
   const deposits = readDataFile<any[]>('pendingDeposits.json', []);
   res.json({ deposits: deposits.filter(d => !d.creditedByAdmin && d.status !== 'Rejected') });
 });
-
 app.post('/api/admin/funding/:id/credit', (req, res) => {
   const id = String(req.params.id || '');
   const deposits = readDataFile<any[]>('pendingDeposits.json', []);
@@ -26,7 +24,6 @@ app.post('/api/admin/funding/:id/credit', (req, res) => {
   writeDataFile('pendingDeposits.json', deposits);
   res.json({ success: true, deposit: deposits[index] });
 });
-
 app.post('/api/admin/funding/:id/reject', (req, res) => {
   const id = String(req.params.id || '');
   const deposits = readDataFile<any[]>('pendingDeposits.json', []);
@@ -37,26 +34,21 @@ app.post('/api/admin/funding/:id/reject', (req, res) => {
   writeDataFile('pendingDeposits.json', deposits);
   res.json({ success: true, deposit: deposits[index] });
 });
-
 `;
   server = server.replace(marker, block + marker);
 }
 fs.writeFileSync(serverPath, server);
 
+// AdminDashboardView already renders AdminFundingQueue from its funding tab.
+// Do not inject a second root element: that previously caused the workflow to
+// depend on a brittle JSX function marker and was the source of the deployment failure.
 const adminPath = 'src/components/AdminDashboardView.tsx';
-let admin = fs.readFileSync(adminPath, 'utf8');
+const admin = fs.readFileSync(adminPath, 'utf8');
 if (!admin.includes("import AdminFundingQueue from './AdminFundingQueue';")) {
-  const importMarker = "import AdminPaymentMethods from './AdminPaymentMethods';";
-  if (!admin.includes(importMarker)) throw new Error('admin import marker not found');
-  admin = admin.replace(importMarker, "import AdminFundingQueue from './AdminFundingQueue';\n" + importMarker);
+  throw new Error('AdminFundingQueue import missing from AdminDashboardView');
 }
-
-if (!admin.includes('<AdminFundingQueue showToast={showToast}/>') && !admin.includes('<AdminFundingQueue showToast={showToast} />')) {
-  const returnIndex = admin.indexOf('return <div');
-  if (returnIndex < 0) throw new Error('admin render marker not found');
-  admin = admin.slice(0, returnIndex) + 'return (\n    <AdminFundingQueue showToast={showToast} />\n' + admin.slice(returnIndex + 'return <div'.length);
-  admin = admin.replace('return (\n    <AdminFundingQueue showToast={showToast} />\n className=', 'return (\n    <AdminFundingQueue showToast={showToast} />\n    <div className=');
+if (!admin.includes("activeTab==='funding'&&<AdminFundingQueue showToast={showToast}/>") && !admin.includes("activeTab==='funding'&&<AdminFundingQueue showToast={showToast} />")) {
+  throw new Error('Admin funding tab render marker missing from AdminDashboardView');
 }
-fs.writeFileSync(adminPath, admin);
 
 console.log('Stripe manual-credit queue wiring verified');
