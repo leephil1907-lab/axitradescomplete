@@ -12,7 +12,6 @@ export interface TawkToConfig {
 
 const DEFAULT_TAWKTO_CONFIG: TawkToConfig = {
   enabled: true,
-  // User provided Tawk.to credentials
   propertyId: (import.meta.env.VITE_TAWKTO_PROPERTY_ID as string) || '6a877895e687441d49b91140',
   widgetId: (import.meta.env.VITE_TAWKTO_WIDGET_ID as string) || 'default',
   directChatUrl: (import.meta.env.VITE_TAWKTO_DIRECT_URL as string) || 'https://tawk.to/chat/6a877895e687441d49b91140/default',
@@ -38,30 +37,21 @@ export const getTawkToConfig = (): TawkToConfig => {
     const saved = safeStorage.getItem('axi_tawkto_config');
     if (saved) {
       const parsed = JSON.parse(saved);
-      return { 
-        ...DEFAULT_TAWKTO_CONFIG, 
-        ...parsed
-      };
+      return { ...DEFAULT_TAWKTO_CONFIG, ...parsed };
     }
   } catch (e) {
     console.warn('Failed to parse saved Tawk.to config:', e);
   }
-  return {
-    ...DEFAULT_TAWKTO_CONFIG
-  };
+  return { ...DEFAULT_TAWKTO_CONFIG };
 };
 
-// Async fetch from backend server
 export const fetchBackendTawkToConfig = async (): Promise<TawkToConfig | null> => {
   try {
     const res = await fetch('/api/tawkto/config');
     if (res.ok) {
       const data = await res.json();
       if (data && data.config && data.config.propertyId) {
-        const merged: TawkToConfig = {
-          ...getTawkToConfig(),
-          ...data.config
-        };
+        const merged: TawkToConfig = { ...getTawkToConfig(), ...data.config };
         safeStorage.setItem('axi_tawkto_config', JSON.stringify(merged));
         window.dispatchEvent(new CustomEvent('axi_tawkto_config_updated', { detail: merged }));
         return merged;
@@ -76,22 +66,20 @@ export const fetchBackendTawkToConfig = async (): Promise<TawkToConfig | null> =
 export const saveTawkToConfig = (updates: Partial<TawkToConfig>): TawkToConfig => {
   const current = getTawkToConfig();
   const updated = { ...current, ...updates };
-  
-  // Clean propertyId if user pasted full script or URL
+
   if (updated.propertyId) {
-    let cleanProp = updated.propertyId.trim();
+    const cleanProp = updated.propertyId.trim();
     if (cleanProp.includes('embed.tawk.to/')) {
       const parts = cleanProp.split('embed.tawk.to/')[1].split('/');
       if (parts[0]) updated.propertyId = parts[0];
-      if (parts[1]) updated.widgetId = parts[1].replace(/['";>]/g, '');
+      if (parts[1]) updated.widgetId = parts[1].replace(/[\'";>]/g, '');
     } else if (cleanProp.includes('tawk.to/chat/')) {
       const parts = cleanProp.split('tawk.to/chat/')[1].split('/');
       if (parts[0]) updated.propertyId = parts[0];
-      if (parts[1]) updated.widgetId = parts[1].replace(/['";>]/g, '');
+      if (parts[1]) updated.widgetId = parts[1].replace(/[\'";>]/g, '');
     }
   }
 
-  // Update directChatUrl if not explicitly customized
   if (updated.propertyId && (!updated.directChatUrl || updated.directChatUrl.includes('tawk.to/chat/'))) {
     updated.directChatUrl = `https://tawk.to/chat/${updated.propertyId}/${updated.widgetId || 'default'}`;
   }
@@ -99,20 +87,16 @@ export const saveTawkToConfig = (updates: Partial<TawkToConfig>): TawkToConfig =
   safeStorage.setItem('axi_tawkto_config', JSON.stringify(updated));
   window.dispatchEvent(new CustomEvent('axi_tawkto_config_updated', { detail: updated }));
 
-  // Also sync to backend API
   fetch('/api/tawkto/config', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(updated)
   }).catch(e => console.warn('Syncing tawkto config to backend:', e));
 
-  // Trigger script injection immediately
   loadTawkToScript(updated, true);
-
   return updated;
 };
 
-// Script loader state
 let isScriptLoading = false;
 let isScriptLoaded = false;
 
@@ -120,24 +104,18 @@ export const loadTawkToScript = (config: TawkToConfig, immediate = true) => {
   if (typeof window === 'undefined' || typeof document === 'undefined') return;
 
   if (!config.enabled || !config.propertyId) {
-    if ((window as any).Tawk_API && typeof (window as any).Tawk_API.hideWidget === 'function') {
-      try { (window as any).Tawk_API.hideWidget(); } catch (e) {}
-    }
+    try { (window as any).Tawk_API?.hideWidget?.(); } catch (e) {}
     return;
   }
 
   const propId = config.propertyId.trim();
   const widgetId = config.widgetId ? config.widgetId.trim() : 'default';
   const scriptSrc = `https://embed.tawk.to/${propId}/${widgetId}`;
-
-  // Check if this script is already present
   const existingScript = document.getElementById('tawkto-script') as HTMLScriptElement | null;
+
   if (existingScript) {
     if (existingScript.src === scriptSrc && isScriptLoaded) {
-      try {
-        // Keep the native Tawk.to launcher hidden; we use our own branded button
-        (window as any).Tawk_API?.hideWidget?.();
-      } catch (e) {}
+      try { (window as any).Tawk_API?.hideWidget?.(); } catch (e) {}
       return;
     }
     existingScript.remove();
@@ -146,46 +124,34 @@ export const loadTawkToScript = (config: TawkToConfig, immediate = true) => {
   }
 
   isScriptLoading = true;
-
   (window as any).Tawk_API = (window as any).Tawk_API || {};
   (window as any).Tawk_LoadStart = (window as any).Tawk_LoadStart || new Date();
 
-  // Run Tawk.to in EMBEDDED mode: this prevents Tawk.to from rendering its OWN
-  // native floating launcher button. We render our own branded "Live Support"
-  // launcher (TawkToWidget.tsx) instead, so there is only ONE chat button.
-  (window as any).Tawk_API.embedded = true;
+  // Use the normal in-page Tawk widget. The native launcher is hidden and the
+  // site's branded button calls maximize(), so no pop-out window is used.
+  delete (window as any).Tawk_API.embedded;
 
-  // Configure callbacks
   (window as any).Tawk_API.onLoad = function () {
     isScriptLoading = false;
     isScriptLoaded = true;
     try {
-      // Hide the native Tawk.to launcher bubble (we use our own branded one)
       (window as any).Tawk_API?.hideWidget?.();
 
-      // Set the Axi brand logo as the chat avatar/profile picture so the
-      // Tawk.to chat window blends seamlessly with the website branding.
-      // Tawk.to supports setting a profile picture via setAttribute with a
-      // publicly accessible image URL.
       const axiAvatarUrl = `${window.location.origin}/axi-avatar.png`;
       if (typeof (window as any).Tawk_API.setAttributes === 'function') {
         (window as any).Tawk_API.setAttributes({
-          'profilePicture': axiAvatarUrl
+          profilePicture: axiAvatarUrl
         }, function (err: any) {
           if (err) console.info('[Tawk.to] profilePicture attribute note:', err);
         });
       }
 
-      // Also try to inject the Axi logo into the chat header via CSS override
-      // after the widget loads — this replaces the default Tawk.to avatar in the
-      // chat window header with the Axi brand logo.
       try {
         const styleId = 'axi-tawk-avatar-override';
         if (!document.getElementById(styleId)) {
           const style = document.createElement('style');
           style.id = styleId;
           style.textContent = `
-            /* Replace Tawk.to default avatar with Axi brand logo */
             #tawkchat-chat-bubble-preview .chat-message-from-agent .messageAvatar,
             #tawkchat-chat-bubble-preview .header-avatar,
             #tawkchat-minified-wrapper .profileImage,
@@ -201,12 +167,35 @@ export const loadTawkToScript = (config: TawkToConfig, immediate = true) => {
           `;
           document.head.appendChild(style);
         }
-      } catch (styleErr) { /* ignore */ }
+      } catch (styleErr) {}
+
+      // When chat is open, reserve the same visual width in the page flow on
+      // larger screens. This keeps the trading interface visible instead of
+      // letting the chat obscure the main content.
+      (window as any).Tawk_API.onChatMaximized = function () {
+        document.documentElement.classList.add('axi-tawk-chat-open');
+      };
+      (window as any).Tawk_API.onChatMinimized = function () {
+        document.documentElement.classList.remove('axi-tawk-chat-open');
+      };
+      (window as any).Tawk_API.onChatHidden = function () {
+        document.documentElement.classList.remove('axi-tawk-chat-open');
+      };
 
       if (config.autoOpenOnVisit || config.autoOpen) {
         (window as any).Tawk_API?.maximize?.();
       }
     } catch (e) {}
+  };
+
+  (window as any).Tawk_API.onChatMaximized = function () {
+    document.documentElement.classList.add('axi-tawk-chat-open');
+  };
+  (window as any).Tawk_API.onChatMinimized = function () {
+    document.documentElement.classList.remove('axi-tawk-chat-open');
+  };
+  (window as any).Tawk_API.onChatHidden = function () {
+    document.documentElement.classList.remove('axi-tawk-chat-open');
   };
 
   (window as any).Tawk_API.onChatMessageVisitor = function (message: any) {
@@ -233,12 +222,10 @@ export const loadTawkToScript = (config: TawkToConfig, immediate = true) => {
   s1.src = scriptSrc;
   s1.charset = 'UTF-8';
   s1.setAttribute('crossorigin', '*');
-
   s1.onload = () => {
     isScriptLoading = false;
     isScriptLoaded = true;
   };
-
   s1.onerror = () => {
     isScriptLoading = false;
     isScriptLoaded = false;
@@ -246,11 +233,8 @@ export const loadTawkToScript = (config: TawkToConfig, immediate = true) => {
   };
 
   const s0 = document.getElementsByTagName('script')[0];
-  if (s0 && s0.parentNode) {
-    s0.parentNode.insertBefore(s1, s0);
-  } else {
-    document.head.appendChild(s1);
-  }
+  if (s0 && s0.parentNode) s0.parentNode.insertBefore(s1, s0);
+  else document.head.appendChild(s1);
 };
 
 export const openTawkToChat = () => {
@@ -261,7 +245,6 @@ export const openTawkToChat = () => {
 
   if (tawkAPI && typeof tawkAPI.maximize === 'function') {
     try {
-      // Open the chat window without revealing the native launcher bubble
       tawkAPI.maximize();
       return true;
     } catch (e) {
@@ -269,15 +252,13 @@ export const openTawkToChat = () => {
     }
   }
 
-  // If script not loaded yet, immediately load with priority
   if (!isScriptLoaded && !isScriptLoading) {
     loadTawkToScript(config, true);
   }
 
-  // Fallback to direct chat URL if available
-  const directUrl = config.directChatUrl || `https://tawk.to/chat/${config.propertyId || '6a877895e687441d49b91140'}/${config.widgetId || 'default'}`;
-  window.open(directUrl, 'TawkToChat', 'width=450,height=680,toolbar=no,menubar=no,scrollbars=yes,resizable=yes');
-  return true;
+  // No window.open() fallback: the live conversation must remain in the
+  // website. Once Tawk finishes loading, the existing launcher can call again.
+  return false;
 };
 
 export const setTawkToVisitorAttributes = (attributes: {
@@ -316,4 +297,3 @@ export const setTawkToVisitorAttributes = (attributes: {
     console.warn('[Tawk.to] Error setting visitor attributes:', e);
   }
 };
-
