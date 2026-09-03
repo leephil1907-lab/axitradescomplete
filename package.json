@@ -9,7 +9,7 @@
   },
   "scripts": {
     "dev": "tsx server.ts",
-    "build": "node .github/scripts/production-hardening.mjs && node scripts/production-finalize.mjs && node scripts/apply-postgres-operational-persistence.mjs && node scripts/apply-authenticated-user-api.mjs && node scripts/production-real-funding.mjs && node scripts/apply-email-hardening.mjs && node .github/scripts/production-ui-hardening.mjs && node .github/scripts/production-admin-hardening.mjs && node scripts/production-admin-local-auth.mjs && node scripts/production-admin-flow-fix.mjs && node scripts/production-admin-route-finalize.mjs && node scripts/production-admin-click-finalize.mjs && node scripts/production-mobile-admin-route.mjs && vite build && esbuild server.ts --bundle --platform=node --format=cjs --packages=external --sourcemap --outfile=dist/server.cjs",
+    "build": "node .github/scripts/production-hardening.mjs && node scripts/production-finalize.mjs && node scripts/apply-postgres-operational-persistence.mjs && node scripts/apply-authenticated-user-api.mjs && node scripts/production-real-funding.mjs && node scripts/apply-email-hardening.mjs && node .github/scripts/production-ui-hardening.mjs && node .github/scripts/production-admin-hardening.mjs && node scripts/production-admin-local-auth.mjs && node scripts/production-admin-flow-fix.mjs && node scripts/production-admin-route-finalize.mjs && node scripts/production-admin-click-finalize.mjs && node scripts/production-mobile-admin-route.mjs && node scripts/production-multi-wallet-payment-methods.mjs && vite build && esbuild server.ts --bundle --platform=node --format=cjs --packages=external --sourcemap --outfile=dist/server.cjs",
     "start": "node dist/server.cjs",
     "clean": "rm -rf dist",
     "lint": "tsc --noEmit"
@@ -29,7 +29,6 @@
     "firebase": "^12.16.0",
     "firebase-admin": "^13.8.0",
     "lightweight-charts": "^5.2.0",
-    "lucide-react": "^0.546.0",
     "motion": "^12.23.24",
     "nodemailer": "^9.0.5",
     "pg": "^8.23.0",
