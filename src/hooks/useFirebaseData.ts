@@ -74,7 +74,7 @@ export function useFirebaseData() {
 
           // Update record on Admin Dashboard with real KYC status and live balances
           try {
-            const savedStr = safeStorage.getItem('axi_registered_users');
+            const savedStr = null; // Server/Postgres is authoritative; browser storage is never an admin ledger.
             let userList: any[] = [];
             if (savedStr) {
               try { userList = JSON.parse(savedStr); } catch (e) {}
@@ -91,7 +91,7 @@ export function useFirebaseData() {
               status: currKyc === 'VERIFIED' ? 'Verified' : currKyc === 'PENDING' ? 'Under Review' : 'Unverified',
               kycStatus: currKyc,
               balance: currLiveBal,
-              demoBalance: currPracticeBal,
+              demoBalance: 0,
               registeredAt: existingIndex >= 0 && userList[existingIndex].registeredAt ? userList[existingIndex].registeredAt : new Date().toISOString().replace('T', ' ').substring(0, 16),
               lastActive: 'Active Now (' + new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) + ' UTC)',
               provider: currentUser.providerData[0]?.providerId || 'Email/Password',
@@ -105,23 +105,12 @@ export function useFirebaseData() {
               userList[existingIndex] = { ...userList[existingIndex], ...updatedUserObj };
             } else {
               userList.unshift(updatedUserObj);
-              // Trigger welcome email dispatch for new registration
-              const welcomeEmailPayload = {
-                id: `WELCOME-REG-${Math.floor(100000 + Math.random() * 900000)}`,
-                recipientEmail: email,
-                recipientName: name,
-                type: 'Registration',
-                subject: `🎉 Welcome to Axi Trades - Account Registration Successful!`,
-                timestamp: new Date().toUTCString(),
-                accountNo: updatedUserObj.accountNo,
-                platform: 'MT5 / ECN Webtrader'
-              };
-              setTimeout(() => {
-                window.dispatchEvent(new CustomEvent('axi_email_trigger', { detail: welcomeEmailPayload }));
-              }, 1200);
+              fetch('/api/email/registration', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email, name }) })
+                .then(async (r) => { if (!r.ok) console.warn('Welcome email was not sent:', await r.text()); })
+                .catch((err) => console.warn('Welcome email request failed:', err));
             }
 
-            safeStorage.setItem('axi_registered_users', JSON.stringify(userList));
+            // Registration records are persisted server-side; do not mirror them into browser storage.
             window.dispatchEvent(new Event('axi_registered_user_event'));
           } catch (e) {
             console.error("Error recording user on admin dashboard:", e);
@@ -326,10 +315,7 @@ export function useFirebaseData() {
 
   // Watchlist Management
   const toggleWatchlist = async (symbol: string) => {
-    if (!user) {
-      setWatchlist(prev => prev.includes(symbol) ? prev.filter(s => s !== symbol) : [...prev, symbol]);
-      return;
-    }
+    if (!user) throw new Error('Authentication required');
     const isPresent = watchlist.includes(symbol);
     const watchlistDocRef = doc(db, `users/${user.uid}/watchlist`, symbol);
     if (isPresent) {
@@ -343,14 +329,14 @@ export function useFirebaseData() {
 
   const addOpenPosition = async (pos: TradeOrder) => {
     sendTelegramAlert('TRADE_ORDER_OPENED', `📈 Trade Order Executed: ${pos.type} ${pos.symbol}`, {
-      'User': user?.email || 'Guest / Demo Trader',
+      'User': user?.email || 'Unauthenticated user',
       'Symbol': pos.symbol,
       'Order Type': pos.type,
       'Volume (Lots)': pos.volume ?? 0.1,
       'Entry Price': pos.entryPrice ?? pos.currentPrice
     });
 
-    if (!user) { setOpenPositions(prev => [...prev, pos]); return; }
+    if (!user) throw new Error('Authentication required to place a trade');
     await setDoc(doc(db, `users/${user.uid}/openPositions`, pos.id), pos);
   };
   
@@ -360,7 +346,7 @@ export function useFirebaseData() {
   };
 
   const removeOpenPosition = async (posId: string) => {
-    if (!user) { setOpenPositions(prev => prev.filter(p => p.id !== posId)); return; }
+    if (!user) throw new Error('Authentication required');
     await deleteDoc(doc(db, `users/${user.uid}/openPositions`, posId));
   };
 

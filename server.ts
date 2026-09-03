@@ -1,3 +1,4 @@
+import { initOperationalPostgres, postgresOperationalRoutes } from './server/postgresOperational';
 import express from 'express';
 import path from 'path';
 import fs from 'fs';
@@ -6,10 +7,11 @@ import dotenv from 'dotenv';
 import { GoogleGenAI } from '@google/genai';
 import Stripe from 'stripe';
 import nodemailer from 'nodemailer';
+import { sendAxiEmail } from './emailService';
 import { sendRegistrationEmails, sendPasswordResetEmail } from './server/emailService';
 import { hasPostgres, initPostgres, dbUsers, dbUpsertUser, dbUpdateUser, audit, dbAuditLogs, dbPaymentMethods, dbSavePaymentMethods, dbCreateFunding, dbFundingPending, dbCreditFunding } from './server/postgres';
 import YahooFinanceRaw from 'yahoo-finance2';
-import { requireAdmin } from './server/adminAuth';
+import { requireAuth, requireAdmin, authenticateAdminCredentials, adminLoginConfigured } from './server/adminAuth';
 
 function createYahooFinanceClient() {
   try {
@@ -226,8 +228,48 @@ app.post('/api/stripe/webhook', express.raw({ type: 'application/json' }), async
   res.json({ received: true });
 });
 
+// Production email endpoints. SMTP credentials stay on Railway/server; they are never shipped to the browser.
+app.post('/api/email/registration', async (req, res) => {
+  try {
+    const { email, name } = req.body || {};
+    if (!email) return res.status(400).json({ error: 'Recipient email is required' });
+    const safeName = String(name || 'Client').replace(/[<>]/g, '');
+    await sendAxiEmail(String(email).trim().toLowerCase(), 'Welcome to Axi Trades', 'Welcome to Axi Trades', `<p>Hello ${safeName},</p><p>Your registration has been received successfully. Your account is currently being prepared for secure onboarding.</p><p>For your protection, account funding and trading access remain subject to the platform's verification and approval controls.</p><p>Regards,<br>Axi Trades Support</p>`);
+    res.json({ success: true });
+  } catch (e: any) { res.status(503).json({ error: e?.message || 'Email service unavailable' }); }
+});
+
+app.post('/api/admin/email', async (req, res) => {
+  try {
+    const adminKey = process.env.ADMIN_API_KEY;
+    if (!adminKey || req.headers['x-admin-api-key'] !== adminKey) return res.status(401).json({ error: 'Unauthorized' });
+    const { email, name, subject, title, message } = req.body || {};
+    if (!email || !subject || !message) return res.status(400).json({ error: 'email, subject and message are required' });
+    const safeName = String(name || 'Client').replace(/[<>]/g, '');
+    const safeMessage = String(message).replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\n/g, '<br>');
+    await sendAxiEmail(String(email).trim().toLowerCase(), String(subject), String(title || subject), `<p>Hello ${safeName},</p><p>${safeMessage}</p><p>Regards,<br>Axi Trades Support</p>`);
+    res.json({ success: true });
+  } catch (e: any) { res.status(503).json({ error: e?.message || 'Email service unavailable' }); }
+});
+
+
+// Return 404 for common framework/config probes instead of serving the SPA shell.
+app.use((req, res, next) => {
+  const blocked = /^(\/\.env|\/\.git(?:\/|$)|\/\.vscode(?:\/|$)|\/server-status(?:\/|$)|\/server(?:\/|$)|\/actuator(?:\/|$)|\/trace\.axd(?:\/|$)|\/info\.php(?:\/|$)|\/telescope(?:\/|$)|\/v2\/_catalog(?:\/|$)|\/debug(?:\/|$)|\/config\.json$|\/\@vite\/env$|\/\.DS_Store$)/i.test(req.path);
+  if (blocked) return res.status(404).json({ error: 'Not found' });
+  next();
+});
+
 // General Express JSON middleware for all other API routes
 app.use(express.json());
+app.post('/api/admin/login',(req,res)=>{if(!adminLoginConfigured())return res.status(503).json({error:'Administrator authentication is not configured'});const token=authenticateAdminCredentials(String(req.body?.email||''),String(req.body?.password||''));if(!token)return res.status(401).json({error:'Incorrect administrator email or password.'});return res.json({token,expiresIn:43200});});
+
+// POSTGRES_OPERATIONAL_ROUTES_MARKER
+// Production operational records are persisted in PostgreSQL. These routes are
+// registered before the legacy file-backed handlers so production never silently
+// falls back to ephemeral/local JSON for KYC and transaction records.
+initOperationalPostgres().catch((error) => console.error('Operational PostgreSQL initialization failed:', error));
+postgresOperationalRoutes(app);
 
 // Generic TradingView / MT4/MT5 / Signal Webhook endpoint
 app.post('/api/webhook/trading-signals', (req, res) => {
@@ -258,30 +300,30 @@ app.post('/api/webhook/trading-signals', (req, res) => {
 
 
 // Production funding review endpoints. Stripe payments are never auto-credited.
-app.get('/api/admin/funding/pending', async (_req, res) => {
+app.get('/api/admin/funding/pending', requireAdmin,  async (_req, res) => {
   const persisted = await dbFundingPending().catch(() => null);
   if (persisted) return res.json({ deposits: persisted, source: 'postgres' });
   const deposits = readDataFile<any[]>('pendingDeposits.json', []);
   res.json({ deposits: deposits.filter(d => !d.creditedByAdmin && d.status !== 'Rejected'), source: 'fallback' });
 });
 
-app.post('/api/admin/funding/:id/credit', async (req, res) => {
+app.post('/api/admin/funding/:id/credit', requireAdmin,  async (req, res) => {
   const id = String(req.params.id || '');
   const deposits = readDataFile<any[]>('pendingDeposits.json', []);
   const index = deposits.findIndex(d => d.id === id);
   if (index < 0) return res.status(404).json({ error: 'Funding record not found' });
-  const persistedCredit = await dbCreditFunding(id, String(req.headers['x-admin-email'] || 'admin')).catch(() => null);
+  const persistedCredit = await dbCreditFunding(id, String((req as any).adminEmail || 'unknown-admin')).catch(() => null);
   const deposit = deposits[index];
   if (deposit.creditedByAdmin || deposit.status === 'Credited') return res.status(409).json({ error: 'Funding record has already been credited' });
   const creditedBalance = Number(req.body?.creditedBalance);
   if (!Number.isFinite(creditedBalance) || creditedBalance < 0) return res.status(400).json({ error: 'Invalid credited balance' });
   deposits[index] = { ...deposit, status: 'Credited', creditedByAdmin: true, creditedAt: new Date().toISOString(), creditedBalance, creditedUserId: String(req.body?.userId || '') };
   writeDataFile('pendingDeposits.json', deposits);
-  await audit('ADMIN_FUNDING_CREDIT', { actor: String(req.headers['x-admin-email'] || 'admin'), userId: String(req.body?.userId || ''), metadata: { fundingId: id, creditedBalance } }).catch(() => {});
+  await audit('ADMIN_FUNDING_CREDIT', { actor: String((req as any).adminEmail || 'unknown-admin'), userId: String(req.body?.userId || ''), metadata: { fundingId: id, creditedBalance } }).catch(() => {});
   res.json({ success: true, deposit: deposits[index], persisted: Boolean(persistedCredit) });
 });
 
-app.post('/api/admin/funding/:id/reject', (req, res) => {
+app.post('/api/admin/funding/:id/reject', requireAdmin,  (req, res) => {
   const id = String(req.params.id || '');
   const deposits = readDataFile<any[]>('pendingDeposits.json', []);
   const index = deposits.findIndex(d => d.id === id);
@@ -303,7 +345,7 @@ app.get('/api/admin/payment-methods', requireAdmin, async (_req, res) => {
   return res.status(503).json({ success: false, error: 'Payment methods storage is unavailable' });
 });
 
-app.post('/api/admin/payment-methods', async (req, res) => {
+app.post('/api/admin/payment-methods', requireAdmin,  async (req, res) => {
   const incoming = req.body || {};
   const methods = {
     bankTransfer: { enabled: Boolean(incoming.bankTransfer?.enabled), bankName: String(incoming.bankTransfer?.bankName || '').trim(), accountName: String(incoming.bankTransfer?.accountName || '').trim(), accountNumber: String(incoming.bankTransfer?.accountNumber || '').trim(), routingNumber: String(incoming.bankTransfer?.routingNumber || '').trim(), swiftBic: String(incoming.bankTransfer?.swiftBic || '').trim(), currency: String(incoming.bankTransfer?.currency || '').trim(), instructions: String(incoming.bankTransfer?.instructions || '').trim() },
@@ -311,12 +353,12 @@ app.post('/api/admin/payment-methods', async (req, res) => {
     crypto: { enabled: Boolean(incoming.crypto?.enabled), asset: String(incoming.crypto?.asset || '').trim(), network: String(incoming.crypto?.network || '').trim(), address: String(incoming.crypto?.address || '').trim(), memo: String(incoming.crypto?.memo || '').trim(), instructions: String(incoming.crypto?.instructions || '').trim() }
   };
   writeDataFile(PAYMENT_METHODS_FILE, methods);
-  await dbSavePaymentMethods(methods, String(req.headers['x-admin-email'] || 'admin')).catch((error) => console.error('Postgres payment settings sync failed:', error));
-  await audit('ADMIN_PAYMENT_METHODS_UPDATED', { actor: String(req.headers['x-admin-email'] || 'admin'), metadata: methods }).catch(() => {});
+  await dbSavePaymentMethods(methods, String((req as any).adminEmail || 'unknown-admin')).catch((error) => console.error('Postgres payment settings sync failed:', error));
+  await audit('ADMIN_PAYMENT_METHODS_UPDATED', { actor: String((req as any).adminEmail || 'unknown-admin'), metadata: methods }).catch(() => {});
   res.json({ success: true, methods });
 });
 
-app.get('/api/admin/activity', async (req, res) => {
+app.get('/api/admin/activity', requireAdmin,  async (req, res) => {
   const logs = await dbAuditLogs(Number(req.query.limit || 200)).catch(() => null);
   res.json({ success: true, logs: logs || [], source: logs ? 'postgres' : 'unavailable' });
 });
@@ -366,79 +408,21 @@ const SUPPORTED_SYMBOLS = [
 ];
 
 // Baseline reference prices updated to current live market levels
-const INITIAL_BASELINE_PRICES: Record<string, { price: number; change: number }> = {
-  // Forex
-  'EURUSD': { price: 1.0482, change: 0.14 },
-  'GBPUSD': { price: 1.2590, change: -0.06 },
-  'USDJPY': { price: 154.60, change: 0.32 },
-  'AUDUSD': { price: 0.6385, change: 0.18 },
-  'USDCAD': { price: 1.4180, change: -0.12 },
-  'USDCHF': { price: 0.9025, change: 0.05 },
-  'NZDUSD': { price: 0.5730, change: 0.15 },
-  'EURGBP': { price: 0.8325, change: 0.08 },
-  'EURJPY': { price: 162.05, change: 0.45 },
-  'GBPJPY': { price: 194.65, change: 0.28 },
-
-  // Crypto
-  'BTCUSD': { price: 96450.00, change: 2.85 },
-  'ETHUSD': { price: 2740.50, change: 1.95 },
-  'SOLUSD': { price: 188.40, change: 4.20 },
-  'XRPUSD': { price: 2.3850, change: 5.15 },
-  'DOGEUSD': { price: 0.2450, change: 3.80 },
-  'ADAUSD': { price: 0.7420, change: 2.10 },
-  'AVAXUSD': { price: 28.60, change: 1.85 },
-  'DOTUSD': { price: 5.85, change: 0.90 },
-  'LINKUSD': { price: 18.25, change: 2.40 },
-  'BNBUSD': { price: 645.00, change: 1.50 },
-  'LTCUSD': { price: 112.50, change: 3.20 },
-  'TRXUSD': { price: 0.2350, change: 0.85 },
-  'TONUSD': { price: 5.25, change: 1.40 },
-  'NEARUSD': { price: 4.65, change: 2.15 },
-  'SUIUSD': { price: 3.15, change: 6.40 },
-  'SHIBUSD': { price: 0.0000185, change: 2.40 },
-  'PEPEUSD': { price: 0.0000115, change: 4.80 },
-  'MATICUSD': { price: 0.4450, change: 1.20 },
-
-  // Commodities & Metals
-  'XAUUSD': { price: 2915.40, change: 0.95 },
-  'XAGUSD': { price: 32.85, change: 1.45 },
-  'USOUSD': { price: 71.80, change: -0.65 },
-  'BRENTUSD': { price: 75.40, change: -0.55 },
-  'NATGAS': { price: 3.25, change: 2.10 },
-
-  // Indices
-  'US30': { price: 43850.00, change: 0.45 },
-  'SPX500': { price: 5985.50, change: 0.62 },
-  'NAS100': { price: 21450.00, change: 0.88 },
-  'UK100': { price: 8390.00, change: 0.25 },
-  'GER40': { price: 20250.00, change: 0.55 },
-
-  // Equities
-  'AAPL': { price: 232.40, change: 0.75 },
-  'TSLA': { price: 248.50, change: 3.20 },
-  'NVDA': { price: 138.85, change: 2.65 },
-  'MSFT': { price: 418.20, change: 0.40 },
-  'AMZN': { price: 212.80, change: 1.15 },
-  'GOOGL': { price: 182.50, change: 0.90 },
-  'META': { price: 654.20, change: 1.85 },
-  'AMD': { price: 122.40, change: 2.10 },
-  'NFLX': { price: 945.00, change: 1.45 },
-  'COIN': { price: 268.50, change: 4.80 }
-};
+const INITIAL_BASELINE_PRICES: Record<string, { price: number; change: number }> = {};
 
 // Initialize with live real baseline rates
 const LIVE_MARKETS: Record<string, MarketState> = SUPPORTED_SYMBOLS.reduce((acc, sym) => {
-  const base = INITIAL_BASELINE_PRICES[sym] || { price: 1.0, change: 0 };
+  const base = INITIAL_BASELINE_PRICES[sym] || { price: 0, change: 0 };
   acc[sym] = {
     price: base.price,
     change: base.change,
-    bidDiff: - (base.price * 0.0001),
-    askDiff: (base.price * 0.0001),
-    spread: Number((base.price * 0.0002).toFixed(4)),
+    bidDiff: 0,
+    askDiff: 0,
+    spread: 0,
     lastUpdated: Date.now(),
     stale: false,
-    status: 'live',
-    source: 'Real-time Interbank / Binance / Exchange Feed'
+    status: 'unavailable',
+    source: 'No verified market feed available'
   };
   return acc;
 }, {} as Record<string, MarketState>);
@@ -1113,10 +1097,7 @@ app.post('/api/gemini/assistant', async (req, res) => {
     const { message, history } = req.body;
     const ai = getGenAI();
     if (!ai) {
-      return res.json({
-        text: "Welcome to Axi AI Assistant! Standard accounts offer spreads from 0.9 pips, while Pro accounts offer spreads from 0.0 pips with low commission. You can explore Forex pairs like EUR/USD, Cryptos like Bitcoin, or indices like the US30 with leverage up to 1:1000 and raw zero spreads!",
-        offline: true
-      });
+      return res.status(503).json({ error: 'Axi AI Assistant is temporarily unavailable. No simulated market guidance is provided.' });
     }
 
     const systemInstruction = `You are the expert Axi AI Trading Assistant, representing Axi (formerly AxiTrader), a premium global online Forex and CFD broker. 
@@ -1150,17 +1131,15 @@ Use markdown for elegant styling. Keep responses under 220 words. If the user as
     });
   } catch (error: any) {
     console.error("Axi Assistant Error:", error);
-    res.json({
-      text: "I ran into a connection glitch while consulting the live trading database, but I can tell you that Axi is fully regulated by the FCA, ASIC, and DFSA. Standard accounts offer spreads from 0.9 pips, while Pro accounts offer spreads from 0.0 pips with a low commission. Let me know what questions you have about trading strategies!",
-      error: error.message
-    });
+    res.status(502).json({ error: 'Axi AI Assistant is temporarily unavailable. No simulated market guidance is provided.' });
   }
 });
 
 
 // Create Stripe PaymentIntent
-app.post('/api/stripe/create-payment-intent', async (req, res) => {
-  const { amount, currency = 'usd', depositId, userId } = req.body;
+app.post('/api/stripe/create-payment-intent', requireAuth,  async (req, res) => {
+  const { amount, currency = 'usd', depositId } = req.body;
+  const userId = String((req as any).authUser?.uid || '');
   const numAmount = parseFloat(amount);
   if (!numAmount || numAmount <= 0) {
     return res.status(400).json({ error: 'Invalid deposit amount' });
@@ -1190,14 +1169,15 @@ app.post('/api/stripe/create-payment-intent', async (req, res) => {
   }
 });
 
-app.post('/api/stripe/create-checkout-session', async (req, res) => {
+app.post('/api/stripe/create-checkout-session', requireAuth,  async (req, res) => {
   const stripe = getStripe();
   if (!stripe) {
     return res.status(500).json({ error: 'Stripe is not configured. Please add STRIPE_SECRET_KEY to secrets.' });
   }
   
   try {
-    const { amount, currency = 'usd', depositId, userId, method } = req.body;
+    const { amount, currency = 'usd', depositId, method } = req.body;
+    const userId = String((req as any).authUser?.uid || '');
     const numAmount = parseFloat(amount);
     if (!numAmount || numAmount <= 0) {
       return res.status(400).json({ error: 'Invalid deposit amount' });
@@ -1255,8 +1235,9 @@ app.post('/api/stripe/create-checkout-session', async (req, res) => {
 });
 
 // Verify completed Stripe deposit endpoint
-app.post('/api/stripe/verify-deposit', async (req, res) => {
-  const { paymentIntentId, sessionId, amount, userId } = req.body || {};
+app.post('/api/stripe/verify-deposit', requireAuth,  async (req, res) => {
+  const { paymentIntentId, sessionId } = req.body || {};
+  const userId = String((req as any).authUser?.uid || '');
   const stripe = getStripe();
 
   let verified = false;
@@ -1438,7 +1419,7 @@ app.post('/api/stripe/webhook/toggle-disconnect', (req, res) => {
   });
 });
 
-app.get('/api/stripe/payment-intent/:id', async (req, res) => {
+app.get('/api/stripe/payment-intent/:id', requireAuth,  async (req, res) => {
   const stripe = getStripe();
   if (!stripe) {
     return res.status(500).json({ error: 'Stripe is not configured.' });
@@ -1544,46 +1525,15 @@ let appTawkToConfigStore: any = readDataFile('tawkto.json', {
 });
 
 // Admin platform settings stores (persisted to data files)
-let appBotConfigStore: any = readDataFile('adminBotConfig.json', {
-  active: true,
-  name: 'Axi Neural Quant Bot v4',
-  strategy: 'High Frequency Arbitrage',
-  frequency: '15 seconds',
-  maxAllocationUsd: 25000,
-  winRateSim: 88.5,
-  monthlyTargetYield: 18.4,
-  riskLevel: 'Moderate'
-});
+let appBotConfigStore: any = readDataFile('adminBotConfig.json', { active: false });
 
-let appTradingBotSettingsStore: any = readDataFile('adminTradingBotSettings.json', {
-  automatedTradingEnabled: true,
-  maxBotLeverage: '1:500',
-  circuitBreakerEnabled: true,
-  circuitBreakerThreshold: 15
-});
+let appTradingBotSettingsStore: any = readDataFile('adminTradingBotSettings.json', { automatedTradingEnabled: false, circuitBreakerEnabled: true });
 
-let appInvestmentPlansStore: any[] = readDataFile('adminInvestmentPlans.json', [
-  { id: 'plan-1', name: 'Starter Alpha Plan', minDeposit: 500, maxDeposit: 5000, dailyRoi: 1.8, durationDays: 14, active: true },
-  { id: 'plan-2', name: 'Pro Growth Quant Plan', minDeposit: 5000, maxDeposit: 25000, dailyRoi: 2.5, durationDays: 30, active: true },
-  { id: 'plan-3', name: 'Institutional Prime Plan', minDeposit: 25000, maxDeposit: 250000, dailyRoi: 3.4, durationDays: 60, active: true }
-]);
+let appInvestmentPlansStore: any[] = readDataFile('adminInvestmentPlans.json', []);
 
-let appTradingPairsStore: any[] = readDataFile('adminTradingPairs.json', [
-  { id: 'p1', symbol: 'EURUSD', category: 'Forex Major', spreadPips: 0.2, leverage: '1:500', active: true },
-  { id: 'p2', symbol: 'GBPUSD', category: 'Forex Major', spreadPips: 0.4, leverage: '1:500', active: true },
-  { id: 'p3', symbol: 'BTCUSD', category: 'Crypto', spreadPips: 12.0, leverage: '1:100', active: true },
-  { id: 'p4', symbol: 'ETHUSD', category: 'Crypto', spreadPips: 1.5, leverage: '1:100', active: true },
-  { id: 'p5', symbol: 'XAUUSD', category: 'Commodities', spreadPips: 0.15, leverage: '1:500', active: true },
-  { id: 'p6', symbol: 'NVDA', category: 'US Stocks', spreadPips: 0.05, leverage: '1:20', active: true }
-]);
+let appTradingPairsStore: any[] = readDataFile('adminTradingPairs.json', []);
 
-let appCurrenciesStore: any[] = readDataFile('adminCurrencies.json', [
-  { code: 'USD', name: 'US Dollar', symbol: '$', rateToUsd: 1.0, isBase: true },
-  { code: 'EUR', name: 'Euro', symbol: '€', rateToUsd: 0.92, isBase: false },
-  { code: 'GBP', name: 'British Pound', symbol: '£', rateToUsd: 0.79, isBase: false },
-  { code: 'JPY', name: 'Japanese Yen', symbol: '¥', rateToUsd: 155.2, isBase: false },
-  { code: 'AUD', name: 'Australian Dollar', symbol: 'A$', rateToUsd: 1.52, isBase: false }
-]);
+let appCurrenciesStore: any[] = readDataFile('adminCurrencies.json', [{ code: 'USD', name: 'US Dollar', symbol: String.fromCharCode(36), rateToUsd: 1, isBase: true }]);
 
 let appCopyTradersStore: any[] = readDataFile('adminCopyTraders.json', []);
 
@@ -1620,7 +1570,7 @@ function notifyTelegram(title: string, fields: Record<string, any>) {
 // ----------------------------------------------------
 
 // Get all registered users (for Admin Dashboard & client sync)
-app.get('/api/users', async (req, res) => {
+app.get('/api/users', requireAdmin,  async (req, res) => {
   try {
     const persisted = await dbUsers();
     if (persisted) return res.json({ success: true, users: persisted.map((u) => ({ ...u, verificationStatus: u.verification_status, kycStatus: u.kyc_status, demoBalance: Number(u.demo_balance), balance: Number(u.balance) })), total: persisted.length, source: 'postgres' });
@@ -1718,7 +1668,7 @@ app.post('/api/users/register', async (req, res) => {
 });
 
 // Update specific user balance
-app.put('/api/users/:id/balance', async (req, res) => {
+app.put('/api/users/:id/balance', requireAdmin,  async (req, res) => {
   const userId = req.params.id;
   const { balance, demoBalance, reason } = req.body;
 
@@ -1745,7 +1695,7 @@ app.put('/api/users/:id/balance', async (req, res) => {
 });
 
 // Update user verification status (Admin action)
-app.put('/api/users/:id/status', async (req, res) => {
+app.put('/api/users/:id/status', requireAdmin,  async (req, res) => {
   const userId = req.params.id;
   const { status, verificationStatus, kycStatus } = req.body;
 
@@ -1766,7 +1716,7 @@ app.put('/api/users/:id/status', async (req, res) => {
 });
 
 // Update user PnL override configuration
-app.put('/api/users/:id/pnl', (req, res) => {
+app.put('/api/users/:id/pnl', requireAdmin,  (req, res) => {
   const userId = req.params.id;
   const { pnlOverride, pnlPercentage } = req.body;
 
@@ -1784,7 +1734,7 @@ app.put('/api/users/:id/pnl', (req, res) => {
 });
 
 // Admin change user password
-app.put('/api/users/:id/password', (req, res) => {
+app.put('/api/users/:id/password', requireAdmin,  (req, res) => {
   const userId = req.params.id;
   const { newPassword } = req.body;
 
@@ -1819,7 +1769,7 @@ app.delete('/api/users/:id', (req, res) => {
 // ----------------------------------------------------
 
 // Get all KYC documents for Admin verification
-app.get('/api/kyc/list', (req, res) => {
+app.get('/api/kyc/list', requireAdmin,  (req, res) => {
   res.json({
     success: true,
     documents: appKycStore,
@@ -1829,11 +1779,14 @@ app.get('/api/kyc/list', (req, res) => {
 });
 
 // Submit KYC verification document from client portal
-app.post('/api/kyc/submit', (req, res) => {
+app.post('/api/kyc/submit', requireAuth,  (req, res) => {
   const body = req.body || {};
-  const user = body.user || body.fullName || 'Active Trader';
-  const userEmail = (body.userEmail || body.email || 'trader@axi.com').toLowerCase();
-  const docType = body.type || body.docType || 'Passport';
+  const user = body.fullName || String((req as any).authUser?.name || (req as any).authUser?.email || '').trim();
+  if (!user) return res.status(400).json({ error: 'Verified user identity is required' });
+  const userEmail = String((req as any).authUser?.email || '').toLowerCase();
+  if (!userEmail) return res.status(400).json({ error: 'Verified user email is required' });
+  const docType = body.type || body.docType;
+  if (!docType) return res.status(400).json({ error: 'Document type is required' });
 
   const newDoc = {
     id: body.id || `KYC-${Date.now().toString().slice(-6)}`,
@@ -1894,7 +1847,7 @@ app.post('/api/kyc/submit', (req, res) => {
 });
 
 // Admin approves KYC
-app.post('/api/kyc/approve', (req, res) => {
+app.post('/api/kyc/approve', requireAdmin,  (req, res) => {
   const { id, creditAmountBonus } = req.body;
   const docItem = appKycStore.find(d => d.id === id || d.refCode === id);
   if (!docItem) {
@@ -1928,7 +1881,7 @@ app.post('/api/kyc/approve', (req, res) => {
 });
 
 // Admin rejects KYC
-app.post('/api/kyc/reject', (req, res) => {
+app.post('/api/kyc/reject', requireAdmin,  (req, res) => {
   const { id, reason } = req.body;
   const docItem = appKycStore.find(d => d.id === id || d.refCode === id);
   if (!docItem) {
