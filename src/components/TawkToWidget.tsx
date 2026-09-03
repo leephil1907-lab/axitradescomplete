@@ -1,14 +1,14 @@
 import React, { useEffect, useState } from 'react';
-import { MessageSquare, ShieldCheck, ExternalLink, Headset, Sparkles } from 'lucide-react';
+import { MessageSquare } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import AxiLogo from './AxiLogo';
-import { 
-  getTawkToConfig, 
-  loadTawkToScript, 
-  setTawkToVisitorAttributes, 
-  openTawkToChat, 
+import {
+  getTawkToConfig,
+  loadTawkToScript,
+  setTawkToVisitorAttributes,
+  openTawkToChat,
   fetchBackendTawkToConfig,
-  TawkToConfig 
+  TawkToConfig
 } from '../utils/tawkto';
 
 interface TawkToWidgetProps {
@@ -27,9 +27,7 @@ export default function TawkToWidget({ currentUser }: TawkToWidgetProps) {
   const [isScriptLoaded, setIsScriptLoaded] = useState(false);
   const [showQuickPopup, setShowQuickPopup] = useState(false);
 
-  // Initialize and listen for config changes
   useEffect(() => {
-    // 1. Fetch backend config on mount to guarantee latest credentials
     fetchBackendTawkToConfig().then((fetched) => {
       if (fetched) {
         setConfig(fetched);
@@ -43,19 +41,18 @@ export default function TawkToWidget({ currentUser }: TawkToWidgetProps) {
       loadTawkToScript(updatedConfig, true);
     };
 
-    window.addEventListener('axi_tawkto_config_updated', handleConfigUpdate);
-    window.addEventListener('storage', (e) => {
+    const handleStorage = (e: StorageEvent) => {
       if (e.key === 'axi_tawkto_config') {
         const updated = getTawkToConfig();
         setConfig(updated);
         loadTawkToScript(updated, true);
       }
-    });
+    };
 
-    // 2. Load script immediately
+    window.addEventListener('axi_tawkto_config_updated', handleConfigUpdate);
+    window.addEventListener('storage', handleStorage);
     loadTawkToScript(config, true);
 
-    // 3. Listen for Tawk.to API ready
     const checkInterval = setInterval(() => {
       if ((window as any).Tawk_API && typeof (window as any).Tawk_API.maximize === 'function') {
         setIsScriptLoaded(true);
@@ -65,11 +62,11 @@ export default function TawkToWidget({ currentUser }: TawkToWidgetProps) {
 
     return () => {
       window.removeEventListener('axi_tawkto_config_updated', handleConfigUpdate);
+      window.removeEventListener('storage', handleStorage);
       clearInterval(checkInterval);
     };
   }, []);
 
-  // Update visitor attributes when user changes
   useEffect(() => {
     if (currentUser) {
       setTawkToVisitorAttributes({
@@ -86,17 +83,16 @@ export default function TawkToWidget({ currentUser }: TawkToWidgetProps) {
   if (!config.enabled) return null;
 
   const handleLaunchChat = () => {
-    const success = openTawkToChat();
-    if (!success) {
-      // Direct link fallback
-      const url = config.directChatUrl || `https://tawk.to/chat/${config.propertyId || '6a877895e687441d49b91140'}/${config.widgetId || 'default'}`;
-      window.open(url, 'TawkToChat', 'width=450,height=680,toolbar=no,menubar=no');
+    // Always use the real Tawk widget in the current page. Never open a
+    // separate browser window/tab as a fallback.
+    const opened = openTawkToChat();
+    if (!opened) {
+      loadTawkToScript(getTawkToConfig(), true);
     }
   };
 
   return (
     <div className="fixed bottom-5 right-5 z-[9999] flex flex-col items-end gap-2 pointer-events-auto">
-      {/* Floating Prompt Bubble on Hover or First Load */}
       <AnimatePresence>
         {showQuickPopup && (
           <motion.div
@@ -125,7 +121,6 @@ export default function TawkToWidget({ currentUser }: TawkToWidgetProps) {
         )}
       </AnimatePresence>
 
-      {/* Persistent Floating Live Chat Launcher Button */}
       <motion.button
         type="button"
         id="tawkto-floating-launcher-btn"
@@ -160,4 +155,3 @@ export default function TawkToWidget({ currentUser }: TawkToWidgetProps) {
     </div>
   );
 }
-
