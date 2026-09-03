@@ -14,14 +14,18 @@ if (!header.includes('AXI_HIDDEN_ADMIN_TRIGGER_V3')) {
   header = header.replace(state, state + '\n' + injected);
 }
 
-// Ensure the actual logo button is wired to the counter. Replace both the
-// original single-click handler and previously injected variants.
+// Make the handler itself own the normal-click behavior as well as the hidden
+// seventh-click behavior. This avoids depending on React's asynchronous state
+// update inside the JSX click expression.
+const handler = /const handleHiddenAdminLogoClick=\(\)=>\{.*?\};/s;
+if (handler.test(header)) {
+  header = header.replace(handler, `const handleHiddenAdminLogoClick=()=>{const next=hiddenAdminClicks+1;if(hiddenAdminTimerRef.current)clearTimeout(hiddenAdminTimerRef.current);if(next>=7){setHiddenAdminClicks(0);handleNav('admin');return;}setHiddenAdminClicks(next);handleNav('home');hiddenAdminTimerRef.current=setTimeout(()=>setHiddenAdminClicks(0),1800);};`);
+}
+
+// Ensure the actual logo button is wired directly to the counter. Replace both
+// the original single-click handler and previously injected wrapper variants.
 header = header.replace(
   /onClick=\{\(\) => handleNav\('home'\)\}\s*/,
-  'onClick={handleHiddenAdminLogoClick} '
-);
-header = header.replace(
-  /onClick=\{\(\) => \{ handleHiddenAdminLogoClick\(\); if \(hiddenAdminClicks < 6\) handleNav\('home'\); \}\}\s*/,
   'onClick={handleHiddenAdminLogoClick} '
 );
 header = header.replace(
