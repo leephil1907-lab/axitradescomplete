@@ -5,6 +5,8 @@ import fs from 'node:fs';
 // address in ADMIN_EMAILS is used as the administrator identity. The password is
 // always verified against the server-side scrypt hash; no password is stored here.
 fs.writeFileSync('server/adminAuth.ts', `import crypto from 'node:crypto';
+import { cert, getApps, initializeApp } from 'firebase-admin/app';
+import { getAuth } from 'firebase-admin/auth';
 import type { NextFunction, Request, Response } from 'express';
 const ADMIN_EMAILS = String(process.env.ADMIN_EMAILS || '').split(',').map(v=>v.trim().toLowerCase()).filter(Boolean);
 const ADMIN_EMAIL = String(process.env.ADMIN_EMAIL || ADMIN_EMAILS[0] || '').trim().toLowerCase();
@@ -19,7 +21,8 @@ export function authenticateAdminCredentials(email:string,password:string){const
 export function verifyAdminSession(token:string){if((!ADMIN_EMAIL&&!ADMIN_EMAILS.length)||!ADMIN_SESSION_SECRET||!token)return null;const [p,s]=token.split('.');if(!p||!s||!safeEqual(signature(p),s))return null;try{const v=JSON.parse(Buffer.from(p,'base64url').toString('utf8'));const allowed=ADMIN_EMAILS.length?ADMIN_EMAILS:(ADMIN_EMAIL?[ADMIN_EMAIL]:[]);if(!allowed.includes(String(v.email||'').toLowerCase())||Number(v.exp)<=Math.floor(Date.now()/1000))return null;return v as {email:string;exp:number};}catch{return null;}}
 export function adminLoginConfigured(){return Boolean((ADMIN_EMAIL||ADMIN_EMAILS.length)&&ADMIN_PASSWORD_HASH&&ADMIN_PASSWORD_SALT&&ADMIN_SESSION_SECRET);}
 export async function requireAdmin(req:Request,res:Response,next:NextFunction){const m=String(req.headers.authorization||'').match(/^Bearer\\s+(.+)$/i);const session=verifyAdminSession(m?.[1]||'');if(!session)return res.status(401).json({error:'Administrator authentication required'});(req as any).adminEmail=session.email;return next();}
-export async function requireAuth(req:Request,res:Response,next:NextFunction){return requireAdmin(req,res,next);}
+function getFirebaseAuth(){const raw=process.env.FIREBASE_SERVICE_ACCOUNT_JSON;if(!raw)return null;try{const serviceAccount=JSON.parse(raw);if(serviceAccount.private_key)serviceAccount.private_key=String(serviceAccount.private_key).replace(/\\n/g,'\\n');const app=getApps().length?getApps()[0]:initializeApp({credential:cert(serviceAccount)});return getAuth(app);}catch(error){console.error('Firebase Admin initialization failed:',error);return null;}}
+export async function requireAuth(req:Request,res:Response,next:NextFunction){const m=String(req.headers.authorization||'').match(/^Bearer\\s+(.+)$/i);if(!m)return res.status(401).json({error:'Authentication required'});const firebaseAuth=getFirebaseAuth();if(!firebaseAuth)return res.status(503).json({error:'Server authentication is not configured'});try{const decoded=await firebaseAuth.verifyIdToken(m[1]);(req as any).user={uid:decoded.uid,email:decoded.email||''};return next();}catch(error:any){console.error('Customer token verification failed:',error?.message||error);return res.status(401).json({error:'Invalid authentication token'});}}
 `);
 
 let server=fs.readFileSync('server.ts','utf8');
@@ -81,4 +84,4 @@ if(!app.includes('AXI_STANDALONE_ADMIN_ROUTE_V3')){
   app=app.replace("if (currentView === 'admin' && !isAdminUser) {\n          setView('dashboard');\n          return;\n        }","if (currentView === 'admin' && !isAdminUser && !hasStandaloneAdminSession) {\n          setView('dashboard');\n          return;\n        }");
   fs.writeFileSync('src/App.tsx',app);
 }
-console.log('Standalone admin auth and mobile access applied successfully.');
+console.log('Standalone admin auth and customer Firebase auth applied successfully.');
