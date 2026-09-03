@@ -1,9 +1,13 @@
 import fs from 'node:fs';
 
 // Production-only administrator authentication. Regular client authentication remains Firebase.
+// ADMIN_EMAIL is optional for backwards compatibility: when it is absent, the first
+// address in ADMIN_EMAILS is used as the administrator identity. The password is
+// always verified against the server-side scrypt hash; no password is stored here.
 fs.writeFileSync('server/adminAuth.ts', `import crypto from 'node:crypto';
 import type { NextFunction, Request, Response } from 'express';
-const ADMIN_EMAIL = String(process.env.ADMIN_EMAIL || '').trim().toLowerCase();
+const ADMIN_EMAILS = String(process.env.ADMIN_EMAILS || '').split(',').map(v=>v.trim().toLowerCase()).filter(Boolean);
+const ADMIN_EMAIL = String(process.env.ADMIN_EMAIL || ADMIN_EMAILS[0] || '').trim().toLowerCase();
 const ADMIN_PASSWORD_HASH = String(process.env.ADMIN_PASSWORD_HASH || '');
 const ADMIN_PASSWORD_SALT = String(process.env.ADMIN_PASSWORD_SALT || '');
 const ADMIN_SESSION_SECRET = String(process.env.ADMIN_SESSION_SECRET || '');
@@ -11,7 +15,7 @@ const SESSION_TTL_SECONDS = 43200;
 function safeEqual(a:string,b:string){const x=Buffer.from(a),y=Buffer.from(b);return x.length===y.length&&crypto.timingSafeEqual(x,y);}
 function validPassword(password:string){if(!ADMIN_PASSWORD_HASH||!ADMIN_PASSWORD_SALT)return false;const h=crypto.scryptSync(password,ADMIN_PASSWORD_SALT,64).toString('hex');return safeEqual(h,ADMIN_PASSWORD_HASH);}
 function signature(payload:string){return crypto.createHmac('sha256',ADMIN_SESSION_SECRET).update(payload).digest('base64url');}
-export function authenticateAdminCredentials(email:string,password:string){const e=String(email||'').trim().toLowerCase();if(!ADMIN_EMAIL||e!==ADMIN_EMAIL||!validPassword(String(password||'')))return null;const exp=Math.floor(Date.now()/1000)+SESSION_TTL_SECONDS;const p=Buffer.from(JSON.stringify({email:e,exp}),'utf8').toString('base64url');return p+'.'+signature(p);}
+export function authenticateAdminCredentials(email:string,password:string){const e=String(email||ADMIN_EMAIL||'').trim().toLowerCase();if(!ADMIN_EMAIL||!e||e!==ADMIN_EMAIL||!validPassword(String(password||'')))return null;const exp=Math.floor(Date.now()/1000)+SESSION_TTL_SECONDS;const p=Buffer.from(JSON.stringify({email:e,exp}),'utf8').toString('base64url');return p+'.'+signature(p);}
 export function verifyAdminSession(token:string){if(!ADMIN_EMAIL||!ADMIN_SESSION_SECRET||!token)return null;const [p,s]=token.split('.');if(!p||!s||!safeEqual(signature(p),s))return null;try{const v=JSON.parse(Buffer.from(p,'base64url').toString('utf8'));if(v.email!==ADMIN_EMAIL||Number(v.exp)<=Math.floor(Date.now()/1000))return null;return v as {email:string;exp:number};}catch{return null;}}
 export function adminLoginConfigured(){return Boolean(ADMIN_EMAIL&&ADMIN_PASSWORD_HASH&&ADMIN_PASSWORD_SALT&&ADMIN_SESSION_SECRET);}
 export async function requireAdmin(req:Request,res:Response,next:NextFunction){const m=String(req.headers.authorization||'').match(/^Bearer\\s+(.+)$/i);const session=verifyAdminSession(m?.[1]||'');if(!session)return res.status(401).json({error:'Administrator authentication required'});(req as any).adminEmail=session.email;return next();}
@@ -19,13 +23,11 @@ export async function requireAuth(req:Request,res:Response,next:NextFunction){re
 `);
 
 let server=fs.readFileSync('server.ts','utf8');
-// Preserve both middleware exports: production hardening uses requireAuth on
-// client routes and requireAdmin on private administrator routes.
 server=server.replace(/import \{[^\n]*\brequireAdmin\b[^\n]*\} from '\.\/server\/adminAuth';/, "import { requireAuth, requireAdmin, authenticateAdminCredentials, adminLoginConfigured } from './server/adminAuth';");
 if(!server.includes("app.post('/api/admin/login'")){
   const marker='app.use(express.json());';
   if(!server.includes(marker))throw new Error('Express JSON middleware marker not found');
-  const route=`app.post('/api/admin/login',(req,res)=>{if(!adminLoginConfigured())return res.status(503).json({error:'Administrator authentication is not configured'});const token=authenticateAdminCredentials(String(req.body?.email||''),String(req.body?.password||''));if(!token)return res.status(401).json({error:'Incorrect administrator email or password.'});return res.json({token,expiresIn:43200});});`;
+  const route=`app.post('/api/admin/login',(req,res)=>{if(!adminLoginConfigured())return res.status(503).json({error:'Administrator authentication is not configured'});const token=authenticateAdminCredentials(String(req.body?.email||process.env.ADMIN_EMAIL||''),String(req.body?.password||''));if(!token)return res.status(401).json({error:'Incorrect administrator email or password.'});return res.json({token,expiresIn:43200});});`;
   server=server.replace(marker,marker+'\n'+route);
 }
 fs.writeFileSync('server.ts',server);
@@ -66,8 +68,7 @@ if(!header.includes('AXI_HIDDEN_ADMIN_TRIGGER_V3')){
   const logoButtonClose='          </button>\n';
   const firstEnd=header.indexOf(logoButtonClose);
   if(firstEnd<0)throw new Error('Header logo button marker not found');
-  const prompt=`\n          {showHiddenAdminPrompt && <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 p-5" role="dialog" aria-modal="true"><div className="w-full max-w-sm rounded-2xl border border-white/10 bg-slate-950 p-6 text-white shadow-2xl"><div className="text-[10px] font-black uppercase tracking-[0.3em] text-red-400">AxiTrades</div><h2 className="mt-2 text-xl font-black">Administrator access</h2><p className="mt-1 text-xs text-slate-400">Private access detected.</p><button type="button" onClick={openHiddenAdmin} className="mt-5 w-full rounded-xl bg-red-600 py-3 text-sm font-black">Continue to secure sign-in</button><button type="button" onClick={()=>setShowHiddenAdminPrompt(false)} className="mt-2 w-full rounded-xl border border-white/10 py-3 text-sm">Cancel</button></div></div>}
-`;
+  const prompt=`\n          {showHiddenAdminPrompt && <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 p-5" role="dialog" aria-modal="true"><div className="w-full max-w-sm rounded-2xl border border-white/10 bg-slate-950 p-6 text-white shadow-2xl"><div className="text-[10px] font-black uppercase tracking-[0.3em] text-red-400">AxiTrades</div><h2 className="mt-2 text-xl font-black">Administrator access</h2><p className="mt-1 text-xs text-slate-400">Private access detected.</p><button type="button" onClick={openHiddenAdmin} className="mt-5 w-full rounded-xl bg-red-600 py-3 text-sm font-black">Continue to secure sign-in</button><button type="button" onClick={()=>setShowHiddenAdminPrompt(false)} className="mt-2 w-full rounded-xl border border-white/10 py-3 text-sm">Cancel</button></div></div>}\n`;
   header=header.slice(0,firstEnd+logoButtonClose.length)+prompt+header.slice(firstEnd+logoButtonClose.length);
   fs.writeFileSync('src/components/Header.tsx',header);
 }
@@ -80,4 +81,4 @@ if(!app.includes('AXI_STANDALONE_ADMIN_ROUTE_V3')){
   app=app.replace("if (currentView === 'admin' && !isAdminUser) {\n          setView('dashboard');\n          return;\n        }","if (currentView === 'admin' && !isAdminUser && !hasStandaloneAdminSession) {\n          setView('dashboard');\n          return;\n        }");
   fs.writeFileSync('src/App.tsx',app);
 }
-console.log('Standalone admin auth and hidden logo access applied successfully.');
+console.log('Standalone admin auth and mobile access applied successfully.');
