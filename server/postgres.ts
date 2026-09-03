@@ -76,6 +76,7 @@ export async function initPostgres() {
     );
     CREATE INDEX IF NOT EXISTS axi_audit_created_idx ON axi_audit_logs(created_at DESC);
     CREATE INDEX IF NOT EXISTS axi_funding_status_idx ON axi_funding_records(status);
+    CREATE INDEX IF NOT EXISTS axi_payment_methods_type_idx ON axi_payment_methods(method_type);
   `);
   initialized = true;
   return true;
@@ -132,19 +133,28 @@ export async function dbAuditLogs(limit = 200) {
 export async function dbPaymentMethods() {
   const db = getPool();
   if (!db) return null;
-  const { rows } = await db.query('SELECT method_type, enabled, details, updated_by, updated_at FROM axi_payment_methods ORDER BY method_type');
+  const { rows } = await db.query('SELECT id, method_type, enabled, details, updated_by, updated_at FROM axi_payment_methods ORDER BY method_type, id');
   return rows;
 }
 
 export async function dbSavePaymentMethods(methods: any, actor = 'admin') {
   const db = getPool();
   if (!db) return false;
-  const entries = [['bankTransfer',methods.bankTransfer],['instantTransfer',methods.instantTransfer],['crypto',methods.crypto]] as const;
+  const cryptoMethods = Array.isArray(methods?.crypto) ? methods.crypto : (methods?.crypto ? [methods.crypto] : []);
+  const entries = [['bankTransfer',methods?.bankTransfer],['instantTransfer',methods?.instantTransfer]] as const;
   const client = await db.connect();
   try {
     await client.query('BEGIN');
     for (const [type, details] of entries) {
-      await client.query(`INSERT INTO axi_payment_methods(id,method_type,enabled,details,updated_by,updated_at) VALUES ($1,$2,$3,$4,$5,NOW()) ON CONFLICT(id) DO UPDATE SET enabled=EXCLUDED.enabled,details=EXCLUDED.details,updated_by=EXCLUDED.updated_by,updated_at=NOW()`, [`${type}`, type, Boolean(details?.enabled), JSON.stringify(details || {}), actor]);
+      await client.query(`INSERT INTO axi_payment_methods(id,method_type,enabled,details,updated_by,updated_at) VALUES ($1,$2,$3,$4,$5,NOW()) ON CONFLICT(id) DO UPDATE SET enabled=EXCLUDED.enabled,details=EXCLUDED.details,updated_by=EXCLUDED.updated_by,updated_at=NOW()`, [type, type, Boolean(details?.enabled), JSON.stringify(details || {}), actor]);
+    }
+    await client.query("DELETE FROM axi_payment_methods WHERE method_type='crypto'");
+    for (let index = 0; index < cryptoMethods.length; index += 1) {
+      const details = cryptoMethods[index] || {};
+      const asset = String(details.asset || 'crypto').trim().toUpperCase().replace(/[^A-Z0-9_-]/g, '-').slice(0, 24) || 'CRYPTO';
+      const network = String(details.network || 'network').trim().toUpperCase().replace(/[^A-Z0-9_-]/g, '-').slice(0, 24) || 'NETWORK';
+      const id = `crypto-${asset}-${network}-${index + 1}`;
+      await client.query(`INSERT INTO axi_payment_methods(id,method_type,enabled,details,updated_by,updated_at) VALUES ($1,'crypto',$2,$3,$4,NOW())`, [id, Boolean(details.enabled), JSON.stringify(details), actor]);
     }
     await client.query('COMMIT');
   } catch (error) {
