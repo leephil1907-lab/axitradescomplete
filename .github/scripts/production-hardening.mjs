@@ -72,7 +72,7 @@ s = s.replace(/readDataFile\('adminBotConfig\.json', \{[\s\S]*?\}\);/, "readData
 s = s.replace(/readDataFile\('adminTradingBotSettings\.json', \{[\s\S]*?\}\);/, "readDataFile('adminTradingBotSettings.json', { automatedTradingEnabled: false, circuitBreakerEnabled: true });");
 s = s.replace(/readDataFile\('adminInvestmentPlans\.json', \[[\s\S]*?\]\);/, "readDataFile('adminInvestmentPlans.json', []);");
 s = s.replace(/readDataFile\('adminTradingPairs\.json', \[[\s\S]*?\]\);/, "readDataFile('adminTradingPairs.json', []);");
-s = s.replace(/readDataFile\('adminCurrencies\.json', \[[\s\S]*?\]\);/, "readDataFile('adminCurrencies.json', [{ code: 'USD', name: 'US Dollar', symbol: '$', rateToUsd: 1, isBase: true }]);");
+s = s.replace(/readDataFile\('adminCurrencies\.json', \[[\s\S]*?\]\);/, "readDataFile('adminCurrencies.json', [{ code: 'USD', name: 'US Dollar', symbol: String.fromCharCode(36), rateToUsd: 1, isBase: true }]);");
 
 // Never let SPA fallback make sensitive probe paths look successful.
 const sensitivePathGuard = `\n// Return 404 for common framework/config probes instead of serving the SPA shell.\napp.use((req, res, next) => {\n  const blocked = /^(\\/\\.env|\\/\\.git(?:\\/|$)|\\/\\.vscode(?:\\/|$)|\\/server-status(?:\\/|$)|\\/server(?:\\/|$)|\\/actuator(?:\\/|$)|\\/trace\\.axd(?:\\/|$)|\\/info\\.php(?:\\/|$)|\\/telescope(?:\\/|$)|\\/v2\\/_catalog(?:\\/|$)|\\/debug(?:\\/|$)|\\/config\\.json$|\\/\\@vite\\/env$|\\/\\.DS_Store$)/i.test(req.path);\n  if (blocked) return res.status(404).json({ error: 'Not found' });\n  next();\n});\n`;
