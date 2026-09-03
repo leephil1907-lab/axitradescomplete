@@ -262,6 +262,25 @@ app.use((req, res, next) => {
 
 // General Express JSON middleware for all other API routes
 app.use(express.json());
+app.get('/api/payment-methods', requireAuth, async (_req, res) => {
+  try {
+    const rows = await dbPaymentMethods().catch(() => null);
+    if (!rows) return res.json({ success: true, source: 'unconfigured', methods: [] });
+    const methods = rows.map((row: any) => ({
+      id: row.method_type,
+      name: row.method_type === 'bankTransfer' ? 'Bank Transfer' : row.method_type === 'instantTransfer' ? 'Instant Transfer' : 'Crypto',
+      type: row.method_type === 'crypto' ? 'crypto' : 'bank',
+      active: Boolean(row.enabled),
+      details: row.details || {},
+      ...((row.details && typeof row.details === 'object') ? row.details : {})
+    }));
+    return res.json({ success: true, source: 'postgres', methods });
+  } catch (error: any) {
+    console.error('Customer payment-method read failed:', error?.message || error);
+    return res.status(500).json({ error: 'Payment configuration unavailable' });
+  }
+});
+
 app.post('/api/admin/login',(req,res)=>{if(!adminLoginConfigured())return res.status(503).json({error:'Administrator authentication is not configured'});const token=authenticateAdminCredentials(String(req.body?.email||process.env.ADMIN_EMAIL||''),String(req.body?.password||''));if(!token)return res.status(401).json({error:'Incorrect administrator email or password.'});return res.json({token,expiresIn:43200});});
 
 // POSTGRES_OPERATIONAL_ROUTES_MARKER
