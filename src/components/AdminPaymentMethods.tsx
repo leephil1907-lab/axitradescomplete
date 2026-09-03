@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Banknote, Bitcoin, CreditCard, Plus, RefreshCw, Save, Smartphone, Trash2 } from 'lucide-react';
+import { Banknote, Bitcoin, Plus, RefreshCw, Save, Smartphone, Trash2 } from 'lucide-react';
 import { authHeaders } from '../utils/authHeaders';
 
 type BankTransfer = { enabled: boolean; bankName: string; accountName: string; accountNumber: string; routingNumber: string; swiftBic: string; currency: string; instructions: string };
