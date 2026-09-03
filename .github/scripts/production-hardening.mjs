@@ -10,7 +10,9 @@ write(authPath, `import { cert, getApps, initializeApp } from 'firebase-admin/ap
 
 // 2) Harden server routes and eliminate client-supplied admin identity.
 let s = read('server.ts');
-if (!s.includes("./server/adminAuth")) {
+if (s.includes("from './server/adminAuth'")) {
+  s = s.replace("import { requireAdmin } from './server/adminAuth';", "import { requireAuth, requireAdmin } from './server/adminAuth';");
+} else {
   s = s.replace("import YahooFinanceRaw from 'yahoo-finance2';", "import YahooFinanceRaw from 'yahoo-finance2';\nimport { requireAuth, requireAdmin } from './server/adminAuth';");
 }
 
@@ -32,21 +34,23 @@ for (const marker of adminRoutes) {
   if (s.includes(marker) && !s.includes(replacement)) s = s.replace(marker, replacement);
 }
 
-// Admin actor must come from verified Firebase identity, never x-admin-email.
 s = s.replace(/String\(req\.headers\['x-admin-email'\] \|\| 'admin'\)/g, "String((req as any).adminEmail || 'unknown-admin')");
 
-// Financial creation/verification must be tied to the authenticated Firebase user.
 for (const marker of [
   "app.post('/api/stripe/create-payment-intent',",
   "app.post('/api/stripe/create-checkout-session',",
   "app.post('/api/stripe/verify-deposit',",
-  "app.get('/api/stripe/payment-intent/:id',"
+  "app.get('/api/stripe/payment-intent/:id',",
+  "app.post('/api/kyc/submit',",
+  "app.get('/api/kyc/list',",
+  "app.post('/api/kyc/approve',",
+  "app.post('/api/kyc/reject',"
 ]) {
-  const replacement = marker + ' requireAuth, ';
+  const isAdmin = marker.includes("/api/kyc/list") || marker.includes("/api/kyc/approve") || marker.includes("/api/kyc/reject");
+  const replacement = marker + (isAdmin ? ' requireAdmin, ' : ' requireAuth, ');
   if (s.includes(marker) && !s.includes(replacement)) s = s.replace(marker, replacement);
 }
 
-// Prevent callers from choosing another user's ID for Stripe operations.
 s = s.replace("const { amount, currency = 'usd', depositId, userId } = req.body;", "const { amount, currency = 'usd', depositId } = req.body;\n  const userId = String((req as any).authUser?.uid || '');");
 s = s.replace("const { amount, currency = 'usd', depositId, userId, method } = req.body;", "const { amount, currency = 'usd', depositId, method } = req.body;\n    const userId = String((req as any).authUser?.uid || '');");
 s = s.replace("const { paymentIntentId, sessionId, amount, userId } = req.body || {};", "const { paymentIntentId, sessionId } = req.body || {};\n  const userId = String((req as any).authUser?.uid || '');");
@@ -70,6 +74,10 @@ s = s.replace(/readDataFile\('adminInvestmentPlans\.json', \[[\s\S]*?\]\);/, "re
 s = s.replace(/readDataFile\('adminTradingPairs\.json', \[[\s\S]*?\]\);/, "readDataFile('adminTradingPairs.json', []);");
 s = s.replace(/readDataFile\('adminCurrencies\.json', \[[\s\S]*?\]\);/, "readDataFile('adminCurrencies.json', [{ code: 'USD', name: 'US Dollar', symbol: '$', rateToUsd: 1, isBase: true }]);");
 
+// Never let SPA fallback make sensitive probe paths look successful.
+const sensitivePathGuard = `\n// Return 404 for common framework/config probes instead of serving the SPA shell.\napp.use((req, res, next) => {\n  const blocked = /^(\\/\\.env|\\/\\.git(?:\\/|$)|\\/\\.vscode(?:\\/|$)|\\/server-status(?:\\/|$)|\\/server(?:\\/|$)|\\/actuator(?:\\/|$)|\\/trace\\.axd(?:\\/|$)|\\/info\\.php(?:\\/|$)|\\/telescope(?:\\/|$)|\\/v2\\/_catalog(?:\\/|$)|\\/debug(?:\\/|$)|\\/config\\.json$|\\/\\@vite\\/env$|\\/\\.DS_Store$)/i.test(req.path);\n  if (blocked) return res.status(404).json({ error: 'Not found' });\n  next();\n});\n`;
+if (!s.includes('common framework/config probes')) s = s.replace("// General Express JSON middleware for all other API routes\napp.use(express.json());", sensitivePathGuard + "\n// General Express JSON middleware for all other API routes\napp.use(express.json());");
+
 write('server.ts', s);
 
 // 3) Central client helper for Firebase bearer tokens.
@@ -89,10 +97,15 @@ for (const p of adminFiles) {
   write(p, c);
 }
 
-// 5) Prevent the browser from writing a fake registered-user mirror as the authoritative admin store.
+// 5) Remove the browser-local registered-user ledger. The server/database is authoritative.
 let h = read('src/hooks/useFirebaseData.ts');
-h = h.replace("const savedStr = safeStorage.getItem('axi_registered_users');", "const savedStr = null; // Server/Postgres is authoritative; do not use browser storage as an admin ledger.");
-h = h.replace("safeStorage.setItem('axi_registered_users', JSON.stringify(userList));", "// Admin registration records are persisted server-side via /api/users/register.");
+h = h.replace("const savedStr = safeStorage.getItem('axi_registered_users');", "const savedStr = null; // Server/Postgres is authoritative; browser storage is never an admin ledger.");
+h = h.replace("safeStorage.setItem('axi_registered_users', JSON.stringify(userList));", "// Registration records are persisted server-side; do not mirror them into browser storage.");
+// Guest trading/watchlist paths are not permitted in production.
+h = h.replace("if (!user) { setOpenPositions(prev => [...prev, pos]); return; }", "if (!user) throw new Error('Authentication required to place a trade');");
+h = h.replace("'User': user?.email || 'Guest / Demo Trader'", "'User': user?.email || 'Unauthenticated'");
+h = h.replace("if (!user) { setOpenPositions(prev => prev.filter(p => p.id !== posId)); return; }", "if (!user) throw new Error('Authentication required');");
+h = h.replace("if (!user) {\n      setWatchlist(prev => prev.includes(symbol) ? prev.filter(s => s !== symbol) : [...prev, symbol]);\n      return;\n    }", "if (!user) throw new Error('Authentication required');");
 write('src/hooks/useFirebaseData.ts', h);
 
 // 6) Remove repository-level fallback credentials/config from frontend Firebase config.
