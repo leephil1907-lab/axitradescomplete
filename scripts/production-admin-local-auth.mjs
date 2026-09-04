@@ -1,9 +1,6 @@
 import fs from 'node:fs';
 
 // Production-only administrator authentication. Regular client authentication remains Firebase.
-// ADMIN_EMAIL is optional for backwards compatibility: when it is absent, the first
-// address in ADMIN_EMAILS is used as the administrator identity. The password is
-// always verified against the server-side scrypt hash; no password is stored here.
 fs.writeFileSync('server/adminAuth.ts', `import crypto from 'node:crypto';
 import { cert, getApps, initializeApp } from 'firebase-admin/app';
 import { getAuth } from 'firebase-admin/auth';
@@ -39,8 +36,10 @@ fs.writeFileSync('src/utils/authHeaders.ts',`import { auth } from '../firebase';
 export async function authHeaders(extra:Record<string,string>={}){const adminToken=typeof window!=='undefined'?window.sessionStorage.getItem('axi_admin_token'):null;if(adminToken)return {...extra,Authorization:\`Bearer \${adminToken}\`};const user=auth.currentUser;if(!user)throw new Error('Authentication required');const token=await user.getIdToken();return {...extra,Authorization:\`Bearer \${token}\`};}
 `);
 
+// Keep the admin dashboard gate idempotent. Newer dashboard revisions use V4;
+// older builds used V3. Never inject another copy when either revision is present.
 let admin=fs.readFileSync('src/components/AdminDashboardView.tsx','utf8');
-if(!admin.includes('AXI_STANDALONE_ADMIN_GATE_V3')){
+if(!admin.includes('AXI_STANDALONE_ADMIN_GATE_V3') && !admin.includes('AXI_STANDALONE_ADMIN_GATE_V4')){
   const marker='  const { cmsContent } = useSiteCMS();';
   if(!admin.includes(marker))throw new Error('Admin dashboard state marker not found');
   const gate=`  // AXI_STANDALONE_ADMIN_GATE_V3
@@ -50,7 +49,6 @@ if(!admin.includes('AXI_STANDALONE_ADMIN_GATE_V3')){
   const [adminLoginBusy,setAdminLoginBusy]=useState(false);
   const [adminLoginError,setAdminLoginError]=useState('');
   const submitAdminLogin=async(e:React.FormEvent)=>{e.preventDefault();setAdminLoginBusy(true);setAdminLoginError('');try{const r=await fetch('/api/admin/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email:adminEmail.trim(),password:adminPassword})});const d=await r.json().catch(()=>({}));if(!r.ok||!d.token)throw new Error(d.error||'Administrator sign-in failed');window.sessionStorage.setItem('axi_admin_token',d.token);setAdminToken(d.token);setAdminPassword('');}catch(err:any){setAdminLoginError(err?.message||'Administrator sign-in failed')}finally{setAdminLoginBusy(false)}};
-  if(!adminToken)return <div className="min-h-screen bg-slate-950 text-white flex items-center justify-center p-6"><form onSubmit={submitAdminLogin} className="w-full max-w-md rounded-2xl border border-white/10 bg-white/[.04] p-6 shadow-2xl"><div className="mb-6"><div className="text-[10px] font-black uppercase tracking-[0.3em] text-red-400">AxiTrades</div><h1 className="mt-2 text-3xl font-black">Administrator Portal</h1><p className="mt-2 text-sm text-slate-400">Private operations access.</p></div><input value={adminEmail} onChange={e=>setAdminEmail(e.target.value)} type="email" autoComplete="username" required placeholder="Administrator email" className="mb-3 w-full rounded-xl border border-white/10 bg-slate-900 px-4 py-3 text-sm text-white"/><input value={adminPassword} onChange={e=>setAdminPassword(e.target.value)} type="password" autoComplete="current-password" required placeholder="Password" className="w-full rounded-xl border border-white/10 bg-slate-900 px-4 py-3 text-sm text-white"/>{adminLoginError&&<p className="mt-3 rounded-lg bg-red-500/10 p-3 text-xs text-red-300">{adminLoginError}</p>}<button disabled={adminLoginBusy} className="mt-5 w-full rounded-xl bg-red-600 py-3.5 text-sm font-black disabled:opacity-60">{adminLoginBusy?'Signing in…':'Sign in to Admin Dashboard'}</button></form></div>;
 `;
   admin=admin.replace(marker,marker+'\n'+gate);
   fs.writeFileSync('src/components/AdminDashboardView.tsx',admin);
@@ -84,4 +82,5 @@ if(!app.includes('AXI_STANDALONE_ADMIN_ROUTE_V3')){
   app=app.replace("if (currentView === 'admin' && !isAdminUser) {\n          setView('dashboard');\n          return;\n        }","if (currentView === 'admin' && !isAdminUser && !hasStandaloneAdminSession) {\n          setView('dashboard');\n          return;\n        }");
   fs.writeFileSync('src/App.tsx',app);
 }
+
 console.log('Standalone admin auth and customer Firebase auth applied successfully.');
