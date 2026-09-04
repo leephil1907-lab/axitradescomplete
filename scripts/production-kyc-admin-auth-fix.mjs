@@ -1,0 +1,10 @@
+import fs from 'node:fs';
+let source=fs.readFileSync('server/postgresOperational.ts','utf8');
+if(!source.includes("from './adminAuth'")) source=source.replace(/import ([^\n]+) from ['"]firebase-admin\/auth['"];?/,m=>m+"\nimport { verifyAdminSession } from './adminAuth';");
+const start=source.indexOf('async function requireAdminForOperational(');
+if(start<0) throw new Error('Operational admin auth function not found');
+const end=source.indexOf('\n\n',start);
+const body=`async function requireAdminForOperational(req: Request, res: Response, next: NextFunction) {\n  const match = String(req.headers.authorization || '').match(/^Bearer\\s+(.+)$/i);\n  const session = verifyAdminSession(match?.[1] || '');\n  if (!session) return res.status(401).json({ success: false, error: 'Invalid administrator authentication token' });\n  (req as any).adminEmail = session.email;\n  return next();\n}`;
+source=source.slice(0,start)+body+(end>=0?source.slice(end):'');
+fs.writeFileSync('server/postgresOperational.ts',source);
+console.log('Operational KYC/admin routes now accept the standalone admin session.');
