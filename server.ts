@@ -9,7 +9,7 @@ import Stripe from 'stripe';
 import nodemailer from 'nodemailer';
 import { sendAxiEmail } from './emailService';
 import { sendRegistrationEmails, sendPasswordResetEmail } from './server/emailService';
-import { hasPostgres, initPostgres, dbUsers, dbUpsertUser, dbUpdateUser, audit, dbAuditLogs, dbPaymentMethods, dbSavePaymentMethods, dbCreateFunding, dbFundingPending, dbCreditFunding } from './server/postgres';
+import { hasPostgres, initPostgres, dbUsers, dbUpsertUser, dbUpdateUser, dbAdjustBalance, dbBalanceLedger, audit, dbAuditLogs, dbPaymentMethods, dbSavePaymentMethods, dbCreateFunding, dbFundingPending, dbCreditFunding } from './server/postgres';
 import YahooFinanceRaw from 'yahoo-finance2';
 import { requireAuth, requireAdmin, authenticateAdminCredentials, adminLoginConfigured } from './server/adminAuth';
 
@@ -266,14 +266,19 @@ app.get('/api/payment-methods', requireAuth, async (_req, res) => {
   try {
     const rows = await dbPaymentMethods().catch(() => null);
     if (!rows) return res.json({ success: true, source: 'unconfigured', methods: [] });
+    const names: Record<string, string> = { bankTransfer: 'Bank Transfer', instantTransfer: 'Instant Transfer', crypto: 'Crypto', paypal: 'PayPal', skrill: 'Skrill', neteller: 'Neteller' };
+    const types: Record<string, string> = { bankTransfer: 'bank', instantTransfer: 'bank', crypto: 'crypto', paypal: 'wallet', skrill: 'wallet', neteller: 'wallet' };
+    const icons: Record<string, string> = { bankTransfer: 'bank', instantTransfer: 'bank', crypto: 'crypto', paypal: 'paypal', skrill: 'skrill', neteller: 'neteller' };
     const methods = rows.map((row: any) => ({
-      id: row.method_type,
-      name: row.method_type === 'bankTransfer' ? 'Bank Transfer' : row.method_type === 'instantTransfer' ? 'Instant Transfer' : 'Crypto',
-      type: row.method_type === 'crypto' ? 'crypto' : 'bank',
-      active: Boolean(row.enabled),
-      details: row.details || {},
+      id: row.method_type === 'crypto' ? (row.id || 'crypto') : row.method_type,
+      name: names[row.method_type] || row.method_type,
+      type: types[row.method_type] || 'other', active: Boolean(row.enabled),
+      details: row.details || {}, iconName: icons[row.method_type] || row.method_type,
       ...((row.details && typeof row.details === 'object') ? row.details : {})
     }));
+    if (process.env.STRIPE_SECRET_KEY && process.env.VITE_STRIPE_PUBLISHABLE_KEY) {
+      methods.unshift({ id: 'card', name: 'Card', type: 'card', active: true, details: {}, iconName: 'card' });
+    }
     return res.json({ success: true, source: 'postgres', methods });
   } catch (error: any) {
     console.error('Customer payment-method read failed:', error?.message || error);
@@ -357,24 +362,22 @@ const PAYMENT_METHODS_FILE = 'paymentMethods.json';
 
 app.get('/api/admin/payment-methods', requireAdmin, async (_req, res) => {
   const persistedMethods = await dbPaymentMethods().catch(() => null);
-  if (persistedMethods) {
-    const methods = Object.fromEntries(persistedMethods.map((row) => [row.method_type, { ...(row.details || {}), enabled: row.enabled }]));
-    return res.json({ success: true, methods, source: 'postgres' });
-  }
-  return res.status(503).json({ success: false, error: 'Payment methods storage is unavailable' });
-});
-
-app.post('/api/admin/payment-methods', requireAdmin,  async (req, res) => {
-  const incoming = req.body || {};
-  const methods = {
-    bankTransfer: { enabled: Boolean(incoming.bankTransfer?.enabled), bankName: String(incoming.bankTransfer?.bankName || '').trim(), accountName: String(incoming.bankTransfer?.accountName || '').trim(), accountNumber: String(incoming.bankTransfer?.accountNumber || '').trim(), routingNumber: String(incoming.bankTransfer?.routingNumber || '').trim(), swiftBic: String(incoming.bankTransfer?.swiftBic || '').trim(), currency: String(incoming.bankTransfer?.currency || '').trim(), instructions: String(incoming.bankTransfer?.instructions || '').trim() },
-    instantTransfer: { enabled: Boolean(incoming.instantTransfer?.enabled), providerName: String(incoming.instantTransfer?.providerName || '').trim(), accountName: String(incoming.instantTransfer?.accountName || '').trim(), accountNumber: String(incoming.instantTransfer?.accountNumber || '').trim(), instructions: String(incoming.instantTransfer?.instructions || '').trim() },
-    crypto: { enabled: Boolean(incoming.crypto?.enabled), asset: String(incoming.crypto?.asset || '').trim(), network: String(incoming.crypto?.network || '').trim(), address: String(incoming.crypto?.address || '').trim(), memo: String(incoming.crypto?.memo || '').trim(), instructions: String(incoming.crypto?.instructions || '').trim() }
+  if (!persistedMethods) return res.status(503).json({ success: false, error: 'Payment methods storage is unavailable' });
+  const bankRow = persistedMethods.find((row) => row.method_type === 'bankTransfer');
+  const instantRow = persistedMethods.find((row) => row.method_type === 'instantTransfer');
+  const crypto = persistedMethods.filter((row) => row.method_type === 'crypto').map((row) => ({ id: row.id, ...(row.details || {}), enabled: Boolean(row.enabled), iconName: 'crypto' }));
+  const wallet = (type: string, iconName: string) => {
+    const row = persistedMethods.find((item) => item.method_type === type);
+    return row ? { ...(row.details || {}), enabled: Boolean(row.enabled), iconName } : { enabled: false, account: '', accountName: '', instructions: '', iconName };
   };
-  writeDataFile(PAYMENT_METHODS_FILE, methods);
-  await dbSavePaymentMethods(methods, String((req as any).adminEmail || 'unknown-admin')).catch((error) => console.error('Postgres payment settings sync failed:', error));
-  await audit('ADMIN_PAYMENT_METHODS_UPDATED', { actor: String((req as any).adminEmail || 'unknown-admin'), metadata: methods }).catch(() => {});
-  res.json({ success: true, methods });
+  return res.json({ success: true, source: 'postgres', methods: {
+    bankTransfer: bankRow ? { ...(bankRow.details || {}), enabled: Boolean(bankRow.enabled), iconName: 'bank' } : { enabled: false, iconName: 'bank' },
+    instantTransfer: instantRow ? { ...(instantRow.details || {}), enabled: Boolean(instantRow.enabled), iconName: 'bank' } : { enabled: false, iconName: 'bank' },
+    paypal: wallet('paypal', 'paypal'),
+    skrill: wallet('skrill', 'skrill'),
+    neteller: wallet('neteller', 'neteller'),
+    crypto
+  }});
 });
 
 app.get('/api/admin/activity', requireAdmin,  async (req, res) => {
@@ -1685,6 +1688,10 @@ app.post('/api/users/register', async (req, res) => {
   void sendRegistrationEmails(userData);
   res.json({ success: true, user: userData, totalUsers: appUsersStore.length });
 });
+
+app.get('/api/admin/balance-ledger/:userId', requireAdmin, async (req,res)=>{try{const rows=await dbBalanceLedger(String(req.params.userId||''));return res.json({success:true,entries:rows||[]});}catch(error){console.error('Balance ledger load failed:',error);return res.status(500).json({success:false,error:'Unable to load balance ledger'});}});
+
+app.post('/api/admin/users/:id/balance-adjustment', requireAdmin, async (req,res)=>{try{const amount=Number(req.body?.amount);const reason=String(req.body?.reason||'').trim();if(!Number.isFinite(amount)||amount===0)return res.status(400).json({success:false,error:'Enter a non-zero adjustment amount'});if(!reason)return res.status(400).json({success:false,error:'A reason is required'});const result=await dbAdjustBalance(String(req.params.id||''),amount,String((req as any).adminEmail||'admin'),reason,String(req.body?.referenceId||'')||undefined);return res.json({success:true,result});}catch(error:any){console.error('Manual balance adjustment failed:',error);return res.status(400).json({success:false,error:error?.message||'Manual balance adjustment failed'});}});
 
 // Update specific user balance
 app.put('/api/users/:id/balance', requireAdmin,  async (req, res) => {
