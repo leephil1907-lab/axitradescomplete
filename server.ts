@@ -1305,7 +1305,7 @@ app.post('/api/stripe/create-checkout-session', requireAuth,  async (req, res) =
 
 // Verify completed Stripe deposit endpoint
 app.post('/api/stripe/verify-deposit', requireAuth,  async (req, res) => {
-  const { paymentIntentId, sessionId } = req.body || {};
+  const { paymentIntentId, sessionId, amount } = req.body || {};
   const userId = String((req as any).authUser?.uid || '');
   const stripe = getStripe();
 
