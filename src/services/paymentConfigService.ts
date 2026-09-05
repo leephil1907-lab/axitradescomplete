@@ -159,6 +159,48 @@ export const defaultPaymentMethods: PaymentMethodItem[] = [
   }
 ];
 
+const cryptoNames: Record<string, string> = {
+  btc: 'Bitcoin (BTC)',
+  eth: 'Ethereum (ETH)',
+  usdt: 'Tether (USDT)',
+  usdc: 'USD Coin (USDC)',
+  sol: 'Solana (SOL)',
+  bnb: 'BNB (BNB)',
+  xrp: 'XRP (XRP)'
+};
+
+/**
+ * Keeps the admin wallet registry and the deposit payment-method registry in sync.
+ * A wallet saved in system_config/wallets must also become a selectable deposit
+ * method because FundsView renders paymentConfig.paymentMethods, not cryptoWallets.
+ */
+export function syncCryptoWalletPaymentMethods(
+  wallets: Record<string, CryptoWalletConfig>,
+  methods: PaymentMethodItem[] = defaultPaymentMethods
+): PaymentMethodItem[] {
+  const nonGeneratedMethods = methods.filter(method => !method.id.startsWith('crypto-wallet-'));
+  const generatedMethods: PaymentMethodItem[] = Object.entries(wallets)
+    .filter(([, wallet]) => Boolean(wallet?.address) && wallet.active !== false)
+    .map(([key, wallet]) => ({
+      id: `crypto-wallet-${key}`,
+      name: cryptoNames[key] || `${key.toUpperCase()} Crypto`,
+      type: 'crypto' as const,
+      currency: key.toUpperCase(),
+      active: true,
+      minDeposit: 10,
+      maxDeposit: 1000000,
+      feePercent: 0,
+      processingTime: 'Blockchain confirmation',
+      walletAddress: wallet.address,
+      network: wallet.network,
+      memo: wallet.memo,
+      instructions: `Send ${key.toUpperCase()} only on the ${wallet.network} network. Deposits remain pending verification until the transfer is reviewed.`,
+      iconName: key
+    }));
+
+  return [...nonGeneratedMethods, ...generatedMethods];
+}
+
 export function getLocalPaymentConfig(): CentralPaymentConfig {
   try {
     const sanitizeBank = (bank: any): BankSettingsConfig => {
@@ -171,11 +213,13 @@ export function getLocalPaymentConfig(): CentralPaymentConfig {
     const savedConfig = safeStorage.getItem('axi_payment_config');
     if (savedConfig) {
       const parsed = JSON.parse(savedConfig);
+      const cryptoWallets = { ...defaultCryptoWallets, ...(parsed.cryptoWallets || {}) };
+      const paymentMethods = syncCryptoWalletPaymentMethods(cryptoWallets, parsed.paymentMethods || defaultPaymentMethods);
       return {
         updatedAt: parsed.updatedAt || Date.now(),
-        cryptoWallets: { ...defaultCryptoWallets, ...(parsed.cryptoWallets || {}) },
+        cryptoWallets,
         bankSettings: sanitizeBank(parsed.bankSettings),
-        paymentMethods: parsed.paymentMethods || defaultPaymentMethods,
+        paymentMethods,
         autoApproveLimit: 0,
         requireKycForDeposit: parsed.requireKycForDeposit ?? true,
         maintenanceMode: { ...defaultMaintenanceMode, ...(parsed.maintenanceMode || {}) }
@@ -188,7 +232,10 @@ export function getLocalPaymentConfig(): CentralPaymentConfig {
 
     const cryptoWallets = savedWallets ? { ...defaultCryptoWallets, ...JSON.parse(savedWallets) } : defaultCryptoWallets;
     const bankSettings = savedBank ? sanitizeBank(JSON.parse(savedBank)) : defaultBankSettings;
-    const paymentMethods = savedMethods ? JSON.parse(savedMethods) : defaultPaymentMethods;
+    const paymentMethods = syncCryptoWalletPaymentMethods(
+      cryptoWallets,
+      savedMethods ? JSON.parse(savedMethods) : defaultPaymentMethods
+    );
 
     return {
       updatedAt: Date.now(),
@@ -205,7 +252,7 @@ export function getLocalPaymentConfig(): CentralPaymentConfig {
       updatedAt: Date.now(),
       cryptoWallets: defaultCryptoWallets,
       bankSettings: defaultBankSettings,
-      paymentMethods: defaultPaymentMethods,
+      paymentMethods: syncCryptoWalletPaymentMethods(defaultCryptoWallets, defaultPaymentMethods),
       autoApproveLimit: 0,
       requireKycForDeposit: true,
       maintenanceMode: defaultMaintenanceMode
@@ -215,10 +262,14 @@ export function getLocalPaymentConfig(): CentralPaymentConfig {
 
 export function saveLocalPaymentConfig(config: CentralPaymentConfig) {
   try {
-    safeStorage.setItem('axi_payment_config', JSON.stringify(config));
-    safeStorage.setItem('axi_admin_wallet_settings', JSON.stringify(config.cryptoWallets));
-    safeStorage.setItem('axi_admin_bank_settings', JSON.stringify(config.bankSettings));
-    safeStorage.setItem('axi_payment_methods', JSON.stringify(config.paymentMethods));
+    const normalizedConfig = {
+      ...config,
+      paymentMethods: syncCryptoWalletPaymentMethods(config.cryptoWallets || {}, config.paymentMethods || [])
+    };
+    safeStorage.setItem('axi_payment_config', JSON.stringify(normalizedConfig));
+    safeStorage.setItem('axi_admin_wallet_settings', JSON.stringify(normalizedConfig.cryptoWallets));
+    safeStorage.setItem('axi_admin_bank_settings', JSON.stringify(normalizedConfig.bankSettings));
+    safeStorage.setItem('axi_payment_methods', JSON.stringify(normalizedConfig.paymentMethods));
     window.dispatchEvent(new Event('axi_payment_config_updated'));
     window.dispatchEvent(new Event('axi_admin_wallet_settings_updated'));
     window.dispatchEvent(new Event('axi_payment_methods_updated'));
@@ -235,17 +286,17 @@ export function subscribeSystemConfigWallets(onData: (wallets: Record<string, Cr
     const unsubscribe = onSnapshot(sysDocRef, (snapshot) => {
       if (snapshot.exists()) {
         const data = snapshot.data();
+        const current = getLocalPaymentConfig().cryptoWallets;
         const wallets: Record<string, CryptoWalletConfig> = {
-          btc: data.btc || defaultCryptoWallets.btc,
-          eth: data.eth || defaultCryptoWallets.eth,
-          usdt: data.usdt || defaultCryptoWallets.usdt,
-          usdc: data.usdc || defaultCryptoWallets.usdc,
-          sol: data.sol || defaultCryptoWallets.sol,
-          bnb: data.bnb || defaultCryptoWallets.bnb,
-          xrp: data.xrp || defaultCryptoWallets.xrp
+          ...current,
+          ...Object.fromEntries(Object.entries(data).filter(([key]) => key !== 'updatedAt'))
         };
         const currentConfig = getLocalPaymentConfig();
-        const updatedConfig = { ...currentConfig, cryptoWallets: wallets };
+        const updatedConfig = {
+          ...currentConfig,
+          cryptoWallets: wallets,
+          paymentMethods: syncCryptoWalletPaymentMethods(wallets, currentConfig.paymentMethods)
+        };
         saveLocalPaymentConfig(updatedConfig);
         onData(wallets, true);
       } else {
@@ -267,19 +318,35 @@ export function subscribeSystemConfigWallets(onData: (wallets: Record<string, Cr
 
 export async function updateSystemConfigWallets(wallets: Record<string, CryptoWalletConfig>): Promise<{ success: boolean; firestoreSynced: boolean; message: string }> {
   const currentConfig = getLocalPaymentConfig();
-  const updatedConfig: CentralPaymentConfig = { ...currentConfig, cryptoWallets: wallets, updatedAt: Date.now() };
+  const syncedMethods = syncCryptoWalletPaymentMethods(wallets, currentConfig.paymentMethods);
+  const updatedConfig: CentralPaymentConfig = {
+    ...currentConfig,
+    cryptoWallets: wallets,
+    paymentMethods: syncedMethods,
+    updatedAt: Date.now()
+  };
   saveLocalPaymentConfig(updatedConfig);
   let firestoreSynced = false;
   try {
     const sysDocRef = doc(db, 'system_config', 'wallets');
     await setDoc(sysDocRef, { ...wallets, updatedAt: Date.now() }, { merge: true });
     const configDocRef = doc(db, 'config', 'paymentConfig');
-    await setDoc(configDocRef, { cryptoWallets: wallets, updatedAt: Date.now() }, { merge: true });
+    await setDoc(configDocRef, {
+      cryptoWallets: wallets,
+      paymentMethods: syncedMethods,
+      updatedAt: Date.now()
+    }, { merge: true });
     firestoreSynced = true;
   } catch (err: any) {
     console.warn('Firestore system_config/wallets write warning:', err?.message || err);
   }
-  return { success: true, firestoreSynced, message: firestoreSynced ? 'Crypto wallet addresses saved to Firestore system_config document!' : 'Crypto wallet addresses saved locally (Firestore sync fallback active).' };
+  return {
+    success: true,
+    firestoreSynced,
+    message: firestoreSynced
+      ? 'Crypto wallets saved and synchronized as active deposit payment methods in Firestore.'
+      : 'Crypto wallets saved locally; payment methods were synchronized and Firestore sync fallback remains active.'
+  };
 }
 
 export function subscribePaymentConfig(onData: (config: CentralPaymentConfig, isLiveFirestore: boolean) => void): () => void {
@@ -291,11 +358,13 @@ export function subscribePaymentConfig(onData: (config: CentralPaymentConfig, is
     const unsubscribeConfig = onSnapshot(configDocRef, (snapshot) => {
       if (snapshot.exists()) {
         const data = snapshot.data() as Partial<CentralPaymentConfig>;
+        const cryptoWallets = { ...defaultCryptoWallets, ...(data.cryptoWallets || {}) };
+        const baseMethods = data.paymentMethods && data.paymentMethods.length > 0 ? data.paymentMethods : defaultPaymentMethods;
         const merged: CentralPaymentConfig = {
           updatedAt: data.updatedAt || Date.now(),
-          cryptoWallets: { ...defaultCryptoWallets, ...(data.cryptoWallets || {}) },
+          cryptoWallets,
           bankSettings: { ...defaultBankSettings, ...(data.bankSettings || {}) },
-          paymentMethods: data.paymentMethods && data.paymentMethods.length > 0 ? data.paymentMethods : defaultPaymentMethods,
+          paymentMethods: syncCryptoWalletPaymentMethods(cryptoWallets, baseMethods),
           autoApproveLimit: 0,
           requireKycForDeposit: data.requireKycForDeposit ?? true,
           maintenanceMode: { ...defaultMaintenanceMode, ...(data.maintenanceMode || {}) }
@@ -314,18 +383,19 @@ export function subscribePaymentConfig(onData: (config: CentralPaymentConfig, is
     const unsubscribeSys = onSnapshot(sysDocRef, (snapshot) => {
       if (snapshot.exists()) {
         const data = snapshot.data();
-        if (data && (data.btc || data.usdt || data.eth || data.usdc || data.sol || data.bnb || data.xrp)) {
+        const walletEntries = Object.entries(data || {}).filter(([key, value]) => key !== 'updatedAt' && value && typeof value === 'object');
+        if (walletEntries.length > 0) {
           const current = getLocalPaymentConfig();
           const updatedWallets = {
-            btc: data.btc || current.cryptoWallets.btc,
-            eth: data.eth || current.cryptoWallets.eth,
-            usdt: data.usdt || current.cryptoWallets.usdt,
-            usdc: data.usdc || current.cryptoWallets.usdc,
-            sol: data.sol || current.cryptoWallets.sol,
-            bnb: data.bnb || current.cryptoWallets.bnb,
-            xrp: data.xrp || current.cryptoWallets.xrp
+            ...current.cryptoWallets,
+            ...Object.fromEntries(walletEntries)
+          } as Record<string, CryptoWalletConfig>;
+          const merged = {
+            ...current,
+            cryptoWallets: updatedWallets,
+            paymentMethods: syncCryptoWalletPaymentMethods(updatedWallets, current.paymentMethods),
+            updatedAt: Date.now()
           };
-          const merged = { ...current, cryptoWallets: updatedWallets };
           saveLocalPaymentConfig(merged);
           onData(merged, true);
         }
@@ -340,24 +410,31 @@ export function subscribePaymentConfig(onData: (config: CentralPaymentConfig, is
 }
 
 export async function updateCentralPaymentConfig(config: CentralPaymentConfig): Promise<{ success: boolean; firestoreSynced: boolean; message: string }> {
-  const updatedConfig = {
+  const normalizedConfig: CentralPaymentConfig = {
     ...config,
+    paymentMethods: syncCryptoWalletPaymentMethods(config.cryptoWallets || {}, config.paymentMethods || []),
     autoApproveLimit: Math.max(0, Number(config.autoApproveLimit || 0)),
     requireKycForDeposit: config.requireKycForDeposit ?? true,
     updatedAt: Date.now()
   };
-  saveLocalPaymentConfig(updatedConfig);
+  saveLocalPaymentConfig(normalizedConfig);
   let firestoreSynced = false;
   try {
     const configDocRef = doc(db, 'config', 'paymentConfig');
-    await setDoc(configDocRef, updatedConfig, { merge: true });
-    if (config.cryptoWallets) {
+    await setDoc(configDocRef, normalizedConfig, { merge: true });
+    if (normalizedConfig.cryptoWallets) {
       const sysDocRef = doc(db, 'system_config', 'wallets');
-      await setDoc(sysDocRef, { ...config.cryptoWallets, updatedAt: Date.now() }, { merge: true });
+      await setDoc(sysDocRef, { ...normalizedConfig.cryptoWallets, updatedAt: Date.now() }, { merge: true });
     }
     firestoreSynced = true;
   } catch (err: any) {
     console.warn('Firestore write warning:', err?.message || err);
   }
-  return { success: true, firestoreSynced, message: firestoreSynced ? 'Payment configuration updated & synchronized to Firestore central documents (/config/paymentConfig & /system_config/wallets)!' : 'Payment configuration saved locally (Firestore offline/sync fallback active).' };
+  return {
+    success: true,
+    firestoreSynced,
+    message: firestoreSynced
+      ? 'Payment configuration updated and crypto wallets synchronized with active deposit methods.'
+      : 'Payment configuration saved locally; Firestore offline/sync fallback active.'
+  };
 }
