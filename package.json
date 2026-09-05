@@ -21,7 +21,7 @@
     "@google/genai": "^2.4.0",
     "@stripe/react-stripe-js": "^6.8.0",
     "@stripe/stripe-js": "^9.10.0",
-    "@tailwindcss/vite": "^4.1.0",
+    "@tailwindcss/vite": "^4.1.14",
     "@vitejs/plugin-react": "^5.0.4",
     "dotenv": "^17.2.3",
     "esbuild": "^0.25.12",
@@ -31,20 +31,20 @@
     "lucide-react": "^0.546.0",
     "lightweight-charts": "^5.2.0",
     "motion": "^12.23.24",
-    "nodemailer": "^7.0.3",
-    "pg": "^8.16.3",
+    "nodemailer": "^9.0.5",
+    "pg": "^8.23.0",
     "recharts": "^3.9.2",
-    "stripe": "^18.5.0",
-    "tsx": "^4.20.3",
+    "stripe": "^22.3.2",
+    "tsx": "^4.23.1",
     "typescript": "~5.8.2",
-    "yahoo-finance2": "^3.10.0"
+    "yahoo-finance2": "^4.0.0"
   },
   "devDependencies": {
     "@firebase/eslint-plugin-security-rules": "^0.0.2",
     "@types/express": "^4.17.21",
     "@types/node": "^22.14.0",
-    "@types/nodemailer": "^6.4.17",
+    "@types/nodemailer": "^8.0.5",
     "autoprefixer": "^10.4.21",
-    "tailwindcss": "^4.1.7"
+    "tailwindcss": "4.3.3"
   }
 }
