@@ -115,7 +115,7 @@ export const defaultPaymentMethods: PaymentMethodItem[] = [
     maxDeposit: 1000000,
     feePercent: 0,
     processingTime: 'Blockchain confirmation',
-    instructions: 'Send only the selected asset on its specified network. Deposits remain pending verification until the transfer is reviewed.',
+    instructions: 'Select a supported cryptocurrency, copy the displayed receiving wallet address, and send the payment from your external wallet or exchange.',
     iconName: 'crypto'
   },
   {
@@ -170,35 +170,48 @@ const cryptoNames: Record<string, string> = {
 };
 
 /**
- * Keeps the admin wallet registry and the deposit payment-method registry in sync.
- * A wallet saved in system_config/wallets must also become a selectable deposit
- * method because FundsView renders paymentConfig.paymentMethods, not cryptoWallets.
+ * Builds the user-facing crypto deposit methods directly from the admin wallet registry.
+ * Wallet keys are also used as method IDs so FundsView can resolve the matching wallet.
+ * The user flow is copy-only: the address/network/memo are displayed for an external payment.
  */
 export function syncCryptoWalletPaymentMethods(
   wallets: Record<string, CryptoWalletConfig>,
   methods: PaymentMethodItem[] = defaultPaymentMethods
 ): PaymentMethodItem[] {
-  const nonGeneratedMethods = methods.filter(method => !method.id.startsWith('crypto-wallet-'));
-  const generatedMethods: PaymentMethodItem[] = Object.entries(wallets)
-    .filter(([, wallet]) => Boolean(wallet?.address) && wallet.active !== false)
-    .map(([key, wallet]) => ({
-      id: `crypto-wallet-${key}`,
-      name: cryptoNames[key] || `${key.toUpperCase()} Crypto`,
-      type: 'crypto' as const,
-      currency: key.toUpperCase(),
-      active: true,
-      minDeposit: 10,
-      maxDeposit: 1000000,
-      feePercent: 0,
-      processingTime: 'Blockchain confirmation',
-      walletAddress: wallet.address,
-      network: wallet.network,
-      memo: wallet.memo,
-      instructions: `Send ${key.toUpperCase()} only on the ${wallet.network} network. Deposits remain pending verification until the transfer is reviewed.`,
-      iconName: key
-    }));
+  const walletKeys = new Set(Object.keys(wallets));
+  const configuredMethods = methods.filter(method =>
+    !method.id.startsWith('crypto-wallet-') && !walletKeys.has(method.id)
+  );
 
-  return [...nonGeneratedMethods, ...generatedMethods];
+  const walletMethods: PaymentMethodItem[] = Object.entries(wallets)
+    .filter(([, wallet]) => Boolean(wallet?.address) && wallet.active !== false)
+    .map(([key, wallet]) => {
+      const existing = methods.find(method =>
+        method.id === key ||
+        method.id === `crypto-wallet-${key}` ||
+        (method.type === 'crypto' && method.currency?.toLowerCase() === key.toLowerCase())
+      );
+
+      return {
+        ...existing,
+        id: key,
+        name: existing?.name || cryptoNames[key] || `${key.toUpperCase()} Crypto`,
+        type: 'crypto' as const,
+        currency: existing?.currency || key.toUpperCase(),
+        active: true,
+        minDeposit: existing?.minDeposit ?? 10,
+        maxDeposit: existing?.maxDeposit ?? 1000000,
+        feePercent: existing?.feePercent ?? 0,
+        processingTime: existing?.processingTime || 'Blockchain confirmation',
+        walletAddress: wallet.address,
+        network: wallet.network,
+        memo: wallet.memo,
+        instructions: existing?.instructions || `Copy this ${key.toUpperCase()} wallet address and send the payment from your external wallet or exchange. Send only ${key.toUpperCase()} on the ${wallet.network} network.`,
+        iconName: existing?.iconName || key
+      };
+    });
+
+  return [...configuredMethods, ...walletMethods];
 }
 
 export function getLocalPaymentConfig(): CentralPaymentConfig {
