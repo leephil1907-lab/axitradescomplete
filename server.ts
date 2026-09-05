@@ -12,6 +12,7 @@ import { sendRegistrationEmails, sendPasswordResetEmail } from './server/emailSe
 import { hasPostgres, initPostgres, dbUsers, dbUpsertUser, dbUpdateUser, dbAdjustBalance, dbBalanceLedger, audit, dbAuditLogs, dbPaymentMethods, dbSavePaymentMethods, dbCreateFunding, dbFundingPending, dbCreditFunding } from './server/postgres';
 import YahooFinanceRaw from 'yahoo-finance2';
 import { requireAuth, requireAdmin, authenticateAdminCredentials, adminLoginConfigured } from './server/adminAuth';
+import { initControlPlane, registerControlPlane } from './server/controlPlane';
 
 function createYahooFinanceClient() {
   try {
@@ -262,6 +263,10 @@ app.use((req, res, next) => {
 
 // General Express JSON middleware for all other API routes
 app.use(express.json());
+
+// AUTHORITATIVE_CONTROL_PLANE_WIRED
+initControlPlane().catch((error) => console.error('Control plane initialization failed:', error));
+registerControlPlane(app);
 app.get('/api/payment-methods', requireAuth, async (_req, res) => {
   try {
     const rows = await dbPaymentMethods().catch(() => null);
