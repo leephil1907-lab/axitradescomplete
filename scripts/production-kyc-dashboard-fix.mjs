@@ -5,7 +5,6 @@ function replaceRequired(source, from, to, label) {
   return source.replace(from, to);
 }
 
-// Admin dashboard: the PostgreSQL KYC API returns `submissions`, not `documents`.
 const adminPath = 'src/components/AdminDashboardView.tsx';
 let admin = fs.readFileSync(adminPath, 'utf8');
 admin = replaceRequired(admin, "setKyc(Array.isArray(d.documents)?d.documents:[]);", "setKyc(Array.isArray(d.submissions)?d.submissions:(Array.isArray(d.documents)?d.documents:[]));", 'admin KYC response mapping');
@@ -14,7 +13,6 @@ const newEffect = "useEffect(()=>{if(!adminToken)return;if(activeTab==='users')v
 if (admin.includes(oldEffect)) admin = admin.replace(oldEffect, newEffect);
 fs.writeFileSync(adminPath, admin);
 
-// Main KYC form: never report success until the authenticated PostgreSQL API confirms persistence.
 const modalPath = 'src/components/IdentityVerificationModal.tsx';
 let modal = fs.readFileSync(modalPath, 'utf8');
 const start = modal.indexOf('  const handleSubmit = (e: React.FormEvent) => {');
@@ -72,10 +70,10 @@ const replacement = `  const handleSubmit = async (e: React.FormEvent) => {
   };`;
 modal = modal.slice(0, start) + replacement + modal.slice(end);
 
-// Ensure the document uploader sends the uploaded Firebase Storage URLs to the same PostgreSQL KYC record.
 const uploaderPath = 'src/components/FirebaseKYCUpload.tsx';
 let uploader = fs.readFileSync(uploaderPath, 'utf8');
 uploader = uploader.replace("import { collection, addDoc, serverTimestamp } from 'firebase/firestore';\n", '');
+uploader = uploader.replace("import { storage, db, auth } from '../firebase';", "import { storage, auth } from '../firebase';");
 uploader = replaceRequired(uploader, "  docNumber: string;\n", "  docNumber: string;\n  dob?: string;\n  streetAddress?: string;\n  city?: string;\n  postalCode?: string;\n  country?: string;\n", 'KYC uploader address fields');
 uploader = replaceRequired(uploader, "export default function FirebaseKYCUpload({ docType, fullName, docNumber, onUploadComplete, showToast }: FirebaseKYCUploadProps) {", "export default function FirebaseKYCUpload({ docType, fullName, docNumber, dob='', streetAddress='', city='', postalCode='', country='', onUploadComplete, showToast }: FirebaseKYCUploadProps) {", 'KYC uploader props');
 const oldFirestore = "      await addDoc(collection(db, 'kyc_submissions'), { fullName: fullName.trim(), docType, docNumber: docNumber.trim(), userId: currentUser.uid, userEmail: currentUser.email || '', documents, status: 'Under Review', submittedAt: serverTimestamp() });\n      showToast?.('KYC documents uploaded and submitted for manual review.', 'success');\n      onUploadComplete?.(documents);";
@@ -103,7 +101,6 @@ uploader = replaceRequired(uploader, oldFirestore, newBackend, 'Firestore KYC su
 fs.writeFileSync(modalPath, modal);
 fs.writeFileSync(uploaderPath, uploader);
 
-// Operational KYC admin routes must accept the same standalone admin session as the admin dashboard.
 const opPath = 'server/postgresOperational.ts';
 let op = fs.readFileSync(opPath, 'utf8');
 if (!op.includes("import { verifyAdminSession } from './adminAuth';")) {
