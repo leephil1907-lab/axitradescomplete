@@ -24,11 +24,6 @@
     "@tailwindcss/vite": "^4.1.14",
     "@vitejs/plugin-react": "^5.0.4",
     "dotenv": "^17.2.3",
-    "@types/express": "^4.17.21",
-    "@types/node": "^22.14.0",
-    "@types/nodemailer": "8.0.1",
-    "autoprefixer": "10.4.21",
-    "tailwindcss": "4.3.3",
     "esbuild": "^0.25.12",
     "express": "^4.21.2",
     "firebase": "^12.16.0",
@@ -42,6 +37,11 @@
     "yahoo-finance2": "^4.0.0"
   },
   "devDependencies": {
-    "@firebase/eslint-plugin-security-rules": "^0.0.2"
+    "@firebase/eslint-plugin-security-rules": "^0.0.2",
+    "@types/express": "^4.17.21",
+    "@types/node": "^22.14.0",
+    "@types/nodemailer": "8.0.1",
+    "autoprefixer": "10.4.21",
+    "tailwindcss": "4.3.3"
   }
 }
