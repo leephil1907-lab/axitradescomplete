@@ -34,7 +34,7 @@
     "nodemailer": "^9.0.5",
     "pg": "^8.23.0",
     "recharts": "^3.9.2",
-    "stripe": "^22.3.0",
+    "stripe": "^22.3.2",
     "yahoo-finance2": "^4.0.0"
   },
   "devDependencies": {
