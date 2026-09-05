@@ -388,6 +388,40 @@ app.get('/api/admin/payment-methods', requireAdmin, async (_req, res) => {
   }});
 });
 
+app.post('/api/admin/payment-methods', requireAdmin, async (req, res) => {
+  try {
+    const incoming = req.body?.methods || req.body;
+    if (!incoming || typeof incoming !== 'object' || Array.isArray(incoming)) {
+      return res.status(400).json({ success: false, error: 'Invalid payment methods payload' });
+    }
+    const actor = String((req as any).adminEmail || 'admin');
+    const persisted = await dbSavePaymentMethods(incoming, actor);
+    if (!persisted) return res.status(503).json({ success: false, error: 'Payment methods storage is unavailable' });
+    await audit('ADMIN_PAYMENT_METHODS_UPDATED', { actor, metadata: { methodTypes: Object.keys(incoming) } }).catch(() => {});
+    return res.json({ success: true, source: 'postgres' });
+  } catch (error: any) {
+    console.error('Save payment methods failed:', error);
+    return res.status(500).json({ success: false, error: error?.message || 'Failed to save payment methods' });
+  }
+});
+
+app.post('/api/admin/payment-method', requireAdmin, async (req, res) => {
+  try {
+    const incoming = req.body?.methods || req.body;
+    if (!incoming || typeof incoming !== 'object' || Array.isArray(incoming)) {
+      return res.status(400).json({ success: false, error: 'Invalid payment methods payload' });
+    }
+    const actor = String((req as any).adminEmail || 'admin');
+    const persisted = await dbSavePaymentMethods(incoming, actor);
+    if (!persisted) return res.status(503).json({ success: false, error: 'Payment methods storage is unavailable' });
+    await audit('ADMIN_PAYMENT_METHODS_UPDATED', { actor, metadata: { methodTypes: Object.keys(incoming), compatibilityRoute: true } }).catch(() => {});
+    return res.json({ success: true, source: 'postgres' });
+  } catch (error: any) {
+    console.error('Save payment methods compatibility route failed:', error);
+    return res.status(500).json({ success: false, error: error?.message || 'Failed to save payment methods' });
+  }
+});
+
 app.get('/api/admin/activity', requireAdmin,  async (req, res) => {
   const logs = await dbAuditLogs(Number(req.query.limit || 200)).catch(() => null);
   res.json({ success: true, logs: logs || [], source: logs ? 'postgres' : 'unavailable' });
