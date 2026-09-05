@@ -277,7 +277,10 @@ app.get('/api/payment-methods', requireAuth, async (_req, res) => {
     const names: Record<string, string> = { bankTransfer: 'Bank Transfer', instantTransfer: 'Instant Transfer', crypto: 'Crypto', paypal: 'PayPal', skrill: 'Skrill', neteller: 'Neteller' };
     const types: Record<string, string> = { bankTransfer: 'bank', instantTransfer: 'bank', crypto: 'crypto', paypal: 'wallet', skrill: 'wallet', neteller: 'wallet' };
     const icons: Record<string, string> = { bankTransfer: 'bank', instantTransfer: 'bank', crypto: 'crypto', paypal: 'paypal', skrill: 'skrill', neteller: 'neteller' };
-    const methods = rows.map((row: any) => ({
+    const defaultCryptoCustomerWallets = [{"id":"crypto-usdc-erc20","enabled":true,"asset":"USDC","network":"Ethereum ERC20","address":"0x12107F3eB874442301756daFBd3360418ae3C366","memo":"","label":"USDC (ERC20)","instructions":""},{"id":"crypto-btc","enabled":true,"asset":"BTC","network":"Bitcoin","address":"bc1qndch4p2dm8hdv4e4t0zm7jaf7ajasnjum25dhu","memo":"","label":"Bitcoin","instructions":""},{"id":"crypto-usdt-trc20","enabled":true,"asset":"USDT","network":"TRON TRC20","address":"TBcivkHbpBh3fa14pPwYemqtNzg7bDQJZ4","memo":"","label":"USDT (TRC20)","instructions":""},{"id":"crypto-sol","enabled":true,"asset":"SOL","network":"Solana","address":"7ds3cKbJNVXTLcsUea6qj1WsisdqRuqBTYENYi9vsd7F","memo":"","label":"Solana","instructions":""},{"id":"crypto-bnb","enabled":true,"asset":"BNB","network":"BNB Smart Chain","address":"0x12107F3eB874442301756daFBd3360418ae3C366","memo":"","label":"BNB (BSC)","instructions":""},{"id":"crypto-eth","enabled":true,"asset":"ETH","network":"Ethereum","address":"0x12107F3eB874442301756daFBd3360418ae3C366","memo":"","label":"Ethereum","instructions":""},{"id":"crypto-xrp","enabled":true,"asset":"XRP","network":"XRP Ledger","address":"rwyQp3eC5j6AumcptZhfmiXAykpeswZKeJ","memo":"1476340","label":"XRP","instructions":""}];
+    const hasCryptoRows = rows.some((row: any) => row.method_type === 'crypto');
+    const sourceRows = hasCryptoRows ? rows : [...rows, ...defaultCryptoCustomerWallets.map((wallet: any) => ({ id: wallet.id, method_type: 'crypto', enabled: true, details: wallet }))];
+    const methods = sourceRows.map((row: any) => ({
       id: row.method_type === 'crypto' ? (row.id || 'crypto') : row.method_type,
       name: names[row.method_type] || row.method_type,
       type: types[row.method_type] || 'other', active: Boolean(row.enabled),
@@ -370,10 +373,12 @@ const PAYMENT_METHODS_FILE = 'paymentMethods.json';
 
 app.get('/api/admin/payment-methods', requireAdmin, async (_req, res) => {
   const persistedMethods = await dbPaymentMethods().catch(() => null);
+  const defaultCryptoWalletsForPaymentMethods = [{"id":"crypto-usdc-erc20","enabled":true,"asset":"USDC","network":"Ethereum ERC20","address":"0x12107F3eB874442301756daFBd3360418ae3C366","memo":"","label":"USDC (ERC20)","instructions":""},{"id":"crypto-btc","enabled":true,"asset":"BTC","network":"Bitcoin","address":"bc1qndch4p2dm8hdv4e4t0zm7jaf7ajasnjum25dhu","memo":"","label":"Bitcoin","instructions":""},{"id":"crypto-usdt-trc20","enabled":true,"asset":"USDT","network":"TRON TRC20","address":"TBcivkHbpBh3fa14pPwYemqtNzg7bDQJZ4","memo":"","label":"USDT (TRC20)","instructions":""},{"id":"crypto-sol","enabled":true,"asset":"SOL","network":"Solana","address":"7ds3cKbJNVXTLcsUea6qj1WsisdqRuqBTYENYi9vsd7F","memo":"","label":"Solana","instructions":""},{"id":"crypto-bnb","enabled":true,"asset":"BNB","network":"BNB Smart Chain","address":"0x12107F3eB874442301756daFBd3360418ae3C366","memo":"","label":"BNB (BSC)","instructions":""},{"id":"crypto-eth","enabled":true,"asset":"ETH","network":"Ethereum","address":"0x12107F3eB874442301756daFBd3360418ae3C366","memo":"","label":"Ethereum","instructions":""},{"id":"crypto-xrp","enabled":true,"asset":"XRP","network":"XRP Ledger","address":"rwyQp3eC5j6AumcptZhfmiXAykpeswZKeJ","memo":"1476340","label":"XRP","instructions":""}];
   if (!persistedMethods) return res.status(503).json({ success: false, error: 'Payment methods storage is unavailable' });
   const bankRow = persistedMethods.find((row) => row.method_type === 'bankTransfer');
   const instantRow = persistedMethods.find((row) => row.method_type === 'instantTransfer');
-  const crypto = persistedMethods.filter((row) => row.method_type === 'crypto').map((row) => ({ id: row.id, ...(row.details || {}), enabled: Boolean(row.enabled), iconName: 'crypto' }));
+  const persistedCrypto = persistedMethods.filter((row) => row.method_type === 'crypto').map((row) => ({ id: row.id, ...(row.details || {}), enabled: Boolean(row.enabled), iconName: 'crypto' }));
+  const crypto = persistedCrypto.length ? persistedCrypto : defaultCryptoWalletsForPaymentMethods;
   const wallet = (type: string, iconName: string) => {
     const row = persistedMethods.find((item) => item.method_type === type);
     return row ? { ...(row.details || {}), enabled: Boolean(row.enabled), iconName } : { enabled: false, account: '', accountName: '', instructions: '', iconName };
