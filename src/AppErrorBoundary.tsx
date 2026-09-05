@@ -18,7 +18,8 @@ export default class AppErrorBoundary extends React.Component<Props, State> {
   private reload = () => window.location.reload();
 
   render() {
-    if (!this.state.hasError) return this.props.children;
+    const children = (this as React.Component<Props, State>).props.children;
+    if (!this.state.hasError) return children;
     return (
       <main className="min-h-screen w-full bg-slate-950 text-white flex items-center justify-center px-6">
         <section className="w-full max-w-lg rounded-2xl border border-slate-800 bg-slate-900 p-8 shadow-2xl">
