@@ -5,6 +5,7 @@ import { onAuthStateChanged, User, signInWithPopup, GoogleAuthProvider, Facebook
 import { doc, onSnapshot, setDoc, updateDoc, collection, deleteDoc } from 'firebase/firestore';
 import { TradeOrder, ClosedPosition, PriceAlert, UserPaymentMethod, KYCStatus } from '../types';
 import { sendTelegramAlert } from '../utils/telegram';
+import { authHeaders } from '../utils/authHeaders';
 
 export function useFirebaseData() {
   const [user, setUser] = useState<User | null>(null);
@@ -359,11 +360,13 @@ export function useFirebaseData() {
       await setDoc(doc(db, `users/${user.uid}/openPositions`, pos.id), pos);
     } catch (err) {
       console.warn('[Axi] open-position Firestore write failed; keeping local + server journal copy:', (err as any)?.message || err);
-      fetch('/api/orders', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...pos, userId: user.uid, userEmail: user.email || '', status: 'OPEN', syncedFrom: 'client-fallback' })
-      }).catch(() => {});
+      authHeaders({ 'Content-Type': 'application/json' })
+        .then((headers) => fetch('/api/orders', {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({ ...pos, userId: user.uid, userEmail: user.email || '', status: 'OPEN', syncedFrom: 'client-fallback' })
+        }).catch(() => undefined))
+        .catch(() => console.info('[Axi] order journal sync skipped (not signed in)'));
     }
   };
   

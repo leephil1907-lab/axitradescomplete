@@ -5,15 +5,22 @@ import { Loader2, ShieldCheck, Lock } from 'lucide-react';
 interface StripeCheckoutFormProps {
   amount: number;
   currency: string;
+  clientSecret: string;
   onSuccess: (receiptInfo: any) => void;
   onCancel: () => void;
 }
 
-export function StripeCheckoutForm({ amount, currency, onSuccess, onCancel }: StripeCheckoutFormProps) {
+export function StripeCheckoutForm({ amount, currency, clientSecret, onSuccess, onCancel }: StripeCheckoutFormProps) {
   const stripe = useStripe();
   const elements = useElements();
   const [isProcessing, setIsProcessing] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  // PaymentIntent id is embedded in the client secret (pi_xxx_secret_yyy). We pass it in the
+  // return_url so that if the bank requires 3D-Secure and Stripe redirects the customer away,
+  // the app's useStripePayment hook can re-verify that PaymentIntent with /api/stripe/verify-deposit
+  // when they land back — instead of silently dropping the completed payment.
+  const paymentIntentId = clientSecret ? clientSecret.split('_secret_')[0] : '';
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -30,7 +37,7 @@ export function StripeCheckoutForm({ amount, currency, onSuccess, onCancel }: St
     const { error, paymentIntent } = await stripe.confirmPayment({
       elements,
       confirmParams: {
-        return_url: window.location.origin + '?payment_intent_result=true',
+        return_url: `${window.location.origin}?payment_intent_result=true&payment_intent=${encodeURIComponent(paymentIntentId)}`,
       },
       redirect: 'if_required',
     });

@@ -6,6 +6,7 @@ import { ViewType, DisplayCurrency, MarketQuote, TradeOrder, ClosedPosition, Pri
 import { useFirebaseData } from './hooks/useFirebaseData';
 import { useStripePayment } from './hooks/useStripePayment';
 import { safeStorage } from './utils/storage';
+import { authHeaders } from './utils/authHeaders';
 
 // Import Views
 import NewsTicker from './components/NewsTicker';
@@ -286,12 +287,19 @@ export default function App() {
   const [isVoiceModalOpen, setIsVoiceModalOpen] = useState(false);
   const [isOnboardingTourOpen, setIsOnboardingTourOpen] = useState(false);
   useEffect(() => {
-    const handleEmailTrigger = (e: any) => {
+    const handleEmailTrigger = async (e: any) => {
       if (e.detail && e.detail.recipientEmail) {
+        let headers: Record<string, string> = { 'Content-Type': 'application/json' };
+        try {
+          // Attach the signed-in user's token when available so the server can verify that
+          // transactional emails target the caller's own account (anonymous Custom emails
+          // still pass through server-side rate limits).
+          headers = await authHeaders({ 'Content-Type': 'application/json' });
+        } catch { /* unauthenticated — server still enforces rate limits */ }
         // Dispatch real transactional email through backend server via Google SMTP
         fetch('/api/email/send', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers,
           body: JSON.stringify(e.detail)
         })
         .then(res => res.json())

@@ -3,6 +3,7 @@ import AssetBrandLogo from './AssetBrandLogo';
 import MarketSessionsTracker from './MarketSessionsTracker';
 import { MarketQuote, TradeOrder, ClosedPosition, PriceAlert, ViewType } from '../types';
 import { subscribePaymentConfig } from '../services/paymentConfigService';
+import { authHeaders } from '../utils/authHeaders';
 import RechartsCandlestickChart from './RechartsCandlestickChart';
 import TradingViewWidget from './TradingViewWidget';
 import { motion, AnimatePresence } from 'motion/react';
@@ -1025,16 +1026,19 @@ export default function MarketsView({
     else setOpenPositions(prev => [...prev, newOrder]);
     setRiskAlertData(null);
 
-    // Sync order to backend trading engine
-    fetch('/api/orders', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        ...newOrder,
-        accountType: accountType,
-        executionVenue: accountType === 'live' ? 'AxiCorp-Live Interbank ECN' : 'AxiCorp-Demo Server'
-      })
-    }).catch(e => console.info('Order backend sync:', e));
+    // Sync order to backend trading engine (authenticated so the server attributes the
+    // order to this trader and may announce it; anonymous demo sync is still accepted)
+    authHeaders({ 'Content-Type': 'application/json' })
+      .then((headers) => fetch('/api/orders', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          ...newOrder,
+          accountType: accountType,
+          executionVenue: accountType === 'live' ? 'AxiCorp-Live Interbank ECN' : 'AxiCorp-Demo Server'
+        })
+      }).catch(() => undefined))
+      .catch(() => console.info('Order backend sync skipped (not signed in):', accountType));
 
     if (showToast) {
       if (accountType === 'demo') {

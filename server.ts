@@ -11,7 +11,7 @@ import { sendAxiEmail } from './emailService';
 import { sendRegistrationEmails, sendPasswordResetEmail } from './server/emailService';
 import { hasPostgres, initPostgres, dbUsers, dbFindUser, dbUpsertUser, dbUpdateUser, dbAdjustBalance, dbBalanceLedger, audit, dbAuditLogs, dbPaymentMethods, dbSavePaymentMethods, dbCreateFunding } from './server/postgres';
 import YahooFinanceRaw from 'yahoo-finance2';
-import { requireAuth, requireAdmin, authenticateAdminCredentials, adminLoginConfigured } from './server/adminAuth';
+import { requireAuth, requireAdmin, authenticateAdminCredentials, adminLoginConfigured, verifyBearer, verifyAdminSession } from './server/adminAuth';
 import { initControlPlane, registerControlPlane } from './server/controlPlane';
 import { initFundingControlPlane, registerFundingControlPlane } from './server/fundingControlPlane';
 
@@ -98,6 +98,27 @@ const webhookPingState = {
   totalPingsCount: 0,
   history: [] as WebhookPingEntry[]
 };
+
+// ---- lightweight anti-abuse rate limiting (in-memory, single instance) ----
+// Protects open client-facing endpoints (email dispatch, order sync) from being used as
+// bulk spam relays or Telegram-flood vectors. Not a full DoS shield; just removes the
+// trivial anonymous-abuse path while keeping all legitimate UI flows working.
+const rateBuckets = new Map<string, number[]>();
+function hitRateLimit(key: string, max: number, windowMs: number): boolean {
+  const now = Date.now();
+  const arr = (rateBuckets.get(key) || []).filter((t) => now - t < windowMs);
+  if (arr.length >= max) { rateBuckets.set(key, arr); return true; }
+  arr.push(now);
+  rateBuckets.set(key, arr);
+  if (rateBuckets.size > 6000) { const oldest = rateBuckets.keys().next().value; if (oldest !== undefined) rateBuckets.delete(oldest); }
+  return false;
+}
+function clientIp(req: any): string {
+  const fwd = String(req.headers?.['x-forwarded-for'] || '');
+  const first = fwd.split(',')[0] || '';
+  return (first || req.ip || req.socket?.remoteAddress || 'unknown').trim();
+}
+const BASIC_EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 
 // Stripe configuration & lazy client initialization
 let stripeClient: Stripe | null = null;
@@ -1845,9 +1866,6 @@ app.post('/api/users/register', async (req, res) => {
 });
 
 app.get('/api/admin/balance-ledger/:userId', requireAdmin, async (req,res)=>{try{const rows=await dbBalanceLedger(String(req.params.userId||''));return res.json({success:true,entries:rows||[]});}catch(error){console.error('Balance ledger load failed:',error);return res.status(500).json({success:false,error:'Unable to load balance ledger'});}});
-
-app.post('/api/admin/users/:id/balance-adjustment', requireAdmin, async (req,res)=>{try{const amount=Number(req.body?.amount);const reason=String(req.body?.reason||'').trim();if(!Number.isFinite(amount)||amount===0)return res.status(400).json({success:false,error:'Enter a non-zero adjustment amount'});if(!reason)return res.status(400).json({success:false,error:'A reason is required'});const result=await dbAdjustBalance(String(req.params.id||''),amount,String((req as any).adminEmail||'admin'),reason,String(req.body?.referenceId||'')||undefined);return res.json({success:true,result});}catch(error:any){console.error('Manual balance adjustment failed:',error);return res.status(400).json({success:false,error:error?.message||'Manual balance adjustment failed'});}});
-
 // Update specific user balance
 app.put('/api/users/:id/balance', requireAdmin,  async (req, res) => {
   const userId = req.params.id;
@@ -1946,176 +1964,8 @@ app.delete('/api/users/:id', requireAdmin, (req, res) => {
 });
 
 // ----------------------------------------------------
-// KYC VERIFICATION DOCUMENTS API
-// ----------------------------------------------------
-
-// Get all KYC documents for Admin verification
-app.get('/api/kyc/list', requireAdmin,  (req, res) => {
-  res.json({
-    success: true,
-    documents: appKycStore,
-    total: appKycStore.length,
-    pending: appKycStore.filter(d => d.status === 'Under Review' || d.status === 'Pending').length
-  });
-});
-
-// Submit KYC verification document from client portal
-app.post('/api/kyc/submit', requireAuth,  (req, res) => {
-  const body = req.body || {};
-  const user = body.fullName || String((req as any).authUser?.name || (req as any).authUser?.email || '').trim();
-  if (!user) return res.status(400).json({ error: 'Verified user identity is required' });
-  const userEmail = String((req as any).authUser?.email || '').toLowerCase();
-  if (!userEmail) return res.status(400).json({ error: 'Verified user email is required' });
-  const docType = body.type || body.docType;
-  if (!docType) return res.status(400).json({ error: 'Document type is required' });
-
-  const newDoc = {
-    id: body.id || `KYC-${Date.now().toString().slice(-6)}`,
-    user,
-    userEmail,
-    type: docType,
-    fileName: body.fileName || `${docType}_Front.pdf, Proof_Of_Address.pdf`,
-    submittedAt: body.submittedAt || new Date().toISOString().replace('T', ' ').substring(0, 16) + ' UTC',
-    status: 'Under Review',
-    refCode: body.refCode || `DOC-${Math.floor(100000 + Math.random() * 900000)}`,
-    level: body.level || 1,
-    details: {
-      fullName: user,
-      email: userEmail,
-      dateOfBirth: body.dateOfBirth || body.dob || '',
-      address: body.address || '',
-      city: body.city || '',
-      postalCode: body.postalCode || '',
-      country: body.country || '',
-      docType: docType,
-      docNumber: body.docNumber || '',
-      idFrontName: body.idFrontName || 'ID_Front.pdf',
-      idBackName: body.idBackName || 'ID_Back.pdf',
-      proofResName: body.proofResName || 'Proof_Of_Residence.pdf',
-      documents: body.documents || []
-    }
-  };
-
-  // Add to store (prevent exact duplicates)
-  const existingIdx = appKycStore.findIndex(d => d.id === newDoc.id || (d.userEmail === userEmail && d.status === 'Under Review'));
-  if (existingIdx >= 0) {
-    appKycStore[existingIdx] = newDoc;
-  } else {
-    appKycStore.unshift(newDoc);
-  }
-
-  // Update associated user status in appUsersStore to Pending
-  const targetUser = appUsersStore.find(u => u.email.toLowerCase() === userEmail);
-  if (targetUser) {
-    targetUser.kycStatus = 'PENDING';
-    targetUser.verificationStatus = 'Pending';
-    writeDataFile('users.json', appUsersStore);
-  }
-
-  writeDataFile('kyc.json', appKycStore);
-
-  // Notify Admin on Telegram
-  notifyTelegram('KYC_SUBMISSION_ALERT', {
-    'Applicant Name': user,
-    'Email': userEmail,
-    'Document Type': docType,
-    'Reference Code': newDoc.refCode,
-    'Files Attached': newDoc.fileName,
-    'Status': 'Under Review (Action Required in Admin Portal)'
-  });
-
-  res.json({ success: true, document: newDoc });
-});
-
-// Admin approves KYC
-app.post('/api/kyc/approve', requireAdmin,  (req, res) => {
-  const { id, creditAmountBonus } = req.body;
-  const docItem = appKycStore.find(d => d.id === id || d.refCode === id);
-  if (!docItem) {
-    return res.status(404).json({ error: 'KYC Document record not found' });
-  }
-
-  docItem.status = 'Approved';
-  docItem.approvedAt = new Date().toISOString();
-
-  // Update user in users store
-  const targetUser = appUsersStore.find(u => u.email.toLowerCase() === (docItem.userEmail || '').toLowerCase());
-  if (targetUser) {
-    targetUser.kycStatus = 'VERIFIED';
-    targetUser.verificationStatus = 'Approved';
-    targetUser.status = 'Approved';
-    if (creditAmountBonus && Number(creditAmountBonus) > 0) {
-      targetUser.balance = (targetUser.balance || 0) + Number(creditAmountBonus);
-    }
-    writeDataFile('users.json', appUsersStore);
-  }
-
-  writeDataFile('kyc.json', appKycStore);
-
-  notifyTelegram('KYC_APPROVED', {
-    'Trader': `${docItem.user} (${docItem.userEmail})`,
-    'Reference': docItem.refCode,
-    'Bonus Credited': creditAmountBonus ? `+$${creditAmountBonus.toLocaleString()}` : '$0.00'
-  });
-
-  res.json({ success: true, document: docItem, user: targetUser });
-});
-
-// Admin rejects KYC
-app.post('/api/kyc/reject', requireAdmin,  (req, res) => {
-  const { id, reason } = req.body;
-  const docItem = appKycStore.find(d => d.id === id || d.refCode === id);
-  if (!docItem) {
-    return res.status(404).json({ error: 'KYC Document record not found' });
-  }
-
-  docItem.status = 'Rejected';
-  docItem.rejectedReason = reason || 'Document illegible or expired';
-  docItem.rejectedAt = new Date().toISOString();
-
-  // Update user in users store
-  const targetUser = appUsersStore.find(u => u.email.toLowerCase() === (docItem.userEmail || '').toLowerCase());
-  if (targetUser) {
-    targetUser.kycStatus = 'REJECTED';
-    targetUser.verificationStatus = 'Flagged';
-    writeDataFile('users.json', appUsersStore);
-  }
-
-  writeDataFile('kyc.json', appKycStore);
-
-  notifyTelegram('KYC_REJECTED', {
-    'Trader': `${docItem.user} (${docItem.userEmail})`,
-    'Reference': docItem.refCode,
-    'Reason': docItem.rejectedReason
-  });
-
-  res.json({ success: true, document: docItem });
-});
-
-// ----------------------------------------------------
 // TRANSACTIONS & DEPOSITS / WITHDRAWALS API
 // ----------------------------------------------------
-
-app.get('/api/transactions', (req, res) => {
-  res.json({ success: true, transactions: appTransactionsStore });
-});
-
-app.post('/api/transactions/create', (req, res) => {
-  const tx = req.body;
-  if (!tx.id) tx.id = `TX-${Date.now()}`;
-  appTransactionsStore.unshift(tx);
-  writeDataFile('transactions.json', appTransactionsStore);
-
-  notifyTelegram('NEW_TRANSACTION', {
-    'Type': tx.type || 'Deposit',
-    'Amount': `$${Number(tx.amount || 0).toLocaleString()} USD`,
-    'User': tx.user || tx.userEmail || 'Client',
-    'Status': tx.status || 'Pending Verification',
-    'Method': tx.method || 'Crypto / Card'
-  });
-
-  res.json({ success: true, transaction: tx });
-});
 
 app.post('/api/transactions/update-status', requireAdmin, (req, res) => {
   const { id, status } = req.body;
@@ -2354,26 +2204,52 @@ app.get('/api/orders', requireAdmin, (req, res) => {
   res.json({ success: true, orders: appOrdersStore });
 });
 
-app.post('/api/orders', (req, res) => {
+app.post('/api/orders', async (req, res) => {
   const order = req.body || {};
+  // ---- anti-abuse guard ----
+  if (hitRateLimit(`orders-ip:${clientIp(req)}`, 30, 60000)) {
+    return res.status(429).json({ success: false, error: 'Too many order requests. Please slow down.' });
+  }
+  const symbol = String(order.symbol || '').slice(0, 20);
+  const side = String(order.type || order.side || '').slice(0, 10);
+  if (!symbol || !side) {
+    return res.status(400).json({ success: false, error: 'Order symbol and side are required' });
+  }
+  // Bind the order to the authenticated caller when a valid token is supplied so the
+  // journal/Telegram attribution can never be spoofed. Anonymous demo sync is still
+  // accepted (rate-limited) but is not announced as a LIVE order.
+  let authenticatedEmail = '';
+  try {
+    const decoded = await verifyBearer(req);
+    if (decoded) {
+      authenticatedEmail = String(decoded.email || '').toLowerCase();
+      order.userEmail = authenticatedEmail;
+      order.userId = String(decoded.uid || order.userId || '');
+      order.authenticated = true;
+    }
+  } catch { /* anonymous demo order: allowed, rate-limited below */ }
+
   const orderRecord = {
     ...order,
     id: order.id || `ORD-${Math.floor(100000 + Math.random() * 900000)}`,
     status: order.status || 'OPEN',
     executedAt: new Date().toISOString(),
-    executionVenue: 'AxiCorp-Live Interbank ECN'
+    executionVenue: order.executionVenue || 'AxiCorp-Live Interbank ECN'
   };
 
   appOrdersStore.unshift(orderRecord);
+  if (appOrdersStore.length > 5000) appOrdersStore.length = 5000;
   writeDataFile('orders.json', appOrdersStore);
 
-  notifyTelegram('LIVE_ORDER_EXECUTED', {
+  if (authenticatedEmail) {
+    notifyTelegram('LIVE_ORDER_EXECUTED', {
     'Symbol': orderRecord.symbol || 'N/A',
     'Side': orderRecord.type || 'BUY',
     'Volume': orderRecord.volume || orderRecord.lotSize || '1.00',
     'Price': orderRecord.entryPrice || orderRecord.currentPrice || 'Market',
     'Trader': orderRecord.userEmail || orderRecord.accountNo || 'Client'
   });
+  }
 
   res.json({ success: true, order: orderRecord });
 });
@@ -2872,8 +2748,36 @@ app.post('/api/email/send', async (req, res) => {
     customBody 
   } = req.body || {};
 
-  if (!recipientEmail) {
-    return res.status(400).json({ success: false, message: 'Recipient email is required' });
+  // ---- anti-abuse guard ----
+  const typeStr = String(type || '').toLowerCase();
+  const recipientStr = String(recipientEmail || '').trim().toLowerCase();
+  if (!BASIC_EMAIL_RE.test(recipientStr)) {
+    return res.status(400).json({ success: false, message: 'A valid recipient email is required' });
+  }
+  const bearerToken = String(req.headers.authorization || '').replace(/^Bearer\s+/i, '');
+  const adminSession = bearerToken ? verifyAdminSession(bearerToken) : null;
+  // Bulk/broadcast mail is admin-only so the endpoint can never be used as a public relay.
+  if (typeStr === 'broadcast' && !adminSession) {
+    return res.status(403).json({ success: false, message: 'Broadcast email requires administrator access' });
+  }
+  if (hitRateLimit(`email-ip:${clientIp(req)}`, 40, 60000)) {
+    return res.status(429).json({ success: false, message: 'Too many email requests from this network. Please try again later.' });
+  }
+  if (hitRateLimit(`email-recipient:${recipientStr}`, 8, 600000)) {
+    return res.status(429).json({ success: false, message: 'Too many emails to this address. Please try again later.' });
+  }
+  // Non-Custom transactional templates may only go to the authenticated user's own address
+  // (or be sent by an admin). Custom self-service confirmations (partner/VPS/promo apps)
+  // stay available to anonymous visitors but remain rate-limited above.
+  if (typeStr !== 'custom' && !adminSession) {
+    let authedEmail = '';
+    try {
+      const decoded = await verifyBearer(req);
+      authedEmail = String(decoded?.email || '').toLowerCase();
+    } catch { authedEmail = ''; }
+    if (!authedEmail || authedEmail !== recipientStr) {
+      return res.status(403).json({ success: false, message: 'Not authorized to email this recipient. Sign in to the matching account or contact support.' });
+    }
   }
 
   const emailSubject = subject || (

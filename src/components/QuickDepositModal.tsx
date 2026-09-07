@@ -980,6 +980,7 @@ export default function QuickDepositModal({
                 <StripeCheckoutForm 
                    amount={Number(amount)} 
                    currency={currency}
+                   clientSecret={clientSecret}
                    onSuccess={handleStripeCardSuccess}
                    onCancel={() => setStep('amount_method')}
                 />
