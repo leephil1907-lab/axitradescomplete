@@ -322,27 +322,92 @@ export default function FundsView({
         const crypto = cryptoMethods[0];
         const bank = methods.find((m: any) => m.id === 'bankTransfer');
         const instant = methods.find((m: any) => m.id === 'instantTransfer');
-        const normalizedMethods = methods.filter((m: any) => m.active).map((m: any) => ({
-          id: m.id, name: m.name, type: m.type, currency: m.currency || 'USD', active: true,
-          minDeposit: Number(m.minDeposit || 0), maxDeposit: Number(m.maxDeposit || 0), feePercent: Number(m.feePercent || 0),
-          processingTime: m.processingTime || 'Manual verification', walletAddress: m.walletAddress || m.address, network: m.network, memo: m.memo,
-          bankName: m.bankName, accountName: m.accountName, accountNumber: m.accountNumber, swiftBic: m.swiftBic, routingNumber: m.routingNumber, bankAddress: m.bankAddress,
-          walletIdentifier: m.account || m.walletIdentifier, instructions: m.instructions || 'Follow the payment instructions shown for this method.', iconName: m.iconName || m.id
-        }));
+        // Expand the admin "Instant Transfer" container (per-provider Skrill / Neteller /
+        // PayPal receiving accounts) into individual customer-facing methods, so every
+        // manually-configured receiving account becomes selectable and shows its destination.
+        const instantProviderMeta: Record<string, { name: string; icon: string }> = {
+          skrill: { name: 'Skrill', icon: 'skrill' },
+          neteller: { name: 'Neteller', icon: 'neteller' },
+          paypal: { name: 'PayPal', icon: 'paypal' }
+        };
+        const baseRows = methods.filter((m: any) => String(m.id) !== 'instantTransfer');
+        const instantContainer = instant && instant.active === true ? instant : null;
+        const sourceMethods = (() => {
+          const rows = [...baseRows];
+          if (instantContainer && Array.isArray(instantContainer.methods) && instantContainer.methods.length) {
+            const existingIds = new Set(rows.filter((r: any) => r.active).map((m: any) => String(m.id)));
+            for (const sub of instantContainer.methods) {
+              if (!sub || typeof sub !== 'object' || sub.enabled === false) continue;
+              const provider = String(sub.provider || '').trim().toLowerCase();
+              if (!instantProviderMeta[provider] || existingIds.has(provider)) continue;
+              const meta = instantProviderMeta[provider];
+              rows.push({
+                id: provider, name: meta.name, type: 'wallet',
+                account: String(sub.account || sub.email || ''),
+                accountName: String(sub.accountName || ''),
+                instructions: String(sub.instructions || instantContainer.instructions || ''),
+                processingTime: 'Provider confirmation', iconName: meta.icon, active: true,
+                minDeposit: Number(instantContainer.minDeposit || 0),
+                maxDeposit: Number(instantContainer.maxDeposit || 0),
+                feePercent: Number(instantContainer.feePercent || 0)
+              });
+            }
+          }
+          return rows;
+        })();
+        const normalizeCategory = (t: string) => t === 'crypto' ? 'crypto' : t === 'card' ? 'card' : t === 'bank' ? 'bank' : t === 'wallet' ? 'wallet' : 'other';
+        const normalizedMethods = sourceMethods.filter((m: any) => m.active).map((m: any) => {
+          const det: any = (m.details && typeof m.details === 'object') ? m.details : {};
+          const isCrypto = m.type === 'crypto';
+          const isEwallet = m.type === 'wallet';
+          const assetLabel = String(isCrypto
+            ? (m.label || det.label || (m.asset || det.asset ? `${m.asset || det.asset}${m.network || det.network ? ` (${m.network || det.network})` : ''}` : ''))
+            : '');
+          const fallbackInstruction = 'Follow the payment instructions shown for this method.';
+          const ewalletAccount = isEwallet ? String(det.account || det.email || m.account || m.email || '') : '';
+          return {
+            id: m.id,
+            name: isCrypto && assetLabel ? assetLabel : (m.name || m.id),
+            type: m.type, category: normalizeCategory(m.type), currency: m.currency || 'USD', active: true,
+            asset: isCrypto ? String(det.asset || m.asset || '').toLowerCase() : undefined,
+            minDeposit: Number(m.minDeposit || 0), maxDeposit: Number(m.maxDeposit || 0), feePercent: Number(m.feePercent || 0),
+            processingTime: m.processingTime || (isCrypto ? 'Blockchain confirmation' : isEwallet ? 'Provider confirmation' : 'Manual verification'),
+            walletAddress: m.walletAddress || det.walletAddress || det.address || m.address,
+            walletIdentifier: m.account || m.walletIdentifier || ewalletAccount,
+            account: m.account || ewalletAccount,
+            accountName: m.accountName || det.accountName,
+            bankName: m.bankName, accountNumber: m.accountNumber, swiftBic: m.swiftBic, routingNumber: m.routingNumber, bankAddress: m.bankAddress,
+            network: m.network || det.network, memo: m.memo || det.memo,
+            instructions: String(m.instructions || det.instructions || (isCrypto && assetLabel
+              ? `Send ${assetLabel} to the displayed receiving wallet, then confirm with the transaction proof below.`
+              : fallbackInstruction)),
+            iconName: m.iconName || m.id
+          };
+        });
         const next = { ...paymentConfig, paymentMethods: normalizedMethods, updatedAt: Date.now() } as CentralPaymentConfig;
+        next.cryptoWallets = { ...(next.cryptoWallets || {}) };
         if (cryptoMethods.length) {
-          const configuredWallets = cryptoMethods.map((method: any, index: number) => {
-            const d = method.details || method;
+          for (let index = 0; index < cryptoMethods.length; index++) {
+            const method: any = cryptoMethods[index];
+            const d: any = method.details || method;
             const asset = String(d.asset || ('crypto-' + index)).toLowerCase();
             const network = String(d.network || '');
-            const key = asset + '-' + network.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') + '-' + String(index);
-            return [key, { address: String(d.walletAddress || d.address || ''), network, memo: d.memo || undefined, active: true, label: d.label || d.asset || network, iconName: method.iconName || 'crypto' }];
-          });
-          next.cryptoWallets = { ...next.cryptoWallets, ...Object.fromEntries(configuredWallets) };
+            const id = String(d.id || method.id || ('crypto-' + asset + '-' + index));
+            const entry: any = {
+              id, asset, address: String(d.walletAddress || d.address || ''), network,
+              memo: d.memo || undefined, active: true,
+              label: d.label || d.asset || network, instructions: String(d.instructions || ''),
+              iconName: method.iconName || 'crypto'
+            };
+            if (id) next.cryptoWallets[id] = entry;
+            const slugKey = asset + '-' + network.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') + '-' + String(index);
+            next.cryptoWallets[slugKey] = entry;
+            if (!next.cryptoWallets[asset]) next.cryptoWallets[asset] = entry;
+          }
         }
         if (bank || instant) {
           const d = (bank || instant).details || (bank || instant);
-          next.bankSettings = { ...next.bankSettings, bankName: String(d.bankName || ''), accountName: String(d.accountName || ''), accountNumber: String(d.accountNumber || ''), swiftBic: String(d.swiftBic || ''), routingNumber: String(d.routingNumber || ''), bankAddress: String(d.bankAddress || ''), instructions: String(d.instructions || ''), supportEmail: d.supportEmail || '', active: Boolean((bank || instant).active) };
+          next.bankSettings = { ...next.bankSettings, bankName: String(d.bankName || ''), accountName: String(d.accountName || ''), accountNumber: String(d.accountNumber || ''), swiftBic: String(d.swiftBic || ''), routingNumber: String(d.routingNumber || ''), bankAddress: String(d.bankAddress || ''), instructions: String(d.instructions || ''), supportEmail: d.supportEmail || '', active: Boolean((bank?.active || instant?.active)) };
         }
         setPaymentConfig(next);
       } catch (error) { console.warn('[FundsView] server payment configuration unavailable:', error); }
@@ -352,6 +417,16 @@ export default function FundsView({
 
   const cryptoWallets = paymentConfig.cryptoWallets || defaultCryptoWallets;
   const bankSettings = paymentConfig.bankSettings || defaultBankSettings;
+
+  // Keep the selected deposit method valid once the server list arrives (the
+  // default 'card' may not exist when card processing is unconfigured).
+  useEffect(() => {
+    const availableIds = (paymentConfig.paymentMethods || [])
+      .filter((m: any) => m && m.active).map((m: any) => String(m.id));
+    if (availableIds.length && !availableIds.includes(String(selectedMethodId))) {
+      setSelectedMethodId(availableIds[0]);
+    }
+  }, [paymentConfig, selectedMethodId]);
 
   // Detect Stripe Return Parameters on Page Load
   useEffect(() => {
@@ -410,7 +485,30 @@ export default function FundsView({
     }));
 
   const activeMethod = depositMethods.find(m => m.id === selectedMethodId) || depositMethods[0];
-  const activeCryptoWallet = cryptoWallets[selectedMethodId] || (selectedMethodId === 'usdt_trc20' ? cryptoWallets.usdt : null);
+  const activeCryptoWallet = cryptoWallets[selectedMethodId]
+    || (selectedMethodId === 'usdt_trc20' ? cryptoWallets.usdt : null)
+    || (selectedMethodId && cryptoWallets[String(selectedMethodId).toLowerCase()] ? cryptoWallets[String(selectedMethodId).toLowerCase()] : null)
+    || (activeMethod && (activeMethod.type === 'crypto' || activeMethod.category === 'crypto') && activeMethod.walletAddress
+        ? { id: String(activeMethod.id || ''), asset: String(activeMethod.asset || '').toLowerCase(), address: String(activeMethod.walletAddress), network: String(activeMethod.network || ''), memo: activeMethod.memo || undefined, active: true, label: activeMethod.name || '' } : null);
+
+  // Asset-aware proof copy: server crypto rows are keyed crypto-<asset>-<network>,
+  // so hint text is derived from the resolved wallet instead of legacy method ids.
+  const cryptoProofMeta = (() => {
+    const a = String(activeCryptoWallet?.asset || activeMethod?.asset || '').toLowerCase();
+    const n = String(activeCryptoWallet?.network || activeMethod?.network || '').toLowerCase();
+    const m = String(selectedMethodId).toLowerCase();
+    if (m === 'ton' || a === 'ton') return { label: 'TON Transaction Hash / Message Hash *', hint: 'Paste TON transaction hash or message hash' };
+    if (m === 'usdt_trc20' || (a === 'usdt' && (n.includes('trc') || n.includes('tron')))) return { label: 'TRON (TRC20) Transaction ID (TXID) *', hint: 'Paste TRON (TRC20) transaction ID (TXID)' };
+    if (m === 'btc' || a === 'btc') return { label: 'Bitcoin Transaction Hash (TXID) *', hint: 'Paste Bitcoin transaction hash (TXID)' };
+    if (m === 'eth' || m === 'usdt_erc20' || m === 'usdc' || a === 'eth' || a === 'usdc' || (a === 'usdt' && n.includes('erc'))) return { label: 'Ethereum (ERC20) Transaction Hash (TXID) *', hint: 'Paste Ethereum (ERC20) transaction hash (0x...)' };
+    if (a === 'bnb' || n.includes('bsc') || n.includes('smart') || n.includes('bep')) return { label: 'BNB Chain (BEP20) Transaction Hash (TXID) *', hint: 'Paste BNB Chain (BEP20) transaction hash (0x...)' };
+    if (m === 'sol' || a === 'sol') return { label: 'Solana Transaction Signature *', hint: 'Paste Solana transaction signature' };
+    if (m === 'xrp' || a === 'xrp') return { label: 'XRP Transaction Hash (TXID) *', hint: 'Paste Ripple (XRP) transaction hash' };
+    return { label: 'Blockchain Transaction Hash (TXID) / Proof *', hint: 'Paste blockchain transaction hash (TXID)' };
+  })();
+  const walletDisplayLabel = activeCryptoWallet?.label
+    || (activeCryptoWallet?.asset ? String(activeCryptoWallet.asset).toUpperCase() : '')
+    || activeMethod?.name || selectedMethodId;
 
   // Diagnostic logging: payment configuration can legitimately load asynchronously.
   if (import.meta.env.DEV) console.debug('[FundsView] activeMethod:', activeMethod);
@@ -910,17 +1008,15 @@ export default function FundsView({
                 )}
 
                 {/* Method 2: Skrill / Neteller / Perfect Money */}
-                {['skrill', 'neteller', 'perfectmoney'].includes(selectedMethodId) && (() => {
+                {['skrill', 'neteller', 'perfectmoney', 'paypal'].includes(selectedMethodId) && (() => {
                   const customMethodConfig = paymentConfig.paymentMethods?.find(m => m.id === selectedMethodId);
-                  const merchantAccount = customMethodConfig?.walletIdentifier || customMethodConfig?.walletAddress || (
-                    selectedMethodId === 'skrill' 
-                      ? '' 
-                      : selectedMethodId === 'neteller' 
-                      ? 'neteller-settlement@axi.com' 
-                      : 'U39281094 (Axi Corp)'
-                  );
+                  // Only ever show a destination the platform configured server-side.
+                  // If none is configured the merchant block is hidden below, never a fabricated account.
+                  const merchantAccount = customMethodConfig?.walletIdentifier || customMethodConfig?.walletAddress || customMethodConfig?.account || '';
                   const methodInstructions = customMethodConfig?.instructions || (
-                    `Transfer funds to the official Axi ${activeMethod?.name || selectedMethodId} account below, then enter your transaction reference ID to confirm:`
+                    merchantAccount
+                      ? `Transfer funds to the official Axi ${activeMethod?.name || selectedMethodId} account below, then enter your transaction reference ID to confirm:`
+                      : `The Axi ${activeMethod?.name || selectedMethodId} receiving account is being configured by the platform. Please contact support to complete your deposit.`
                   );
 
                   return (
@@ -931,6 +1027,7 @@ export default function FundsView({
                           {activeMethod?.name || selectedMethodId} Instructions
                         </div>
                         <p>{methodInstructions}</p>
+                        {merchantAccount ? (
                         <div className="bg-white p-3 rounded-lg border border-slate-200 space-y-1">
                           <div className="flex items-center justify-between text-[10px] text-slate-500 uppercase font-bold">
                             <span>Axi Merchant Account</span>
@@ -947,6 +1044,11 @@ export default function FundsView({
                             </span>
                           </div>
                         </div>
+                        ) : (
+                          <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 text-[11px] text-amber-900 font-semibold">
+                            No receiving account is configured for this method yet. Contact support before transferring funds.
+                          </div>
+                        )}
                       </div>
 
                       {/* Proof Form */}
@@ -1007,7 +1109,7 @@ export default function FundsView({
                 })()}
 
                 {/* Method 3: Bank Wire & Instant Bank */}
-                {['bank_wire', 'bank_instant'].includes(selectedMethodId) && (
+                {['bank_wire', 'bank_instant', 'bankTransfer'].includes(selectedMethodId) && (
                   <div className="space-y-4">
                     {(!bankSettings.active || !bankSettings.accountNumber || !bankSettings.bankName) ? (
                       <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl p-5 text-xs space-y-3">
@@ -1129,7 +1231,7 @@ export default function FundsView({
                 )}
 
                 {/* Method 4: Cryptocurrency Deposit */}
-                {activeMethod?.category === 'crypto' && (
+                {(activeMethod?.category === 'crypto' || activeMethod?.type === 'crypto') && (
                   <div className="space-y-4">
                     <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 text-center">
                       <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-500 block mb-2">
@@ -1179,7 +1281,7 @@ export default function FundsView({
                           <div>
                             <div className="flex items-center justify-between mb-1">
                               <label className="text-[10px] font-bold uppercase tracking-wider text-amber-700 block">
-                                Destination Memo / Tag (Required for {activeMethod?.name || selectedMethodId})
+                                Destination Memo / Tag (Required for {walletDisplayLabel})
                               </label>
                               <span className="text-[10px] font-bold text-amber-800">Click memo to copy</span>
                             </div>
@@ -1212,28 +1314,14 @@ export default function FundsView({
                     <form onSubmit={handleTransferCompletionSubmit} className="space-y-3">
                       <div>
                         <label className="text-[10px] font-bold uppercase tracking-wider text-slate-600 block mb-1">
-                          {selectedMethodId === 'ton' ? 'TON Transaction Hash / Message Hash *' : selectedMethodId === 'usdt_trc20' ? 'TRON (TRC20) Transaction ID (TXID) *' : 'Blockchain Transaction Hash (TXID) / Proof *'}
+                          {cryptoProofMeta.label}
                         </label>
                         <input
                           type="text"
                           required
                           value={txHashOrRef}
                           onChange={(e) => setTxHashOrRef(e.target.value)}
-                          placeholder={
-                            selectedMethodId === 'ton'
-                              ? 'Paste TON transaction hash or message hash'
-                              : selectedMethodId === 'usdt_trc20'
-                              ? 'Paste TRON (TRC20) transaction ID (TXID)'
-                              : selectedMethodId === 'btc'
-                              ? 'Paste Bitcoin transaction hash (TXID)'
-                              : selectedMethodId === 'eth' || selectedMethodId === 'usdt_erc20' || selectedMethodId === 'usdc'
-                              ? 'Paste Ethereum (ERC20) transaction hash (0x...)'
-                              : selectedMethodId === 'sol'
-                              ? 'Paste Solana transaction signature'
-                              : selectedMethodId === 'xrp'
-                              ? 'Paste Ripple (XRP) transaction hash'
-                              : 'Paste blockchain transaction hash (TXID)'
-                          }
+                          placeholder={cryptoProofMeta.hint}
                           className="w-full py-2.5 px-3 bg-slate-50 border border-slate-300 rounded-lg text-xs font-mono text-slate-900 outline-none focus:border-brand-red"
                         />
                       </div>

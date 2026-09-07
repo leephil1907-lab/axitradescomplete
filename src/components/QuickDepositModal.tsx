@@ -43,6 +43,20 @@ interface QuickDepositModalProps {
   formatCurrency?: (usdAmount: number, targetCurrency?: DisplayCurrency, decimals?: number) => string;
 }
 
+const CRYPTO_ASSET_OPTIONS = [
+  { key: 'usdt', name: 'USDT (TRON TRC20)', badge: 'Fastest • Low Fee', symbol: 'USDT' },
+  { key: 'usdt_erc20', name: 'USDT (Ethereum ERC20)', badge: 'Ethereum', symbol: 'USDT' },
+  { key: 'usdt_bep20', name: 'USDT (BNB BEP20)', badge: 'BNB Chain', symbol: 'USDT' },
+  { key: 'btc', name: 'Bitcoin (BTC)', badge: 'Bitcoin Mainnet', symbol: 'BTC' },
+  { key: 'eth', name: 'Ethereum (ETH)', badge: 'ERC20', symbol: 'ETH' },
+  { key: 'usdc', name: 'USD Coin (USDC)', badge: 'ERC20', symbol: 'USDC' },
+  { key: 'sol', name: 'Solana (SOL)', badge: 'Solana Mainnet', symbol: 'SOL' },
+  { key: 'bnb', name: 'BNB Smart Chain', badge: 'BEP20', symbol: 'BNB' },
+  { key: 'xrp', name: 'Ripple (XRP)', badge: 'Tag Required', symbol: 'XRP' },
+  { key: 'ton', name: 'Toncoin (TON)', badge: 'Memo Required', symbol: 'TON' },
+  { key: 'xlm', name: 'Stellar (XLM)', badge: 'Memo Required', symbol: 'XLM' },
+];
+
 export default function QuickDepositModal({ 
   isOpen, 
   onClose, 
@@ -78,6 +92,9 @@ export default function QuickDepositModal({
     return defaultCryptoWallets;
   });
 
+  // Server (Admin -> Payment Settings) is authoritative when it has loaded:
+  // wallet rows disabled/removed by an admin must not resurface through defaults.
+  const [cryptoConfigAuthoritative, setCryptoConfigAuthoritative] = useState(false);
   const [bankSettings, setBankSettings] = useState(defaultBankSettings);
   const [maintenanceMode, setMaintenanceMode] = useState<any>(null);
   const [clientSecret, setClientSecret] = useState<string | null>(null);
@@ -86,6 +103,76 @@ export default function QuickDepositModal({
   const [isProcessing, setIsProcessing] = useState(false);
   const [txReceipt, setTxReceipt] = useState<any>(null);
   const [copiedTxId, setCopiedTxId] = useState(false);
+
+  // Merge the server-side receiving wallets (Admin -> Payment Settings, PostgreSQL)
+  // into the crypto gateway so the modal shows the same public addresses as the
+  // FundsView deposit tab. Keys match the asset selector (usdt, usdt_erc20, ...).
+  React.useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch('/api/payment-methods');
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok || !Array.isArray(data.methods) || cancelled) return;
+        const merged: Record<string, { address: string; memo?: string; network: string }> = {};
+        for (const m of data.methods) {
+          if (m.type !== 'crypto' || !m.active) continue;
+          const d = m.details || m;
+          const asset = String(d.asset || m.asset || '').toLowerCase();
+          const network = String(d.network || m.network || '').toLowerCase();
+          const address = String(d.address || m.address || m.walletAddress || '');
+          if (!asset || !address) continue;
+          const entry = { address, network: String(d.network || m.network || ''), memo: d.memo || m.memo || undefined };
+          // Map configured rows onto the asset-selector keys offered in this modal.
+          let key = asset;
+          if (asset === 'usdt' && network.includes('erc20')) key = 'usdt_erc20';
+          else if (asset === 'usdt' && (network.includes('bep20') || network.includes('bsc') || network.includes('smart'))) key = 'usdt_bep20';
+          else if (asset === 'usdt') key = 'usdt';
+          merged[key] = { ...entry, network: String(d.network || m.network || '') };
+        }
+        if (Object.keys(merged).length) {
+          // Authoritative: replaced entirely with server rows so admin-disabled or
+          // removed wallets disappear here too (no default resurrection).
+          setCryptoAddresses(merged);
+          setCryptoConfigAuthoritative(true);
+        }
+        // Bank Wire coordinates are the same server-side source the full deposit
+        // page uses (Admin -> Payment Settings -> Bank Transfer).
+        const bankRow = data.methods.find((m: any) => m.id === 'bankTransfer' && m.active);
+        if (bankRow) {
+          const bd = (bankRow.details && typeof bankRow.details === 'object') ? bankRow.details : {};
+          const bName = String(bd.bankName || bankRow.bankName || '');
+          const bAcct = String(bd.accountNumber || bankRow.accountNumber || '');
+          if (bName || bAcct) {
+            setBankSettings({
+              ...defaultBankSettings,
+              bankName: bName,
+              accountName: String(bd.accountName || bankRow.accountName || ''),
+              accountNumber: bAcct,
+              routingNumber: String(bd.routingNumber || bankRow.routingNumber || ''),
+              swiftBic: String(bd.swiftBic || bankRow.swiftBic || ''),
+              bankAddress: String(bd.bankAddress || bankRow.bankAddress || ''),
+              instructions: String(bd.instructions || bankRow.instructions || ''),
+              supportEmail: String(bd.supportEmail || bankRow.supportEmail || 'axicustomersupport@gmail.com'),
+              active: true
+            });
+          }
+        }
+      } catch (e) { /* server config unavailable; keep local/default */ }
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
+  // Re-point the asset selector at the first configured wallet once the server
+  // config arrives if the previously selected asset (default 'usdt') is disabled.
+  React.useEffect(() => {
+    if (!cryptoConfigAuthoritative) return;
+    const available = CRYPTO_ASSET_OPTIONS.filter(c => Boolean(cryptoAddresses[c.key]?.address));
+    if (available.length && !available.some(c => c.key === cryptoAsset)) {
+      setCryptoAsset(available[0].key);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cryptoConfigAuthoritative, cryptoAddresses, cryptoAsset]);
 
   React.useEffect(() => {
     const unsubscribeConfig = subscribePaymentConfig((centralConfig) => {
@@ -127,21 +214,13 @@ export default function QuickDepositModal({
 
   if (!isOpen) return null;
 
-  const currentCrypto = cryptoAddresses[cryptoAsset] || defaultCryptoWallets[cryptoAsset as keyof typeof defaultCryptoWallets] || defaultCryptoWallets.usdt;
-
-  const cryptoList = [
-    { key: 'usdt', name: 'USDT (TRON TRC20)', badge: 'Fastest • Low Fee', symbol: 'USDT' },
-    { key: 'usdt_erc20', name: 'USDT (Ethereum ERC20)', badge: 'Ethereum', symbol: 'USDT' },
-    { key: 'usdt_bep20', name: 'USDT (BNB BEP20)', badge: 'BNB Chain', symbol: 'USDT' },
-    { key: 'btc', name: 'Bitcoin (BTC)', badge: 'Bitcoin Mainnet', symbol: 'BTC' },
-    { key: 'eth', name: 'Ethereum (ETH)', badge: 'ERC20', symbol: 'ETH' },
-    { key: 'usdc', name: 'USD Coin (USDC)', badge: 'ERC20', symbol: 'USDC' },
-    { key: 'sol', name: 'Solana (SOL)', badge: 'Solana Mainnet', symbol: 'SOL' },
-    { key: 'bnb', name: 'BNB Smart Chain', badge: 'BEP20', symbol: 'BNB' },
-    { key: 'xrp', name: 'Ripple (XRP)', badge: 'Tag Required', symbol: 'XRP' },
-    { key: 'ton', name: 'Toncoin (TON)', badge: 'Memo Required', symbol: 'TON' },
-    { key: 'xlm', name: 'Stellar (XLM)', badge: 'Memo Required', symbol: 'XLM' },
-  ];
+  const cryptoList = cryptoConfigAuthoritative
+    ? CRYPTO_ASSET_OPTIONS.filter(c => Boolean(cryptoAddresses[c.key]?.address))
+    : CRYPTO_ASSET_OPTIONS;
+  const currentCrypto = cryptoAddresses[cryptoAsset]
+    || (!cryptoConfigAuthoritative
+        ? (defaultCryptoWallets[cryptoAsset as keyof typeof defaultCryptoWallets] || defaultCryptoWallets.usdt)
+        : null);
 
   const handleCopyAddress = async (text: string) => {
     const ok = await copyToClipboard(text);
@@ -262,11 +341,23 @@ export default function QuickDepositModal({
     });
 
     if (selectedMethod === 'crypto') {
+      if (!currentCrypto?.address) {
+        if (showToast) {
+          showToast('Crypto deposit is temporarily unavailable — no receiving wallet is configured for this asset. Please use Bank Wire or contact support.', 'error');
+        }
+        return;
+      }
       setStep('crypto_gateway');
       return;
     }
 
     if (selectedMethod === 'wire') {
+      if (!bankSettings.active || !bankSettings.accountNumber || !bankSettings.bankName) {
+        if (showToast) {
+          showToast('Bank wire deposit is temporarily unavailable — the receiving bank is not configured yet. Please use Crypto or contact support.', 'error');
+        }
+        return;
+      }
       setStep('bank_wire');
       return;
     }

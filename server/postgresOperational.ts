@@ -62,6 +62,57 @@ function writeDataFile(filename: string, data: any) {
   try { fs.writeFileSync(filePath, JSON.stringify(data, null, 2), 'utf-8'); }
   catch (err) { console.warn(`Notice writing ${filename}:`, err); }
 }
+
+// ---------------------------------------------------------------------------
+// KYC <-> user verification bridge + admin Telegram alerts.
+// The legacy /api/kyc/* handlers in server.ts are shadowed by these operational
+// routes (registered first), so user-state sync and alerts MUST happen here —
+// both on the PostgreSQL path and on the file fallback path.
+// ---------------------------------------------------------------------------
+async function telegramNotifyOperational(kind: string, fields: Record<string, string>) {
+  const token = String(process.env.TELEGRAM_BOT_TOKEN || '').trim();
+  const chatId = String(process.env.TELEGRAM_CHAT_ID || '').trim();
+  if (!token || !chatId) return;
+  try {
+    const head = kind === 'KYC_SUBMISSION_ALERT' ? '📋 *New KYC submission — action required*'
+      : kind === 'KYC_APPROVED' ? '✅ *KYC approved*'
+      : kind === 'KYC_REJECTED' ? '❌ *KYC rejected*'
+      : `*${kind}*`;
+    const lines = Object.entries(fields).map(([k, v]) => `*${k}:* ${String(v)}`).join('\n');
+    const res = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ chat_id: chatId, text: `${head}\n\n${lines}`, parse_mode: 'Markdown' })
+    });
+    if (!res.ok) console.warn('Telegram KYC alert failed:', String(await res.text()).slice(0, 200));
+  } catch (error: any) { console.warn('Telegram KYC alert error:', error?.message); }
+}
+
+async function applyUserVerification(userId: string, userEmail: string, verdict: 'pending' | 'approved' | 'rejected') {
+  const db = getPool();
+  const state = verdict === 'approved' ? { verificationStatus: 'Approved', kycStatus: 'VERIFIED', status: 'Approved' }
+    : verdict === 'rejected' ? { verificationStatus: 'Flagged', kycStatus: 'REJECTED', status: 'Pending' }
+    : { verificationStatus: 'Pending', kycStatus: 'PENDING', status: 'Pending' };
+  const id = String(userId || '').trim();
+  const email = String(userEmail || '').trim().toLowerCase();
+  if (db && (id || email)) {
+    try {
+      const where = id && email ? '(id=$1 OR LOWER(email)=LOWER($2))' : id ? 'id=$1' : 'LOWER(email)=LOWER($1)';
+      const params = id && email ? [id, email] : [id || email];
+      await db.query('UPDATE axi_users SET verification_status=$' + (params.length + 1) + ', kyc_status=$' + (params.length + 2) + ', status=$' + (params.length + 3) + ', updated_at=NOW() WHERE ' + where, [...params, state.verificationStatus, state.kycStatus, state.status]);
+      return;
+    } catch (error: any) { console.warn('Postgres user verification sync failed; using file fallback:', error?.message); }
+  }
+  try {
+    const users = readDataFile<any[]>('users.json', []);
+    let changed = false;
+    for (const u of users) {
+      const matches = (id && String(u.id || '') === id) || (email && String(u.email || '').toLowerCase() === email);
+      if (matches) { u.verificationStatus = state.verificationStatus; u.kycStatus = state.kycStatus; u.status = state.status; changed = true; }
+    }
+    if (changed) writeDataFile('users.json', users);
+  } catch (error: any) { console.warn('File user verification sync failed:', error?.message); }
+}
+
 function kycFileRows() {
   const records = readDataFile<any[]>('kyc.json', []);
   return records.map((r) => ({
@@ -97,6 +148,7 @@ function kycFileWriteOne(id: string, patch: Partial<any> = {}, body: any = null)
     status: record.status, createdAt: record.createdAt, updatedAt: record.updatedAt
   };
 }
+
 
 function firebaseAuth() {
   const raw = process.env.FIREBASE_SERVICE_ACCOUNT_JSON;
@@ -183,11 +235,28 @@ export function postgresOperationalRoutes(app: Express) {
     const payload = { ...body, id, userId: identity.userId, userEmail: identity.userEmail, status: 'Pending' };
     const db = getPool();
     if (!db) {
-      return res.status(201).json({ success: true, submission: kycFileWriteOne(id, {}, payload), status: 'Pending', source: 'file' });
+      const written = kycFileWriteOne(id, {}, payload);
+      await applyUserVerification(identity.userId, identity.userEmail, 'pending');
+      await telegramNotifyOperational('KYC_SUBMISSION_ALERT', {
+        'Applicant': String(payload.fullName || payload.name || identity.userEmail || '—'),
+        'Email': identity.userEmail,
+        'Document Type': String(payload.type || payload.docType || 'Identity verification'),
+        'Reference': String(payload.refCode || payload.id || id),
+        'Files': String(payload.fileName || (Array.isArray(payload.documents) ? `${payload.documents.length} document(s)` : 'Attached'))
+      });
+      return res.status(201).json({ success: true, submission: written, status: 'Pending', source: 'file' });
     }
     try {
       await db.query(`INSERT INTO axi_operational_records(id,record_type,user_id,user_email,status,payload) VALUES($1,'kyc',$2,$3,'Pending',$4) ON CONFLICT(id) DO UPDATE SET payload=EXCLUDED.payload,updated_at=NOW()`, [id, identity.userId, identity.userEmail, JSON.stringify(payload)]);
       const { rows } = await db.query('SELECT * FROM axi_operational_records WHERE id=$1', [id]);
+      await applyUserVerification(identity.userId, identity.userEmail, 'pending');
+      await telegramNotifyOperational('KYC_SUBMISSION_ALERT', {
+        'Applicant': String(payload.fullName || payload.name || identity.userEmail || '—'),
+        'Email': identity.userEmail,
+        'Document Type': String(payload.type || payload.docType || 'Identity verification'),
+        'Reference': String(payload.refCode || payload.id || id),
+        'Files': String(payload.fileName || (Array.isArray(payload.documents) ? `${payload.documents.length} document(s)` : 'Attached'))
+      });
       return res.status(201).json({ success: true, submission: rows[0], status: 'Pending', source: 'postgres' });
     } catch (error) {
       console.error('Postgres KYC submit failed; using file fallback:', error);
@@ -203,21 +272,40 @@ async function updateKycStatus(req: Request, res: Response, status: string) {
   const id = String(req.body?.id || req.body?.submissionId || '');
   if (!id) return res.status(400).json({ success: false, error: 'KYC submission id is required' });
   const db = getPool();
+  const verdict: 'approved' | 'rejected' = status === 'Approved' ? 'approved' : 'rejected';
   if (!db) {
     const existing = kycFileRows().find((k) => String(k.id) === String(id));
     if (!existing) return res.status(404).json({ success: false, error: 'KYC submission not found' });
     const updated = kycFileWriteOne(id, { status, ...(status === 'Rejected' ? { rejectedReason: String(req.body?.reason || '') } : {}) });
+    await applyUserVerification(String(existing.userId || ''), String(existing.userEmail || ''), verdict);
+    await telegramNotifyOperational(status === 'Approved' ? 'KYC_APPROVED' : 'KYC_REJECTED', {
+      'Trader': `${String(existing.userId || existing.userEmail || '—')}${existing.userEmail ? ` (${existing.userEmail})` : ''}`,
+      'Reference': id,
+      ...(status === 'Rejected' ? { 'Reason': String(req.body?.reason || 'Document illegible or expired') } : {})
+    });
     return res.json({ success: true, submission: updated, status, source: 'file' });
   }
   try {
     const { rows } = await db.query(`UPDATE axi_operational_records SET status=$2,payload=jsonb_set(payload,'{status}',to_jsonb($2::text),true),updated_at=NOW() WHERE id=$1 AND record_type='kyc' RETURNING *`, [id, status]);
     if (!rows[0]) return res.status(404).json({ success: false, error: 'KYC submission not found' });
+    await applyUserVerification(String(rows[0].user_id || ''), String(rows[0].user_email || ''), verdict);
+    await telegramNotifyOperational(status === 'Approved' ? 'KYC_APPROVED' : 'KYC_REJECTED', {
+      'Trader': String(rows[0].user_email || rows[0].user_id || '—'),
+      'Reference': id,
+      ...(status === 'Rejected' ? { 'Reason': String(req.body?.reason || 'Document illegible or expired') } : {})
+    });
     return res.json({ success: true, submission: rows[0], status, source: 'postgres' });
   } catch (error) {
     console.error('Postgres KYC status update failed; using file fallback:', error);
     const existing = kycFileRows().find((k) => String(k.id) === String(id));
     if (!existing) return res.status(404).json({ success: false, error: 'KYC submission not found' });
     const updated = kycFileWriteOne(id, { status, ...(status === 'Rejected' ? { rejectedReason: String(req.body?.reason || '') } : {}) });
+    await applyUserVerification(String(existing.userId || ''), String(existing.userEmail || ''), verdict);
+    await telegramNotifyOperational(status === 'Approved' ? 'KYC_APPROVED' : 'KYC_REJECTED', {
+      'Trader': String(existing.userEmail || existing.userId || '—'),
+      'Reference': id,
+      ...(status === 'Rejected' ? { 'Reason': String(req.body?.reason || 'Document illegible or expired') } : {})
+    });
     return res.json({ success: true, submission: updated, status, source: 'file' });
   }
 }
