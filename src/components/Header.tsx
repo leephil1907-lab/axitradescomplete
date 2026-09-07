@@ -247,13 +247,22 @@ export default function Header({
                 onMouseEnter={() => openDropdown(item.label)}
                 onMouseLeave={scheduleClose}
               >
-                <button
-                  onClick={() => handleNav(item.id)}
-                  className="flex items-center gap-1.5 text-white/95 hover:text-[#F5CE47] transition-all cursor-pointer text-sm font-semibold tracking-wide"
-                >
-                  <span>{item.label}</span>
-                  <ChevronDown className={`w-3.5 h-3.5 opacity-80 transition-transform duration-200 ${activeDropdown === item.label ? 'rotate-180 text-[#F5CE47]' : 'group-hover:rotate-180'}`} />
-                </button>
+                <div className="flex items-center gap-0.5">
+                  <button
+                    onClick={() => handleNav(item.id)}
+                    className="flex items-center text-white/95 hover:text-[#F5CE47] transition-all cursor-pointer text-sm font-semibold tracking-wide"
+                  >
+                    <span>{item.label}</span>
+                  </button>
+                  <button
+                    onClick={() => { if (activeDropdown === item.label) { setActiveDropdown(null); } else { openDropdown(item.label); } }}
+                    aria-label={'Toggle ' + item.label + ' submenu'}
+                    aria-expanded={activeDropdown === item.label}
+                    className="p-0.5 -m-0.5 text-white/80 hover:text-[#F5CE47] transition cursor-pointer"
+                  >
+                    <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-200 ${activeDropdown === item.label ? 'rotate-180 text-[#F5CE47]' : ''}`} />
+                  </button>
+                </div>
 
 
               </div>
@@ -289,13 +298,22 @@ export default function Header({
                 onMouseEnter={() => openDropdown(item.label)}
                 onMouseLeave={scheduleClose}
               >
-                <button
-                  onClick={() => handleNav(item.id)}
-                  className="flex items-center gap-1.5 text-white/95 hover:text-[#F5CE47] transition-all cursor-pointer text-sm font-semibold tracking-wide"
-                >
-                  <span>{item.label}</span>
-                  <ChevronDown className={`w-3.5 h-3.5 opacity-80 transition-transform duration-200 ${activeDropdown === item.label ? 'rotate-180 text-[#F5CE47]' : 'group-hover:rotate-180'}`} />
-                </button>
+                <div className="flex items-center gap-0.5">
+                  <button
+                    onClick={() => handleNav(item.id)}
+                    className="flex items-center text-white/95 hover:text-[#F5CE47] transition-all cursor-pointer text-sm font-semibold tracking-wide"
+                  >
+                    <span>{item.label}</span>
+                  </button>
+                  <button
+                    onClick={() => { if (activeDropdown === item.label) { setActiveDropdown(null); } else { openDropdown(item.label); } }}
+                    aria-label={'Toggle ' + item.label + ' submenu'}
+                    aria-expanded={activeDropdown === item.label}
+                    className="p-0.5 -m-0.5 text-white/80 hover:text-[#F5CE47] transition cursor-pointer"
+                  >
+                    <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-200 ${activeDropdown === item.label ? 'rotate-180 text-[#F5CE47]' : ''}`} />
+                  </button>
+                </div>
 
 
               </div>
@@ -469,6 +487,23 @@ export default function Header({
                     {item.ctaText}
                     <ArrowRight className="w-3 h-3" />
                   </button>
+                </div>
+                <div className={'mt-2 flex flex-wrap items-center justify-between gap-2 border-t pt-2 ' + (dark ? 'border-white/10' : 'border-slate-200')}>
+                  <span className={'text-[10px] font-semibold uppercase tracking-[0.16em] ' + capCol}>Axi Trades</span>
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <button onClick={() => setShowLanguageModal(true)}
+                      className={'inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-[11px] font-bold transition cursor-pointer ' + hoverBg + ' ' + titleCol}>
+                      <Globe className={'w-3.5 h-3.5 ' + ctaCol} />
+                      <span className="max-w-[130px] truncate">{selectedLang}</span>
+                      <ChevronDown className="w-3 h-3 opacity-60" />
+                    </button>
+                    <span className={'opacity-40 ' + descCol}>|</span>
+                    <button onClick={() => handleNav('support')}
+                      className={'inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-[11px] font-bold transition cursor-pointer ' + hoverBg + ' ' + titleCol}>
+                      <HelpCircle className={'w-3.5 h-3.5 ' + ctaCol} />
+                      Help Centre
+                    </button>
+                  </div>
                 </div>
               </div>
             </motion.div>
