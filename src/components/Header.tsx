@@ -170,6 +170,36 @@ export default function Header({
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
+  // Axi.com-style layout for the desktop mega drop-down panels: some top-level
+  // menus render as a wide row of "tiles" (title + blurb), others as grouped
+  // caption columns (child indexes per group).
+  const NAV_LAYOUT: Record<string, { mode: 'tiles' | 'columns'; caption?: string; groups?: { heading: string; indices: number[] }[] }> = {
+    Markets: { mode: 'tiles', caption: 'CFD Instruments' },
+    Trading: { mode: 'columns', groups: [
+      { heading: 'Accounts', indices: [0, 1] },
+      { heading: 'Features & Funding', indices: [2, 3, 4] },
+    ] },
+    Platforms: { mode: 'columns', groups: [
+      { heading: 'Trading Platforms', indices: [0, 1, 4] },
+      { heading: 'Add-on Tools', indices: [2, 3] },
+    ] },
+    'Tools & Learn': { mode: 'columns', groups: [
+      { heading: 'Learn & Insights', indices: [1, 3, 4] },
+      { heading: 'Market Tools', indices: [0, 2] },
+    ] },
+    Partners: { mode: 'tiles' },
+    About: { mode: 'tiles' },
+  };
+
+  // Hover handling: entering a trigger or the drop-down panel cancels the close
+  // timer; leaving both schedules a short grace period so the pointer can move
+  // from the top bar into the open panel without closing it.
+  const closeTimer = React.useRef<number | null>(null);
+  const cancelClose = () => { if (closeTimer.current) { window.clearTimeout(closeTimer.current); closeTimer.current = null; } };
+  const scheduleClose = () => { cancelClose(); closeTimer.current = window.setTimeout(() => setActiveDropdown(null), 180); };
+  const openDropdown = (label: string) => { cancelClose(); setActiveDropdown(label); };
+
+
   const languages = [
     { name: 'English (Global)', flagUrl: 'https://flagcdn.com/w40/gb.png' },
     { name: 'العربية', flagUrl: 'https://flagcdn.com/w40/ae.png' },
@@ -214,8 +244,8 @@ export default function Header({
               <div 
                 key={item.label}
                 className="relative py-5 group"
-                onMouseEnter={() => setActiveDropdown(item.label)}
-                onMouseLeave={() => setActiveDropdown(null)}
+                onMouseEnter={() => openDropdown(item.label)}
+                onMouseLeave={scheduleClose}
               >
                 <button
                   onClick={() => handleNav(item.id)}
@@ -225,88 +255,7 @@ export default function Header({
                   <ChevronDown className={`w-3.5 h-3.5 opacity-80 transition-transform duration-200 ${activeDropdown === item.label ? 'rotate-180 text-[#F5CE47]' : 'group-hover:rotate-180'}`} />
                 </button>
 
-                {/* Slanted-Style Sophisticated Dropdown Menu */}
-                <AnimatePresence>
-                  {activeDropdown === item.label && (
-                    <motion.div
-                      initial={{ opacity: 0, y: 10, scale: 0.98 }}
-                      animate={{ opacity: 1, y: 0, scale: 1 }}
-                      exit={{ opacity: 0, y: 8, scale: 0.98 }}
-                      transition={{ duration: 0.16, ease: "easeOut" }}
-                      className="absolute top-[90%] left-0 w-[420px] bg-[#161616] border border-neutral-800 rounded-xl shadow-2xl overflow-hidden z-50"
-                    >
-                      {/* Slanted Axi Brand Accent Header */}
-                      <div className="relative bg-[#C8102E] px-4 py-2.5 overflow-hidden">
-                        <div 
-                          className="absolute inset-0 bg-[#9B0018] opacity-60 pointer-events-none"
-                          style={{ clipPath: 'polygon(0 0, 100% 0, 85% 100%, 0% 100%)' }}
-                        />
-                        <div className="relative flex items-center justify-between text-white text-xs font-bold">
-                          <span className="uppercase tracking-wider font-extrabold flex items-center gap-1.5">
-                            <span className="w-1.5 h-3.5 bg-[#F5CE47] inline-block -skew-x-12" />
-                            {item.label} Overview
-                          </span>
-                          {item.badge && (
-                            <span className="bg-black/30 border border-white/20 text-[#F5CE47] text-[10px] uppercase font-black px-2 py-0.5 rounded -skew-x-6">
-                              {item.badge}
-                            </span>
-                          )}
-                        </div>
-                      </div>
 
-                      {/* Dropdown Items List with Slanted Accent Hover */}
-                      <div className="p-2.5 flex flex-col gap-1">
-                        {item.children.map((sub, idx) => {
-                          const IconComp = sub.icon;
-                          return (
-                            <button
-                              key={idx}
-                              onClick={() => handleNav(sub.target)}
-                              className="group/item relative flex items-start gap-3 p-2.5 rounded-lg hover:bg-neutral-800/90 transition-all text-left w-full cursor-pointer overflow-hidden"
-                            >
-                              {/* Slanted red left indicator on hover */}
-                              <div className="absolute left-0 top-0 bottom-0 w-1 bg-[#C8102E] opacity-0 group-hover/item:opacity-100 transition-opacity" />
-
-                              <div className="p-2 rounded-md bg-neutral-900 border border-neutral-800 text-[#F5CE47] group-hover/item:bg-[#C8102E] group-hover/item:text-white transition-colors shrink-0 mt-0.5">
-                                <IconComp className="w-4 h-4" />
-                              </div>
-
-                              <div className="flex-1 min-w-0">
-                                <div className="flex items-center justify-between gap-1">
-                                  <span className="text-white text-xs font-bold group-hover/item:text-[#F5CE47] transition-colors">
-                                    {sub.name}
-                                  </span>
-                                  {sub.tag && (
-                                    <span className="text-[10px] text-neutral-400 font-mono bg-neutral-900 px-1.5 py-0.5 rounded border border-neutral-800 group-hover/item:border-neutral-700">
-                                      {sub.tag}
-                                    </span>
-                                  )}
-                                </div>
-                                <p className="text-neutral-400 text-[11px] leading-snug line-clamp-1 mt-0.5">
-                                  {sub.desc}
-                                </p>
-                              </div>
-                            </button>
-                          );
-                        })}
-                      </div>
-
-                      {/* Slanted Bottom CTA Ribbon */}
-                      <div className="p-3 bg-neutral-900/90 border-t border-neutral-800/80 flex items-center justify-between">
-                        <span className="text-[11px] text-neutral-400 font-medium truncate pr-2">
-                          {item.highlightText}
-                        </span>
-                        <button
-                          onClick={() => handleNav(item.ctaTarget)}
-                          className="inline-flex items-center gap-1 text-[11px] font-bold text-[#F5CE47] hover:underline shrink-0 cursor-pointer"
-                        >
-                          <span>{item.ctaText}</span>
-                          <ArrowRight className="w-3 h-3" />
-                        </button>
-                      </div>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
               </div>
             ))}
           </nav>
@@ -331,14 +280,14 @@ export default function Header({
         {/* ================= RIGHT SECTION: Right Primary Nav Items, Sign In & Hamburger ================= */}
         <div className="flex items-center gap-4 sm:gap-6 min-w-[140px] justify-end">
           
-          {/* Right Desktop Nav Links: Learn, About */}
+          {/* Right Desktop Nav Links: Tools & Learn, Partners, About */}
           <nav className="hidden lg:flex items-center gap-5 xl:gap-6 text-white font-medium text-sm">
-            {navItems.slice(3, 5).map((item) => (
+            {navItems.slice(3, 6).map((item) => (
               <div 
                 key={item.label}
                 className="relative py-5 group"
-                onMouseEnter={() => setActiveDropdown(item.label)}
-                onMouseLeave={() => setActiveDropdown(null)}
+                onMouseEnter={() => openDropdown(item.label)}
+                onMouseLeave={scheduleClose}
               >
                 <button
                   onClick={() => handleNav(item.id)}
@@ -348,88 +297,7 @@ export default function Header({
                   <ChevronDown className={`w-3.5 h-3.5 opacity-80 transition-transform duration-200 ${activeDropdown === item.label ? 'rotate-180 text-[#F5CE47]' : 'group-hover:rotate-180'}`} />
                 </button>
 
-                {/* Slanted-Style Sophisticated Dropdown Menu */}
-                <AnimatePresence>
-                  {activeDropdown === item.label && (
-                    <motion.div
-                      initial={{ opacity: 0, y: 10, scale: 0.98 }}
-                      animate={{ opacity: 1, y: 0, scale: 1 }}
-                      exit={{ opacity: 0, y: 8, scale: 0.98 }}
-                      transition={{ duration: 0.16, ease: "easeOut" }}
-                      className="absolute top-[90%] right-0 w-[400px] bg-[#161616] border border-neutral-800 rounded-xl shadow-2xl overflow-hidden z-50"
-                    >
-                      {/* Slanted Axi Brand Accent Header */}
-                      <div className="relative bg-[#C8102E] px-4 py-2.5 overflow-hidden">
-                        <div 
-                          className="absolute inset-0 bg-[#9B0018] opacity-60 pointer-events-none"
-                          style={{ clipPath: 'polygon(0 0, 100% 0, 85% 100%, 0% 100%)' }}
-                        />
-                        <div className="relative flex items-center justify-between text-white text-xs font-bold">
-                          <span className="uppercase tracking-wider font-extrabold flex items-center gap-1.5">
-                            <span className="w-1.5 h-3.5 bg-[#F5CE47] inline-block -skew-x-12" />
-                            {item.label} Resources
-                          </span>
-                          {item.badge && (
-                            <span className="bg-black/30 border border-white/20 text-[#F5CE47] text-[10px] uppercase font-black px-2 py-0.5 rounded -skew-x-6">
-                              {item.badge}
-                            </span>
-                          )}
-                        </div>
-                      </div>
 
-                      {/* Dropdown Items List with Slanted Accent Hover */}
-                      <div className="p-2.5 flex flex-col gap-1">
-                        {item.children.map((sub, idx) => {
-                          const IconComp = sub.icon;
-                          return (
-                            <button
-                              key={idx}
-                              onClick={() => handleNav(sub.target)}
-                              className="group/item relative flex items-start gap-3 p-2.5 rounded-lg hover:bg-neutral-800/90 transition-all text-left w-full cursor-pointer overflow-hidden"
-                            >
-                              {/* Slanted red left indicator on hover */}
-                              <div className="absolute left-0 top-0 bottom-0 w-1 bg-[#C8102E] opacity-0 group-hover/item:opacity-100 transition-opacity" />
-
-                              <div className="p-2 rounded-md bg-neutral-900 border border-neutral-800 text-[#F5CE47] group-hover/item:bg-[#C8102E] group-hover/item:text-white transition-colors shrink-0 mt-0.5">
-                                <IconComp className="w-4 h-4" />
-                              </div>
-
-                              <div className="flex-1 min-w-0">
-                                <div className="flex items-center justify-between gap-1">
-                                  <span className="text-white text-xs font-bold group-hover/item:text-[#F5CE47] transition-colors">
-                                    {sub.name}
-                                  </span>
-                                  {sub.tag && (
-                                    <span className="text-[10px] text-neutral-400 font-mono bg-neutral-900 px-1.5 py-0.5 rounded border border-neutral-800 group-hover/item:border-neutral-700">
-                                      {sub.tag}
-                                    </span>
-                                  )}
-                                </div>
-                                <p className="text-neutral-400 text-[11px] leading-snug line-clamp-1 mt-0.5">
-                                  {sub.desc}
-                                </p>
-                              </div>
-                            </button>
-                          );
-                        })}
-                      </div>
-
-                      {/* Slanted Bottom CTA Ribbon */}
-                      <div className="p-3 bg-neutral-900/90 border-t border-neutral-800/80 flex items-center justify-between">
-                        <span className="text-[11px] text-neutral-400 font-medium truncate pr-2">
-                          {item.highlightText}
-                        </span>
-                        <button
-                          onClick={() => handleNav(item.ctaTarget)}
-                          className="inline-flex items-center gap-1 text-[11px] font-bold text-[#F5CE47] hover:underline shrink-0 cursor-pointer"
-                        >
-                          <span>{item.ctaText}</span>
-                          <ArrowRight className="w-3 h-3" />
-                        </button>
-                      </div>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
               </div>
             ))}
           </nav>
@@ -508,6 +376,105 @@ export default function Header({
           </button>
         </div>
       </div>
+
+      {/* ===== Axi.com-style full-width mega drop-down panel ===== */}
+      <AnimatePresence>
+        {activeDropdown && (() => {
+          const item = navItems.find((n) => n.label === activeDropdown);
+          if (!item) return null;
+          const layout = NAV_LAYOUT[item.label] || { mode: 'columns' as const, groups: [{ heading: item.label, indices: item.children.map((_, i) => i) }] };
+          const dark = !!isDarkMode;
+          const tiles = layout.mode === 'tiles';
+          const iconBox = dark ? 'bg-[#F5CE47]/15 text-[#F5CE47]' : 'bg-[#C8102E]/10 text-[#C8102E]';
+          const hoverBg = dark ? 'hover:bg-white/[0.06]' : 'hover:bg-slate-100';
+          const titleCol = dark ? 'text-slate-100' : 'text-slate-900';
+          const titleHover = dark ? 'group-hover/tile:text-[#F5CE47] group-hover/row:text-[#F5CE47]' : 'group-hover/tile:text-[#C8102E] group-hover/row:text-[#C8102E]';
+          const descCol = dark ? 'text-slate-400' : 'text-slate-500';
+          const capCol = dark ? 'text-slate-500' : 'text-slate-400';
+          const pill = dark ? 'border-white/10 bg-white/10 text-slate-300' : 'border-slate-200 bg-slate-100 text-slate-500';
+          const ctaCol = dark ? 'text-[#F5CE47]' : 'text-[#C8102E]';
+          const renderTile = (sub: NavItem['children'][number], idx: number) => {
+            const IconComp = sub.icon;
+            return (
+              <button key={idx} onClick={() => handleNav(sub.target)}
+                className={'group/tile flex items-start gap-2.5 rounded-xl p-2.5 text-left transition-colors cursor-pointer ' + hoverBg}>
+                <span className={'mt-0.5 grid h-8 w-8 shrink-0 place-items-center rounded-lg ' + iconBox}>
+                  <IconComp className="w-4 h-4" />
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className={'flex items-center gap-1.5 text-[12.5px] font-bold transition-colors ' + titleCol + ' ' + titleHover}>
+                    <span className="truncate">{sub.name}</span>
+                    {sub.tag && <span className={'shrink-0 rounded border px-1.5 py-0.5 font-mono text-[9px] font-bold ' + pill}>{sub.tag}</span>}
+                  </span>
+                  <span className={'block text-[11px] leading-snug ' + descCol}>{sub.desc}</span>
+                </span>
+              </button>
+            );
+          };
+          const renderRow = (sub: NavItem['children'][number], idx: number) => {
+            const IconComp = sub.icon;
+            return (
+              <button key={idx} onClick={() => handleNav(sub.target)}
+                className={'group/row flex items-center gap-3 rounded-lg px-2.5 py-2 text-left transition-colors cursor-pointer ' + hoverBg}>
+                <span className={'grid h-7 w-7 shrink-0 place-items-center rounded-md ' + iconBox}>
+                  <IconComp className="w-3.5 h-3.5" />
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className={'block truncate text-[12.5px] font-bold transition-colors ' + titleCol + ' ' + titleHover}>{sub.name}</span>
+                  <span className={'block truncate text-[10.5px] ' + descCol}>{sub.desc}</span>
+                </span>
+                {sub.tag && <span className={'shrink-0 rounded border px-1.5 py-0.5 font-mono text-[9px] font-bold ' + pill}>{sub.tag}</span>}
+                <ChevronRight className={'w-3.5 h-3.5 shrink-0 -translate-x-1 opacity-0 transition-all group-hover/row:translate-x-0 group-hover/row:opacity-100 ' + ctaCol} />
+              </button>
+            );
+          };
+          return (
+            <motion.div
+              key={activeDropdown}
+              initial={{ opacity: 0, y: -6 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -6 }}
+              transition={{ duration: 0.16, ease: 'easeOut' }}
+              onMouseEnter={cancelClose}
+              onMouseLeave={scheduleClose}
+              data-header-dropdown={item.label}
+              className={'absolute left-0 right-0 top-full z-50 hidden lg:block ' + (dark ? 'bg-[#0B1220] text-slate-100' : 'bg-white text-slate-900') + ' border-b shadow-[0_26px_50px_-20px_rgba(0,0,0,0.55)] ' + (dark ? 'border-slate-700/60' : 'border-slate-200')}
+            >
+              <div className="mx-auto w-full max-w-7xl px-4 sm:px-6 py-5">
+                {tiles ? (
+                  <div>
+                    {layout.caption && (
+                      <p className={'text-[10px] font-black uppercase tracking-[0.18em] pb-2 ' + capCol}>{layout.caption}</p>
+                    )}
+                    <div className={'grid gap-1 ' + (item.children.length >= 5 ? 'md:grid-cols-3 xl:grid-cols-5' : 'md:grid-cols-2 xl:grid-cols-4')}>
+                      {item.children.map(renderTile)}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex flex-col md:flex-row gap-5 md:gap-10">
+                    {(layout.groups || []).map((g, gi) => (
+                      <div key={gi} className="flex-1 min-w-0">
+                        <p className={'text-[10px] font-black uppercase tracking-[0.16em] pb-1 ' + capCol}>{g.heading}</p>
+                        <div className="flex flex-col">
+                          {g.indices.map((ci, si) => renderRow(item.children[ci], si))}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                <div className={'mt-4 flex items-center justify-between gap-3 border-t pt-3 ' + (dark ? 'border-white/10' : 'border-slate-200')}>
+                  <span className={'truncate pr-2 text-[11px] font-medium ' + descCol}>{item.highlightText}</span>
+                  <button onClick={() => handleNav(item.ctaTarget)}
+                    className={'inline-flex shrink-0 items-center gap-1 text-[11px] font-black uppercase tracking-wider hover:underline cursor-pointer ' + ctaCol}>
+                    {item.ctaText}
+                    <ArrowRight className="w-3 h-3" />
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          );
+        })()}
+      </AnimatePresence>
 
       {/* Slide-out Menu Drawer for Tablet / Mobile Navigation */}
       <AnimatePresence>
