@@ -171,7 +171,13 @@ html:not(.dark) textarea:focus {
 
 /* Mobile-first hardening: nothing may force the page wider than the viewport. */
 html, body { overflow-x: hidden; }
-img, video, canvas, svg { max-width: 100%; height: auto; }
+img, video, canvas { max-width: 100%; height: auto; }
+/* Inline <svg> keeps max-width protection but NOT a blanket height:auto —
+   this file sits outside Tailwind's cascade layers, and an unlayered
+   "svg { height: auto }" silently overrides every layered height utility
+   (.h-*, sm:h-* …). That collapsed the brand AxiLogo (a viewBox-only svg,
+   no width/height attributes) to 0×0. Height utilities now size svgs again. */
+svg { max-width: 100%; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: 0.001ms !important; transition-duration: 0.001ms !important; }
 }
