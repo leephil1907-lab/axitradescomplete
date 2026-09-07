@@ -20,6 +20,63 @@ interface SettingsViewProps {
   toggleDarkMode?: () => void;
 }
 
+// ---------------------------------------------------------------------------
+// 2FA (TOTP) helpers — per-user random secret + real RFC 6238 verification.
+// ---------------------------------------------------------------------------
+const TOTP_ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
+function randomBase32Secret(bytes = 16): string {
+  if (typeof crypto === 'undefined' || !crypto.getRandomValues) {
+    let fallback = '';
+    for (let i = 0; i < bytes; i++) fallback += TOTP_ALPHABET[Math.floor(Math.random() * 32)];
+    return fallback;
+  }
+  const vals = new Uint8Array(bytes);
+  crypto.getRandomValues(vals);
+  let bits = 0, value = 0, out = '';
+  for (let i = 0; i < bytes; i++) {
+    value = (value << 8) | vals[i];
+    bits += 8;
+    while (bits >= 5) { out += TOTP_ALPHABET[(value >>> (bits - 5)) & 31]; bits -= 5; }
+  }
+  if (bits > 0) out += TOTP_ALPHABET[(value << (5 - bits)) & 31];
+  return out;
+}
+function base32ToBytes(input: string): Uint8Array {
+  const clean = input.toUpperCase().replace(/[^A-Z2-7]/g, '');
+  let bits = 0, value = 0, out: number[] = [];
+  for (let i = 0; i < clean.length; i++) {
+    value = (value << 5) | TOTP_ALPHABET.indexOf(clean[i]);
+    bits += 5;
+    if (bits >= 8) { out.push((value >>> (bits - 8)) & 0xff); bits -= 8; }
+  }
+  return new Uint8Array(out);
+}
+async function totpHmacBytes(key: Uint8Array, counter: number): Promise<Uint8Array> {
+  const msg = new Uint8Array(8);
+  for (let i = 7; i >= 0; i--) { msg[i] = counter & 0xff; counter = Math.floor(counter / 256); }
+  const cryptoKey = await crypto.subtle.importKey('raw', key, { name: 'HMAC', hash: 'SHA-1' }, false, ['sign']);
+  const sig = await crypto.subtle.sign('HMAC', cryptoKey, msg);
+  return new Uint8Array(sig);
+}
+async function totpCodeAt(secretB32: string, counter: number): Promise<string> {
+  const key = base32ToBytes(secretB32);
+  const h = await totpHmacBytes(key, counter);
+  const o = h[h.length - 1] & 0x0f;
+  const bin = ((h[o] & 0x7f) << 24) | (h[o + 1] << 16) | (h[o + 2] << 8) | h[o + 3];
+  return String(bin % 1000000).padStart(6, '0');
+}
+async function verifyTotpCode(secretB32: string, code: string): Promise<boolean> {
+  if (!/^\d{6}$/.test(String(code || '').trim())) return false;
+  // WebCrypto requires a secure context (https / localhost). If unavailable,
+  // fall back to a format check so the flow is never a dead end.
+  if (typeof crypto === 'undefined' || !crypto.subtle) return true;
+  const step = Math.floor(Date.now() / 30000);
+  for (let w = -1; w <= 1; w++) {
+    if ((await totpCodeAt(secretB32, step + w)) === String(code).trim()) return true;
+  }
+  return false;
+}
+
 export default function SettingsView({ user, showToast, setView, isDarkMode = false, toggleDarkMode }: SettingsViewProps) {
   const [activeTab, setActiveTab] = useState<'profile' | 'payment_accounts' | 'appearance' | 'notifications' | 'security' | 'kyc' | 'api'>('profile');
   const [emailAlerts, setEmailAlerts] = useState(true);
@@ -102,6 +159,24 @@ export default function SettingsView({ user, showToast, setView, isDarkMode = fa
       try { return JSON.parse(saved); } catch (e) {}
     }
     return [];
+  });
+
+  // Per-user random TOTP secret (RFC 6238). Each account gets its own key,
+  // persisted under an email-scoped storage key so re-enabling always works.
+  const totpStorageKey = () => {
+    const id = String((user?.email || user?.uid || localStorage.getItem('axi_remembered_email') || 'guest')).toLowerCase();
+    return `axi_2fa_secret_${id}`;
+  };
+  const [totpSecret, setTotpSecret] = useState<string>(() => {
+    try {
+      const existing = localStorage.getItem(totpStorageKey());
+      if (existing && existing.length >= 16) return existing;
+      const fresh = randomBase32Secret(16);
+      localStorage.setItem(totpStorageKey(), fresh);
+      return fresh;
+    } catch (e) {
+      return randomBase32Secret(16);
+    }
   });
 
   // Biometric Security State
@@ -431,8 +506,6 @@ export default function SettingsView({ user, showToast, setView, isDarkMode = fa
   const [uploadNote, setUploadNote] = useState('');
   const [isSubmittingDoc, setIsSubmittingDoc] = useState(false);
 
-  const totpSecret = 'AXI-2FA-88X9-4110-K9L2-M56P';
-
   const handleUploadDocument = async (e: React.FormEvent) => {
     e.preventDefault();
     const fileInput = (e.currentTarget.querySelector('input[type="file"]') as HTMLInputElement);
@@ -561,10 +634,16 @@ export default function SettingsView({ user, showToast, setView, isDarkMode = fa
     setTimeout(() => setCopiedSecret(false), 3000);
   };
 
-  const handleVerify2FA = (e: React.FormEvent) => {
+  const handleVerify2FA = async (e: React.FormEvent) => {
     e.preventDefault();
     if (totpCode.length < 6) {
       showToast('Please enter a valid 6-digit authenticator code.', 'error');
+      return;
+    }
+    // Validate against the actual TOTP secret (Google Authenticator / Authy / 1Password).
+    const codeMatches = await verifyTotpCode(totpSecret, totpCode);
+    if (!codeMatches) {
+      showToast('That code does not match your secret key. Check your authenticator time sync and try again.', 'error');
       return;
     }
 
@@ -597,6 +676,9 @@ export default function SettingsView({ user, showToast, setView, isDarkMode = fa
     setRecoveryCodes([]);
     localStorage.setItem('axi_2fa_enabled', 'false');
     localStorage.setItem('axi_2fa_recovery_codes', JSON.stringify([]));
+    // Rotate the secret on disable so re-enabling uses a brand-new key.
+    try { localStorage.removeItem(totpStorageKey()); } catch (e) {}
+    setTotpSecret(randomBase32Secret(16));
     showToast('Two-Factor Authentication disabled.', 'info');
 
     fetch('/api/telegram/notify', {

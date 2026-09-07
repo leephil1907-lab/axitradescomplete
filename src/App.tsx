@@ -105,14 +105,19 @@ export default function App() {
   const [quotes, setQuotes] = useState<Record<string, MarketQuote>>(INITIAL_QUOTES);
   
   // Theme state: dark / light mode toggle
+  // Cream/white (light) is the platform default. A stored dark preference is only
+  // honored when the visitor explicitly chose it through the in-app toggle
+  // (axi_theme_user_choice); earlier builds defaulted to dark, so any legacy
+  // 'dark' value without that marker is treated as light.
   const [isDarkMode, setIsDarkMode] = useState<boolean>(() => {
-    return safeStorage.getItem('axi_theme') === 'dark';
+    return safeStorage.getItem('axi_theme') === 'dark' && safeStorage.getItem('axi_theme_user_choice') === '1';
   });
 
   const toggleDarkMode = () => {
     setIsDarkMode(prev => {
       const next = !prev;
       safeStorage.setItem('axi_theme', next ? 'dark' : 'light');
+      safeStorage.setItem('axi_theme_user_choice', '1');
       if (next) {
         document.documentElement.classList.add('dark');
       } else {
@@ -515,7 +520,7 @@ export default function App() {
   if (shouldRenderEmailAction) return <EmailActionPage />;
 
   return (
-    <div className={`min-h-screen w-full overflow-x-hidden transition-colors duration-700 ease-in-out ${isDarkMode ? 'dark bg-slate-950 text-slate-100' : 'bg-brand-light text-slate-850'} flex flex-col font-sans selection:bg-brand-red selection:text-white`}>
+    <div className={`min-h-screen w-full overflow-x-hidden transition-colors duration-700 ease-in-out ${isDarkMode ? 'dark bg-slate-950 text-slate-100' : 'bg-[#FAF6EE] text-slate-900'} flex flex-col font-sans selection:bg-brand-red selection:text-white`}>
       
       {/* Universal Responsive Header */}
       {currentView !== 'login' && <Header 

@@ -1,8 +1,21 @@
 <!doctype html>
-<html lang="en" class="h-full bg-slate-950 text-slate-100">
+<html lang="en" class="h-full">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="theme-color" content="#FAF6EE" />
+    <script>
+      // Cream/white is the default theme. Honor an explicit dark-mode choice
+      // (set through the in-app toggle) without a dark flash on load.
+      try {
+        if (localStorage.getItem('axi_theme') === 'dark') {
+          document.documentElement.classList.add('dark');
+          document.documentElement.style.backgroundColor = '#020617';
+          var m = document.querySelector('meta[name="theme-color"]');
+          if (m) m.setAttribute('content', '#020617');
+        }
+      } catch (e) {}
+    </script>
     <title>Axi | Trade Your Edge | Global Online CFD & Forex Broker</title>
     <meta name="description" content="Trade Forex, Indices, Commodities, Crypto & Shares with Axi. High-speed execution, competitive spreads, advanced trading tools, and regulated financial security." />
     <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='20' fill='%23E3000F'/><path d='M25 70 L50 25 L75 70 Z' fill='%23FFFFFF'/><path d='M40 70 L50 50 L60 70 Z' fill='%23E3000F'/></svg>" />

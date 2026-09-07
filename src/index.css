@@ -131,3 +131,47 @@ html.axi-tawk-chat-open body {
   0% { transform: translateX(0); }
   100% { transform: translateX(-50%); }
 }
+
+/* ============================================================================
+   AXI cream/white theme (default)
+   Light cream surfaces are the platform default. Adding `.dark` on <html>
+   switches to the classic dark navy scheme via the in-app theme toggle.
+   ========================================================================== */
+:root { color-scheme: light; }
+html { background-color: #FAF6EE; }
+html.dark { background-color: #020617; color-scheme: dark; }
+body { background-color: #FAF6EE; }
+html.dark body { background-color: #020617; }
+
+/* Warm cream recolor of the common light neutral surfaces (light mode only).
+   Luminance is preserved so existing text/border contrast is unchanged. */
+html:not(.dark) .bg-white { background-color: #FFFEF9; }
+html:not(.dark) .bg-slate-50 { background-color: #FAF6EC; }
+html:not(.dark) .bg-slate-100 { background-color: #F5EFDF; }
+html:not(.dark) .bg-slate-200 { background-color: #ECE2CC; }
+html:not(.dark) .border-slate-100 { border-color: #F0E9DA; }
+html:not(.dark) .border-slate-200 { border-color: #E6DCC6; }
+
+/* Light-mode form controls stay crisp and accessible. */
+html:not(.dark) input:not([type="checkbox"]):not([type="radio"]),
+html:not(.dark) select,
+html:not(.dark) textarea {
+  border-color: #D8CFBC;
+  background-color: #FFFEF9;
+  color: #1E293B;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+html:not(.dark) input:not([type="checkbox"]):not([type="radio"]):focus,
+html:not(.dark) select:focus,
+html:not(.dark) textarea:focus {
+  border-color: #E3000F;
+  box-shadow: 0 0 0 3px rgba(227, 0, 15, 0.12);
+  outline: none;
+}
+
+/* Mobile-first hardening: nothing may force the page wider than the viewport. */
+html, body { overflow-x: hidden; }
+img, video, canvas, svg { max-width: 100%; height: auto; }
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.001ms !important; transition-duration: 0.001ms !important; }
+}
