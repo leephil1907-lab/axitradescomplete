@@ -45,6 +45,7 @@ import TawkToWidget from './components/TawkToWidget';
 import WhatsAppChatButton from './components/WhatsAppChatButton';
 import { ASSET_METADATA } from './data';
 import { liveMarketFeed } from './services/liveMarketFeed';
+import { applyStoredLanguage } from './services/siteTranslator';
 
 // Price shells contain metadata only. liveMarketFeed supplies all prices.
 const INITIAL_QUOTES: Record<string, MarketQuote> = Object.entries(ASSET_METADATA).reduce((acc, [symbol, meta]) => {
@@ -62,6 +63,12 @@ export default function App() {
   const shouldRenderEmailAction=((window.location.pathname==='/reset-password'||window.location.pathname==='/verify-email')&&Boolean(em&&ec));
   const [isCommandMenuOpen, setIsCommandMenuOpen] = useState(false);
   const [isQuickDepositOpen, setIsQuickDepositOpen] = useState(false);
+
+  // Apply the visitor's chosen interface language (DOM-safe, text-node only).
+  useEffect(() => {
+    const t = setTimeout(() => applyStoredLanguage(), 350);
+    return () => clearTimeout(t);
+  }, []);
 
   
   useEffect(() => {

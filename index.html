@@ -112,9 +112,10 @@
     </script>
   </head>
   <body class="h-full font-sans antialiased bg-slate-950 text-slate-100 selection:bg-[#E3000F] selection:text-white">
-    <!-- translate=no + notranslate: this React app must own its DOM. No
-         translation engine may rewrite the live interface (see meta above). -->
-    <div id="root" class="h-full notranslate" translate="no"></div>
+    <!-- The app ships its own DOM-safe translator (text-node only). The page-level
+         "google notranslate" meta above blocks Chrome/Google from structurally
+         rewriting this live React DOM (the old crash source). -->
+    <div id="root" class="h-full"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

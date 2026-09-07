@@ -10,6 +10,7 @@ import { ViewType, DisplayCurrency } from '../types';
 import CurrencySelector from './CurrencySelector';
 import AxiHamburgerIcon from './AxiHamburgerIcon';
 import AxiLogo from './AxiLogo';
+import { chooseLanguage } from '../services/siteTranslator';
 
 interface HeaderProps {
   currentView: ViewType;
@@ -68,20 +69,14 @@ export default function Header({
   // React app corrupted React's DOM and caused the "NotFoundError … not found
   // here" crash. So the interface always runs in English; the list is retained
   // for display only.
-  const [selectedLang, setSelectedLang] = useState('English (Global)');
+  const [selectedLang, setSelectedLang] = useState(() => { try { return localStorage.getItem('axi_language') || 'English (Global)'; } catch { return 'English (Global)'; } });
 
   const handleLanguageSelect = (name: string) => {
-    localStorage.setItem('axi_language', name);
     setShowLanguageModal(false);
-    if (name !== 'English (Global)') {
-      // Informational only — the live interface stays in English.
-      setSelectedLang('English (Global)');
-      if (showToast) {
-        showToast('The live trading interface is English-only to keep it stable and accurate. Browser auto-translation is disabled.', 'info');
-      }
-    } else {
-      setSelectedLang('English (Global)');
-    }
+    setSelectedLang(name);
+    // Safe in-app translation (text-node only, never restructures React's DOM).
+    // Switching languages reloads once with the new language applied.
+    chooseLanguage(name);
   };
   const [userDropdownOpen, setUserDropdownOpen] = useState(false);
   // AXI_HIDDEN_ADMIN_TRIGGER_V3

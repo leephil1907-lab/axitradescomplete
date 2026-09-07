@@ -1851,6 +1851,121 @@ app.post('/api/client/error-report', async (req, res) => {
 });
 
 // ----------------------------------------------------
+// IN-APP TRANSLATION PROXY (safe, server-side)
+// ----------------------------------------------------
+// Powers the site's own language selector. The client translates ONLY text
+// inside existing text nodes (never restructuring React's DOM), batching the
+// phrases to this endpoint. We proxy through the server so:
+//  - the translation provider key (if any) never ships to the browser,
+//  - responses are cached (memory) to avoid repeat upstream calls,
+//  - abuse is rate-limited per IP + globally.
+// Provider: official Google Cloud Translation when GOOGLE_TRANSLATE_API_KEY is
+// set, otherwise Google's standard public translate endpoint.
+const AXI_TRANSLATE_TO_ALLOW = new Set(['ar', 'zh-CN', 'es', 'fr', 'id', 'it', 'ja', 'ko', 'pt', 'th', 'vi']);
+const axiTranslateCache = new Map<string, string>();
+const AXI_GTX_ENDPOINT = 'https://translate.googleapis.com/translate_a/single';
+
+function decodeTranslateText(s: string): string {
+  return String(s)
+    .replace(/&#39;/g, "'")
+    .replace(/&quot;/g, '"')
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&#(\d+);/g, (_m, n) => String.fromCodePoint(Number(n)))
+    .replace(/\u200b/g, '')
+    .trim();
+}
+
+async function gtxTranslate(texts: string[], to: string): Promise<string[]> {
+  const joined = texts.join('\n');
+  const url = `${AXI_GTX_ENDPOINT}?client=gtx&sl=auto&tl=${encodeURIComponent(to)}&dt=t&q=${encodeURIComponent(joined)}`;
+  const res = await fetch(url, { headers: { 'User-Agent': 'Mozilla/5.0 (compatible; AxiTrades/1.0)' } });
+  if (!res.ok) throw new Error(`upstream ${res.status}`);
+  const data: any = await res.json();
+  const translatedJoined = Array.isArray(data?.[0])
+    ? data[0].map((seg: any) => (typeof seg?.[0] === 'string' ? seg[0] : '')).join('')
+    : '';
+  const parts = String(translatedJoined || '').split('\n');
+  if (parts.length === texts.length) return parts.map(decodeTranslateText);
+  // Newline preservation failed for this language/batch — fall back per item.
+  const out: string[] = [];
+  for (const t of texts) {
+    const one = `${AXI_GTX_ENDPOINT}?client=gtx&sl=auto&tl=${encodeURIComponent(to)}&dt=t&q=${encodeURIComponent(t)}`;
+    const r = await fetch(one, { headers: { 'User-Agent': 'Mozilla/5.0 (compatible; AxiTrades/1.0)' } });
+    const j: any = await r.json();
+    out.push(Array.isArray(j?.[0]) ? decodeTranslateText(j[0].map((seg: any) => seg?.[0] || '').join('')) : t);
+  }
+  return out;
+}
+
+async function axiTranslateBatch(texts: string[], to: string): Promise<string[]> {
+  const out: string[] = new Array(texts.length);
+  const missing: string[] = [];
+  const missingIdx: number[] = [];
+  texts.forEach((t, i) => {
+    const hit = axiTranslateCache.get(`${to}\u0001${t}`);
+    if (hit !== undefined) out[i] = hit;
+    else { missing.push(t); missingIdx.push(i); }
+  });
+  if (missing.length) {
+    let translated: string[];
+    const officialKey = process.env.GOOGLE_TRANSLATE_API_KEY;
+    if (officialKey) {
+      try {
+        const url = `https://translation.googleapis.com/language/translate/v2?key=${encodeURIComponent(officialKey)}`;
+        const res = await fetch(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ q: missing, target: to === 'zh-CN' ? 'zh-CN' : to, format: 'text', source: 'en' }),
+        });
+        const data: any = await res.json();
+        const arr = Array.isArray(data?.data?.translations) ? data.data.translations : [];
+        translated = arr.map((x: any) => decodeTranslateText(String(x?.translatedText || '')));
+        if (translated.length !== missing.length) throw new Error('official count mismatch');
+      } catch (officialErr) {
+        console.error('[translate] official API failed, falling back:', officialErr?.message || officialErr);
+        translated = await gtxTranslate(missing, to);
+      }
+    } else {
+      translated = await gtxTranslate(missing, to);
+    }
+    translated.forEach((tr, k) => {
+      const text = missing[k];
+      const idx = missingIdx[k];
+      const safe = tr && tr.trim() ? tr : text;
+      out[idx] = safe;
+      if (axiTranslateCache.size > 40000) axiTranslateCache.clear();
+      axiTranslateCache.set(`${to}\u0001${text}`, safe);
+    });
+  }
+  return out;
+}
+
+app.post('/api/translate', async (req, res) => {
+  try {
+    const to = String(req.body?.to || '').trim();
+    if (!AXI_TRANSLATE_TO_ALLOW.has(to)) return res.status(400).json({ success: false, error: 'Unsupported target language' });
+    const raw: unknown[] = Array.isArray(req.body?.texts) ? req.body.texts : [];
+    const texts: string[] = raw
+      .slice(0, 30)
+      .map((t) => String(t || '').replace(/\s+/g, ' ').trim())
+      .filter((t) => t && t.length <= 400);
+    if (!texts.length) return res.status(400).json({ success: false, error: 'No texts to translate' });
+    const totalChars = texts.reduce((sum, t) => sum + t.length, 0);
+    if (totalChars > 6000) return res.status(400).json({ success: false, error: 'Payload too large' });
+    if (hitRateLimit(`tr-ip:${clientIp(req)}`, 60, 60000)) return res.status(429).json({ success: false, error: 'Too many translation requests' });
+    if (hitRateLimit('tr-global', 500, 600000)) return res.status(429).json({ success: false, error: 'Translation temporarily unavailable' });
+
+    const translated = await axiTranslateBatch(texts, to);
+    return res.json({ success: true, to, translated });
+  } catch (e: any) {
+    console.error('[translate] handler error:', e?.message || e);
+    return res.json({ success: false, translated: [], error: String(e?.message || 'translate unavailable').slice(0, 200) });
+  }
+});
+
+// ----------------------------------------------------
 // USER ACCOUNTS & REGISTRATION API
 // ----------------------------------------------------
 
