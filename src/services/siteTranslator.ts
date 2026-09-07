@@ -23,8 +23,6 @@
  *   source -> translate). The stored language is applied automatically on load.
  *   Choosing English reloads back to the pristine English UI.
  */
-import { reportFrontendError } from '../utils/reportFrontendError';
-
 export const LANGUAGE_CODES: Record<string, string> = {
   'English (Global)': '',
   'العربية': 'ar',
@@ -136,11 +134,13 @@ async function flush() {
       // Success: remove the processed nodes from the pending queue.
       for (const n of batch) pending.delete(n);
     } catch (e) {
-      console.error('[siteTranslator] batch failed', e);
-      reportFrontendError(e instanceof Error ? e : new Error(String(e)));
+      // TRANSLATION is best-effort: a temporary upstream/rate-limit failure must
+      // never be treated as an app crash (do NOT report to the crash channel),
+      // just retry briefly and otherwise leave the page in English.
+      console.warn('[siteTranslator] batch failed, will retry', e);
       retryCount++;
-      if (retryCount < 4) queueFlush(1600); // keep nodes queued; retry shortly
-      else retryCount = 0;
+      if (retryCount < 4) queueFlush(2000); // keep nodes queued; retry shortly
+      else { retryCount = 0; for (const n of batch) pending.delete(n); }
       return;
     }
   } else {

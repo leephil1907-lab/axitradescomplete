@@ -1954,8 +1954,8 @@ app.post('/api/translate', async (req, res) => {
     if (!texts.length) return res.status(400).json({ success: false, error: 'No texts to translate' });
     const totalChars = texts.reduce((sum, t) => sum + t.length, 0);
     if (totalChars > 6000) return res.status(400).json({ success: false, error: 'Payload too large' });
-    if (hitRateLimit(`tr-ip:${clientIp(req)}`, 60, 60000)) return res.status(429).json({ success: false, error: 'Too many translation requests' });
-    if (hitRateLimit('tr-global', 500, 600000)) return res.status(429).json({ success: false, error: 'Translation temporarily unavailable' });
+    if (hitRateLimit(`tr-ip:${clientIp(req)}`, 120, 60000)) return res.status(429).json({ success: false, error: 'Too many translation requests' });
+    if (hitRateLimit('tr-global', 3000, 600000)) return res.status(429).json({ success: false, error: 'Translation temporarily unavailable' });
 
     const translated = await axiTranslateBatch(texts, to);
     return res.json({ success: true, to, translated });
