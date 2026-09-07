@@ -15,6 +15,7 @@ const SLIDES = [
     title: 'YOUR EDGE IN THE MARKETS',
     subtitle: '',
     cta: 'OPEN ACCOUNT',
+    action: 'open-account',
     image: imgSpreads,
     theme: 'dark'
   },
@@ -23,6 +24,7 @@ const SLIDES = [
     title: '650+ MARKETS. ONE APP.',
     subtitle: '',
     cta: 'START COPY TRADING',
+    action: 'markets',
     image: imgMarketsApp,
     theme: 'dark'
   },
@@ -31,6 +33,7 @@ const SLIDES = [
     title: 'TRADE WITH AXI FUNDS UP TO $1M',
     subtitle: 'No registration fees. No monthly fees. 100% FREE.',
     cta: 'JOIN NOW',
+    action: 'axi-select',
     image: imgAxiSelect,
     theme: 'dark'
   },
@@ -39,6 +42,7 @@ const SLIDES = [
     title: 'SPOT IT. BUY IT. OWN IT.',
     subtitle: '',
     cta: 'BUY CRYPTO NOW',
+    action: 'markets',
     image: imgSpotCrypto,
     theme: 'dark'
   },
@@ -47,6 +51,7 @@ const SLIDES = [
     title: 'POWER UP YOUR TRADING STRATEGY WITH AI',
     subtitle: '',
     cta: 'LEARN MORE',
+    action: 'platforms',
     image: imgAiStrategy,
     theme: 'dark'
   }
@@ -54,7 +59,12 @@ const SLIDES = [
 
 const AUTOPLAY_INTERVAL = 6000;
 
-export default function HeroSlideshow() {
+interface HeroSlideshowProps {
+  /** Callback fired when a slide's CTA button is clicked. Receives the slide action id. */
+  onAction?: (actionId: string) => void;
+}
+
+export default function HeroSlideshow({ onAction }: HeroSlideshowProps) {
   const { cmsContent } = useSiteCMS();
   const [currentIndex, setCurrentIndex] = useState(0);
 
@@ -239,7 +249,7 @@ export default function HeroSlideshow() {
               transition={{ duration: 6, ease: "easeOut" }}
               src={currentSlide.image} 
               alt={currentSlide.title} 
-              className="w-full h-full object-cover object-center md:object-right"
+              className="w-full h-full object-cover object-left"
               aria-hidden="true"
             />
             {/* Smooth gradient overlay ensuring high text readability while showcasing trading visuals */}
@@ -259,7 +269,10 @@ export default function HeroSlideshow() {
                 className="flex items-center gap-4 flex-wrap"
               >
                 <button
-                  className="bg-[#FFD250] hover:bg-[#FFC518] text-slate-950 text-xs sm:text-sm font-black uppercase tracking-widest px-8 py-4 rounded-sm transition-all shadow-xl hover:scale-105 cursor-pointer active:scale-95"
+                  type="button"
+                  onClick={() => onAction?.(currentSlide.action)}
+                  aria-label={currentSlide.cta}
+                  className="pointer-events-auto bg-[#FFD250] hover:bg-[#FFC518] text-slate-950 text-xs sm:text-sm font-black uppercase tracking-widest px-8 py-4 rounded-sm transition-all shadow-xl hover:scale-105 cursor-pointer active:scale-95 focus:outline-none focus-visible:ring-4 focus-visible:ring-[#FFD250]/60"
                 >
                   {currentSlide.cta}
                 </button>

@@ -52,7 +52,7 @@ const CONTEST_LEADERBOARD: ContestLeader[] = [
 
 export default function PromotionsView({ setView, showToast, openSignUp, openQuickDeposit }: PromotionsViewProps) {
   // Claim Promo Form State
-  const [selectedPromo, setSelectedPromo] = useState<string>('50% Welcome Trading Credit');
+  const [selectedPromo, setSelectedPromo] = useState<string>('100% Deposit Bonus');
   const [accountNumber, setAccountNumber] = useState('');
   const [clientName, setClientName] = useState('');
   const [clientEmail, setClientEmail] = useState('');
@@ -151,7 +151,7 @@ export default function PromotionsView({ setView, showToast, openSignUp, openQui
               href="#claim-promo"
               className="bg-brand-red hover:bg-red-700 text-white font-extrabold px-8 py-3.5 rounded-xl shadow-lg transition cursor-pointer text-sm flex items-center gap-2"
             >
-              Claim 50% Welcome Bonus <ChevronRight className="w-4 h-4" />
+              Claim 100% Deposit Bonus <ChevronRight className="w-4 h-4" />
             </a>
             <a
               href="#leaderboard"
@@ -165,7 +165,7 @@ export default function PromotionsView({ setView, showToast, openSignUp, openQui
         {/* Feature Badges */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-12 pt-8 border-t border-slate-800">
           <div>
-            <span className="text-2xl sm:text-3xl font-black text-brand-yellow block">+50%</span>
+            <span className="text-2xl sm:text-3xl font-black text-brand-yellow block">+100%</span>
             <span className="text-xs text-slate-400 font-medium">Tradable Margin Booster</span>
           </div>
           <div>
@@ -205,9 +205,9 @@ export default function PromotionsView({ setView, showToast, openSignUp, openQui
               <div className="w-12 h-12 rounded-xl bg-red-50 text-brand-red flex items-center justify-center font-black mb-4">
                 <Gift className="w-6 h-6" />
               </div>
-              <h3 className="text-xl font-black text-slate-900 mb-1">50% Welcome Tradable Credit</h3>
+              <h3 className="text-xl font-black text-slate-900 mb-1">100% Deposit Bonus</h3>
               <p className="text-xs text-slate-500 mb-4 leading-relaxed">
-                Deposit into your live Standard or Pro trading account and receive a 50% tradable margin credit up to $5,000 USD to withstand market drawdowns and expand position sizes.
+                Deposit into your live Standard or Pro trading account and receive a 100% promotional credit up to $5,000 USD to withstand market drawdowns and expand position sizes.
               </p>
 
               <div className="bg-slate-50 rounded-2xl p-4 border border-slate-200 mb-6 space-y-2 text-xs">
@@ -228,12 +228,12 @@ export default function PromotionsView({ setView, showToast, openSignUp, openQui
 
             <button
               onClick={() => {
-                setSelectedPromo('50% Welcome Trading Credit');
+                setSelectedPromo('100% Deposit Bonus');
                 document.getElementById('claim-promo')?.scrollIntoView({ behavior: 'smooth' });
               }}
               className="w-full bg-brand-red hover:bg-red-700 text-white font-extrabold py-3 rounded-xl text-xs transition cursor-pointer shadow-md"
             >
-              Enroll in 50% Deposit Booster
+              Enroll in 100% Deposit Bonus
             </button>
           </div>
 
@@ -465,7 +465,7 @@ export default function PromotionsView({ setView, showToast, openSignUp, openQui
               <label className="text-[11px] font-extrabold uppercase tracking-wider text-slate-600 block mb-2">Selected Promotion</label>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                 {[
-                  '50% Welcome Trading Credit',
+                  '100% Deposit Bonus',
                   'Axi $100K Global Championship',
                   'Manchester City VIP Experience',
                   '$50 Refer-A-Friend Dual Bonus'

@@ -1,3 +1,9 @@
+import { authHeaders } from '../utils/authHeaders';
+
+const authenticatedFetch = async (input: RequestInfo | URL, init: RequestInit = {}) => {
+  const headers = await authHeaders(init.headers ? Object.fromEntries(new Headers(init.headers).entries()) : {});
+  return fetch(input, { ...init, headers });
+};
 import React, { useState, useEffect } from 'react';
 import { Settings, Moon, Sun, Monitor, Bell, Shield, Key, CheckCircle2, Lock, Smartphone, Copy, Check, QrCode, X, FileText, UploadCloud, Clock, AlertTriangle, ShieldCheck, BadgeCheck, FileCheck, ArrowRight, Upload, Info, RefreshCw, ChevronRight, User as UserIcon, Mail, CreditCard, Plus, Trash2, Landmark, Building2, Fingerprint, ScanFace, Laptop, Globe, Hash, ShieldAlert, Send } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
@@ -483,7 +489,7 @@ export default function SettingsView({ user, showToast, setView, isDarkMode = fa
 
     // 1. Submit to Backend API (POST /api/kyc/submit) — admin receives this in the KYC review queue
     try {
-      const res = await fetch('/api/kyc/submit', {
+      const res = await authenticatedFetch('/api/kyc/submit', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

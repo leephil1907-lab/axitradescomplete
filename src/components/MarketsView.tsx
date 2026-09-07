@@ -482,35 +482,56 @@ const SendModal = ({
 };
 
 /* Swap Modal Component */
+interface SwapResult { ok: boolean; message: string }
+
 const SwapModal = ({
   isOpen,
   onClose,
   quotes,
-  showToast
+  showToast,
+  wallet = {},
+  cashBalance = 0,
+  currencySymbol = '$',
+  onSwap
 }: {
   isOpen: boolean;
   onClose: () => void;
   quotes: Record<string, MarketQuote>;
   showToast?: (msg: string, type: 'success' | 'error' | 'info') => void;
+  wallet?: Record<string, number>;
+  cashBalance?: number;
+  currencySymbol?: string;
+  onSwap?: (from: string, to: string, amount: number) => SwapResult;
 }) => {
-  const [fromSymbol, setFromSymbol] = useState('BTC');
-  const [toSymbol, setToSymbol] = useState('USD');
-  const [amount, setAmount] = useState('1');
+  const [fromSymbol, setFromSymbol] = useState('USD');
+  const [toSymbol, setToSymbol] = useState('BTC');
+  const [amount, setAmount] = useState('');
 
   if (!isOpen) return null;
 
   const btcPrice = quotes['BTCUSD']?.price || 0;
   const ethPrice = quotes['ETHUSD']?.price || 0;
 
-  let rate = 1;
-  if (fromSymbol === 'BTC' && toSymbol === 'USD') rate = btcPrice;
-  else if (fromSymbol === 'USD' && toSymbol === 'BTC') rate = 1 / btcPrice;
-  else if (fromSymbol === 'ETH' && toSymbol === 'USD') rate = ethPrice;
-  else if (fromSymbol === 'USD' && toSymbol === 'ETH') rate = 1 / ethPrice;
-  else if (fromSymbol === 'BTC' && toSymbol === 'ETH') rate = btcPrice / ethPrice;
-  else if (fromSymbol === 'ETH' && toSymbol === 'BTC') rate = ethPrice / btcPrice;
+  const priceOf = (sym: string): number => {
+    if (sym === 'USD') return 1;
+    if (sym === 'BTC') return btcPrice;
+    if (sym === 'ETH') return ethPrice;
+    return 0;
+  };
 
+  const rate = priceOf(fromSymbol) > 0 && priceOf(toSymbol) > 0 ? priceOf(toSymbol) / priceOf(fromSymbol) : 0;
   const outputVal = (parseFloat(amount) || 0) * rate;
+  const available = fromSymbol === 'USD' ? Math.max(0, cashBalance) : Number(wallet[fromSymbol] || 0);
+  const insufficient = (parseFloat(amount) || 0) > available + 1e-9;
+  const sameAsset = fromSymbol === toSymbol;
+
+  const switchAssets = () => {
+    setFromSymbol(toSymbol);
+    setToSymbol(fromSymbol);
+    setAmount('');
+  };
+
+  const applyMax = () => setAmount(fromSymbol === 'USD' ? available.toFixed(2) : String(available));
 
   const handleExecuteSwap = () => {
     const num = parseFloat(amount);
@@ -518,9 +539,29 @@ const SwapModal = ({
       if (showToast) showToast('Please enter a valid amount to swap.', 'error');
       return;
     }
+    if (sameAsset) {
+      if (showToast) showToast('Choose two different assets to swap.', 'error');
+      return;
+    }
+    if (insufficient) {
+      if (showToast) showToast(`Insufficient ${fromSymbol} balance — you have ${fromSymbol === 'USD' ? `${currencySymbol}${available.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : `${available} ${fromSymbol}`}.`, 'error');
+      return;
+    }
+
+    if (onSwap) {
+      const result = onSwap(fromSymbol, toSymbol, num);
+      if (!result.ok) {
+        if (showToast) showToast(result.message, 'error');
+        return;
+      }
+      if (showToast) showToast(result.message, 'success');
+      setAmount('');
+      onClose();
+      return;
+    }
 
     if (showToast) {
-      showToast(`🔄 Instant Swap Complete! Swapped ${num} ${fromSymbol} for ${outputVal.toFixed(4)} ${toSymbol} at 0% fee!`, 'success');
+      showToast(`🔄 Instant Swap Complete! Swapped ${num} ${fromSymbol} for ${outputVal.toFixed(6)} ${toSymbol} at 0% fee!`, 'success');
     }
     onClose();
   };
@@ -553,18 +594,21 @@ const SwapModal = ({
           <div className="bg-slate-50 dark:bg-slate-800/80 p-3.5 rounded-xl border border-slate-200 dark:border-slate-700">
             <div className="flex items-center justify-between text-xs text-slate-400 mb-1">
               <span>You Pay</span>
-              <span>Rate: 1 {fromSymbol} ≈ {rate.toFixed(4)} {toSymbol}</span>
+              <span>Rate: 1 {fromSymbol} ≈ {rate > 0 ? rate.toFixed(4) : '—'} {toSymbol}</span>
             </div>
             <div className="flex items-center gap-2">
               <input
                 type="number"
+                min="0"
+                step="any"
                 value={amount}
                 onChange={(e) => setAmount(e.target.value)}
+                placeholder={fromSymbol === 'USD' ? '0.00' : '0.00000000'}
                 className="w-full bg-transparent text-lg font-black font-mono text-slate-900 dark:text-white focus:outline-none"
               />
               <select
                 value={fromSymbol}
-                onChange={(e) => setFromSymbol(e.target.value)}
+                onChange={(e) => { setFromSymbol(e.target.value); setAmount(''); }}
                 className="bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-xs font-bold px-3 py-2 rounded-lg cursor-pointer text-slate-900 dark:text-white"
               >
                 <option value="BTC">BTC</option>
@@ -572,17 +616,32 @@ const SwapModal = ({
                 <option value="USD">USD</option>
               </select>
             </div>
+            <div className="flex items-center justify-between mt-2 pt-2 border-t border-slate-200/70 dark:border-slate-700/70 text-[11px] text-slate-500">
+              <span>
+                Balance: <strong className="text-slate-700 dark:text-slate-200 font-mono">
+                  {fromSymbol === 'USD'
+                    ? `${currencySymbol}${available.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+                    : `${available} ${fromSymbol}`}
+                </strong>
+              </span>
+              <button
+                type="button"
+                onClick={applyMax}
+                disabled={available <= 0}
+                className="px-2 py-0.5 rounded-md bg-slate-900 text-white dark:bg-white dark:text-slate-900 text-[10px] font-black uppercase tracking-wide hover:opacity-80 transition cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                Max
+              </button>
+            </div>
           </div>
 
           {/* Swap direction button */}
           <div className="flex justify-center -my-2 relative z-10">
             <button
-              onClick={() => {
-                const temp = fromSymbol;
-                setFromSymbol(toSymbol);
-                setToSymbol(temp);
-              }}
+              type="button"
+              onClick={switchAssets}
               className="p-2 bg-purple-600 text-white rounded-full shadow-md hover:bg-purple-500 transition cursor-pointer"
+              aria-label="Swap direction"
             >
               <Repeat className="w-4 h-4" />
             </button>
@@ -593,23 +652,49 @@ const SwapModal = ({
             <div className="text-xs text-slate-400 mb-1">You Receive (Estimated)</div>
             <div className="flex items-center gap-2">
               <div className="w-full text-lg font-black font-mono text-emerald-600 dark:text-emerald-400">
-                {outputVal.toFixed(4)}
+                {amount && !isNaN(parseFloat(amount)) ? outputVal.toLocaleString(undefined, { maximumFractionDigits: toSymbol === 'USD' ? 2 : 8 }) : '0'}
               </div>
               <select
                 value={toSymbol}
-                onChange={(e) => setToSymbol(e.target.value)}
+                onChange={(e) => { setToSymbol(e.target.value); setAmount(''); }}
                 className="bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-xs font-bold px-3 py-2 rounded-lg cursor-pointer text-slate-900 dark:text-white"
               >
-                <option value="USD">USD</option>
                 <option value="BTC">BTC</option>
                 <option value="ETH">ETH</option>
+                <option value="USD">USD</option>
               </select>
             </div>
           </div>
 
+          {/* My assets */}
+          <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800/40 px-3.5 py-2.5">
+            <div className="text-[10px] font-black uppercase tracking-wider text-slate-400 mb-1.5">My Assets</div>
+            <div className="grid grid-cols-3 gap-2 text-center">
+              <div className="rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 py-1.5">
+                <div className="text-xs font-black text-slate-800 dark:text-white">${cashBalance.toLocaleString(undefined, { maximumFractionDigits: 2 })}</div>
+                <div className="text-[9px] text-slate-400 font-bold">USD Cash</div>
+              </div>
+              <div className="rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 py-1.5">
+                <div className="text-xs font-black text-slate-800 dark:text-white">{Number(wallet.BTC || 0).toLocaleString(undefined, { maximumFractionDigits: 8 })}</div>
+                <div className="text-[9px] text-slate-400 font-bold">BTC</div>
+              </div>
+              <div className="rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 py-1.5">
+                <div className="text-xs font-black text-slate-800 dark:text-white">{Number(wallet.ETH || 0).toLocaleString(undefined, { maximumFractionDigits: 8 })}</div>
+                <div className="text-[9px] text-slate-400 font-bold">ETH</div>
+              </div>
+            </div>
+          </div>
+
+          {insufficient && !sameAsset && amount && (
+            <p className="text-[11px] text-red-500 font-semibold">
+              Amount exceeds your available {fromSymbol} balance.
+            </p>
+          )}
+
           <button
             onClick={handleExecuteSwap}
-            className="w-full bg-purple-600 hover:bg-purple-500 text-white font-extrabold py-3.5 rounded-xl transition shadow-lg flex items-center justify-center gap-2 text-xs uppercase tracking-wider cursor-pointer"
+            disabled={sameAsset || !amount || isNaN(parseFloat(amount)) || parseFloat(amount) <= 0 || insufficient}
+            className="w-full bg-purple-600 hover:bg-purple-500 text-white font-extrabold py-3.5 rounded-xl transition shadow-lg flex items-center justify-center gap-2 text-xs uppercase tracking-wider cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
           >
             <Repeat className="w-4 h-4" /> Swap Now
           </button>
@@ -734,6 +819,17 @@ export default function MarketsView({
   const [isDepositPromptOpen, setIsDepositPromptOpen] = useState(false);
   const [maintenanceMode, setMaintenanceMode] = useState<any>(null);
 
+  // Crypto spot wallet (local, demo) used by the Instant Swap feature.
+  const [cryptoWallet, setCryptoWallet] = useState<Record<string, number>>(() => {
+    try {
+      const raw = JSON.parse(localStorage.getItem('axi_crypto_wallet') || '{}');
+      return raw && typeof raw === 'object' ? raw : {};
+    } catch { return {}; }
+  });
+  useEffect(() => {
+    try { localStorage.setItem('axi_crypto_wallet', JSON.stringify(cryptoWallet)); } catch { /* ignore */ }
+  }, [cryptoWallet]);
+
   useEffect(() => {
     const unsubscribe = subscribePaymentConfig((centralConfig) => {
       if (centralConfig.maintenanceMode) {
@@ -791,6 +887,47 @@ export default function MarketsView({
     const notional = pos.entryPrice * pos.volume * mult;
     return acc + (notional / 100);
   }, 0);
+
+  // Functional Instant Swap: converts USD cash <-> BTC/ETH spot in the local wallet.
+  const performSwap = (from: string, to: string, amt: number): { ok: boolean; message: string } => {
+    const validFrom = ['USD', 'BTC', 'ETH'].includes(from);
+    const validTo = ['USD', 'BTC', 'ETH'].includes(to);
+    if (!validFrom || !validTo || from === to) return { ok: false, message: 'Invalid swap pair.' };
+    if (!amt || amt <= 0 || !isFinite(amt)) return { ok: false, message: 'Enter a valid amount to swap.' };
+
+    const btcPrice = quotes['BTCUSD']?.price || 0;
+    const ethPrice = quotes['ETHUSD']?.price || 0;
+    const priceOf = (s: string) => (s === 'USD' ? 1 : s === 'BTC' ? btcPrice : s === 'ETH' ? ethPrice : 0);
+    const rate = priceOf(to) / priceOf(from);
+    if (!isFinite(rate) || rate <= 0) return { ok: false, message: 'Live rates are unavailable right now — try again shortly.' };
+    const output = amt * rate;
+
+    const cashNow = accountType === 'live' ? liveBalance : balance;
+    const adjustCash = (delta: number) => {
+      if (accountType === 'live') setLiveBalance((prev) => Math.max(0, Number(prev || 0) + delta));
+      else setBalance((prev) => Math.max(0, Number(prev || 0) + delta));
+    };
+
+    if (from === 'USD') {
+      if (amt > cashNow + 1e-9) return { ok: false, message: 'Insufficient cash balance for this swap.' };
+      adjustCash(-amt);
+    } else {
+      const have = Number(cryptoWallet[from] || 0);
+      if (amt > have + 1e-9) return { ok: false, message: `Insufficient ${from} balance for this swap.` };
+    }
+
+    if (to === 'USD') adjustCash(output);
+    setCryptoWallet((prev) => {
+      const next = { ...prev };
+      if (from !== 'USD') next[from] = Number((Number(next[from] || 0) - amt).toFixed(8));
+      if (to !== 'USD') next[to] = Number((Number(next[to] || 0) + output).toFixed(8));
+      return next;
+    });
+
+    const fromLabel = from === 'USD' ? `$${amt.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : `${amt} ${from}`;
+    const toLabel = to === 'USD' ? `$${output.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : `${output.toLocaleString(undefined, { maximumFractionDigits: 8 })} ${to}`;
+    return { ok: true, message: `🔄 Swapped ${fromLabel} → ${toLabel} at 0% fee (${accountType === 'live' ? 'Live' : 'Demo'} balance updated).` };
+  };
 
   // Pre-Trade Check & Trade Execution Handler
   const handleTrade = (type: 'BUY' | 'SELL', forceBypassWarning: boolean = false) => {
@@ -1451,6 +1588,10 @@ export default function MarketsView({
           onClose={() => setIsSwapModalOpen(false)}
           quotes={quotes}
           showToast={showToast}
+          cashBalance={accountType === 'live' ? liveBalance : balance}
+          currencySymbol="$"
+          wallet={cryptoWallet}
+          onSwap={performSwap}
         />
       </AnimatePresence>
 

@@ -73,7 +73,7 @@ export function registerFundingControlPlane(app: Express) {
     const client = await d.connect();
     try {
       await client.query('BEGIN');
-      const found = await client.query(`SELECT f.*, u.id AS account_id, u.email AS account_email, u.balance AS account_balance FROM axi_funding_records f LEFT JOIN axi_users u ON u.id=f.user_id WHERE f.id=$1 FOR UPDATE`, [id]);
+      const found = await client.query(`SELECT f.*, u.id AS account_id, u.email AS account_email, u.balance AS account_balance FROM axi_funding_records f LEFT JOIN axi_users u ON u.id=f.user_id WHERE f.id=$1 FOR UPDATE OF f`, [id]);
       if (!found.rows[0]) { await client.query('ROLLBACK'); return res.status(404).json({ success: false, error: 'Funding record not found' }); }
       const f = found.rows[0];
       if (['Credited', 'Rejected'].includes(String(f.status))) { await client.query('ROLLBACK'); return res.status(409).json({ success: false, error: `Funding record is already ${String(f.status).toLowerCase()}` }); }

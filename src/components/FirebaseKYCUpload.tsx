@@ -1,20 +1,24 @@
 import React, { useState } from 'react';
 import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
-import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
-import { storage, db, auth } from '../firebase';
+import { storage, auth } from '../firebase';
 import { Upload, FileText, CheckCircle2, AlertCircle, Image as ImageIcon, Loader2, X, ShieldCheck } from 'lucide-react';
 
 interface FirebaseKYCUploadProps {
   docType: string;
   fullName: string;
   docNumber: string;
+  dob?: string;
+  streetAddress?: string;
+  city?: string;
+  postalCode?: string;
+  country?: string;
   onUploadComplete?: (results: Array<{ label: string; url: string; fileName: string }>) => void;
   showToast?: (msg: string, type: 'success' | 'error' | 'info') => void;
 }
 type SlotKey = 'idFront' | 'idBack' | 'proofRes';
 interface Slot { key: SlotKey; label: string; file: File | null; previewUrl: string | null; progress: number; uploading: boolean; downloadUrl: string | null; error: string | null; }
 
-export default function FirebaseKYCUpload({ docType, fullName, docNumber, onUploadComplete, showToast }: FirebaseKYCUploadProps) {
+export default function FirebaseKYCUpload({ docType, fullName, docNumber, dob='', streetAddress='', city='', postalCode='', country='', onUploadComplete, showToast }: FirebaseKYCUploadProps) {
   const makeSlot = (key: SlotKey, label: string): Slot => ({ key, label, file: null, previewUrl: null, progress: 0, uploading: false, downloadUrl: null, error: null });
   const [slots, setSlots] = useState<Record<SlotKey, Slot>>({ idFront: makeSlot('idFront', `${docType} Front Page`), idBack: makeSlot('idBack', `${docType} Back Page`), proofRes: makeSlot('proofRes', 'Proof of Address') });
   const [isSubmittingAll, setIsSubmittingAll] = useState(false);
@@ -74,9 +78,16 @@ export default function FirebaseKYCUpload({ docType, fullName, docNumber, onUplo
         { label: slots.idBack.label, url: idBackUrl, fileName: slots.idBack.file!.name },
         { label: slots.proofRes.label, url: proofResUrl, fileName: slots.proofRes.file!.name }
       ];
-      await addDoc(collection(db, 'kyc_submissions'), { fullName: fullName.trim(), docType, docNumber: docNumber.trim(), userId: currentUser.uid, userEmail: currentUser.email || '', documents, status: 'Under Review', submittedAt: serverTimestamp() });
-      showToast?.('KYC documents uploaded and submitted for manual review.', 'success');
-      onUploadComplete?.(documents);
+      const token = await currentUser.getIdToken();
+      const response = await fetch('/api/kyc/submit', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify({
+        id: `KYC-${currentUser.uid}-${Date.now()}`, fullName: fullName.trim(), dob, streetAddress, city, postalCode, country, docType, docNumber: docNumber.trim(), user: fullName.trim(), userEmail: currentUser.email || '', type: `${docType} & Proof of Address`, documents,
+        fileName: documents.map(document => document.fileName).join(', '), submittedAt: new Date().toISOString(), status: 'Pending', level: 1,
+        refCode: `DOC-${Math.floor(100000 + Math.random() * 900000)}`, details: { fullName: fullName.trim(), dob, streetAddress, city, postalCode, country, docType, docNumber: docNumber.trim() }
+      }) });
+      const raw = await response.text(); let result: any = {};
+      try { result = raw ? JSON.parse(raw) : {}; } catch { throw new Error(`KYC service returned an invalid response (HTTP ${response.status}).`); }
+      if (!response.ok || !result.success) throw new Error(result.error || 'KYC submission could not be recorded.');
+      showToast?.('KYC documents uploaded and submitted for manual review.', 'success'); onUploadComplete?.(documents);
     } catch (error: any) {
       showToast?.(error?.message || 'KYC submission failed. No verification was recorded.', 'error');
     } finally { setIsSubmittingAll(false); }

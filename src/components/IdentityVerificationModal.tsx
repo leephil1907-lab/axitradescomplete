@@ -1,3 +1,9 @@
+import { authHeaders } from '../utils/authHeaders';
+
+const authenticatedFetch = async (input: RequestInfo | URL, init: RequestInit = {}) => {
+  const headers = await authHeaders(init.headers ? Object.fromEntries(new Headers(init.headers).entries()) : {});
+  return fetch(input, { ...init, headers });
+};
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { X, Upload, ShieldCheck, AlertCircle, FileText, CheckCircle2, User, MapPin, Calendar, CreditCard, Lock, ChevronDown, Check } from 'lucide-react';
@@ -52,71 +58,46 @@ export default function IdentityVerificationModal({ isOpen, onClose, showToast }
     }
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!isFormComplete) {
-      if (showToast) showToast('Please complete all personal details and upload all 3 required verification documents.', 'error');
+      showToast?.('Please complete all personal details and upload all 3 required verification documents.', 'error');
       return;
     }
-
+    const currentUser = auth.currentUser;
+    if (!currentUser) {
+      showToast?.('Please sign in before submitting KYC.', 'error');
+      return;
+    }
     setIsSubmitting(true);
-    setTimeout(() => {
-      setIsSubmitting(false);
-      
+    try {
+      const token = await currentUser.getIdToken();
+      const submittedAt = new Date().toISOString();
       const kycData = {
-        fullName,
-        dob,
-        streetAddress,
-        city,
-        postalCode,
-        country,
-        docType,
-        docNumber,
-        idFrontName: idFrontFile?.name || 'ID_Front.pdf',
-        idBackName: idBackFile?.name || 'ID_Back.pdf',
-        proofResName: proofResFile?.name || 'Proof_Of_Residence.pdf',
-        submittedAt: new Date().toISOString().replace('T', ' ').substring(0, 16) + ' UTC',
-        level: 1,
-        status: 'Under Review'
+        fullName: fullName.trim(), dob, streetAddress: streetAddress.trim(), city: city.trim(),
+        postalCode: postalCode.trim(), country: country.trim(), docType, docNumber: docNumber.trim(),
+        idFrontName: idFrontFile?.name || 'ID_Front.pdf', idBackName: idBackFile?.name || 'ID_Back.pdf',
+        proofResName: proofResFile?.name || 'Proof_Of_Residence.pdf', submittedAt, level: 1, status: 'Pending'
       };
-
-      const activeUserEmail = auth.currentUser?.email || localStorage.getItem('axi_remembered_email') || 'trader@axi.com';
-
-      localStorage.setItem('axi_kyc_level', '1');
-      localStorage.setItem('axi_kyc_status', 'pending');
-      localStorage.setItem('axi_kyc_details', JSON.stringify(kycData));
-
       const newDoc = {
-        id: `KYC-${Date.now().toString().slice(-6)}`,
-        user: fullName || auth.currentUser?.displayName || 'Active Trader',
-        userEmail: activeUserEmail,
+        id: `KYC-${Date.now()}-${currentUser.uid.slice(0,8)}`, user: fullName.trim(), userEmail: currentUser.email || '',
         type: `${docType} & Proof of Address`,
-        fileName: `${idFrontFile?.name || 'Front_ID'}, ${proofResFile?.name || 'Proof_Res'}`,
-        submittedAt: kycData.submittedAt,
-        status: 'Under Review',
-        refCode: `DOC-${Math.floor(100000 + Math.random() * 900000)}`,
-        details: kycData
+        fileName: `${idFrontFile?.name || 'Front_ID'}, ${idBackFile?.name || 'Back_ID'}, ${proofResFile?.name || 'Proof_Res'}`,
+        submittedAt, status: 'Pending', refCode: `DOC-${Math.floor(100000 + Math.random() * 900000)}`, details: kycData
       };
-      
-      // 1. Submit to Backend API
-      fetch('/api/kyc/submit', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(newDoc)
-      }).catch(e => console.warn('Backend KYC submission sync:', e));
-
-      // 2. Save to local storage & trigger events
+      const response = await fetch('/api/kyc/submit', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify(newDoc) });
+      const raw = await response.text();
+      let data: any = {};
+      try { data = raw ? JSON.parse(raw) : {}; } catch { throw new Error(`KYC service returned an invalid response (HTTP ${response.status}).`); }
+      if (!response.ok || !data.success) throw new Error(data.error || 'KYC submission could not be recorded.');
+      localStorage.setItem('axi_kyc_level', '1'); localStorage.setItem('axi_kyc_status', 'pending'); localStorage.setItem('axi_kyc_details', JSON.stringify(kycData));
       const existingDocs = JSON.parse(localStorage.getItem('axi_kyc_docs') || '[]');
       localStorage.setItem('axi_kyc_docs', JSON.stringify([newDoc, ...existingDocs]));
       window.dispatchEvent(new Event('axi_kyc_update'));
-
-      if (showToast) {
-        showToast('Level 1 Document Verification submitted! Status updated to Pending Review.', 'success');
-      }
-      
-      onClose();
-      setStep(1);
-    }, 1500);
+      showToast?.('Level 1 KYC submitted successfully and sent to the administrator for review.', 'success'); onClose(); setStep(1);
+    } catch (error) {
+      showToast?.(error?.message || 'KYC submission failed. Nothing was marked as submitted.', 'error');
+    } finally { setIsSubmitting(false); }
   };
 
   return (
@@ -439,7 +420,7 @@ export default function IdentityVerificationModal({ isOpen, onClose, showToast }
                       details: kycData
                     };
                     
-                    fetch('/api/kyc/submit', {
+                    authenticatedFetch('/api/kyc/submit', {
                       method: 'POST',
                       headers: { 'Content-Type': 'application/json' },
                       body: JSON.stringify(newDoc)

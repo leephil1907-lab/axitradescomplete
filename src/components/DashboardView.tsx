@@ -94,7 +94,16 @@ export default function DashboardView({
   formatCurrency = (amt) => `$${amt.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
   convertFromUSD = (amt) => amt
 }: DashboardViewProps) {
-  const [accountMode] = useState<'live' | 'demo'>('live');
+  const [accountMode, setAccountMode] = useState<'live' | 'demo'>('demo');
+
+  // Ledger used by the active account mode (demo = practice balance, live = live).
+  const ledger = accountMode === 'demo' ? balance : liveBalance;
+  const applyLedgerDelta = (delta: number) => {
+    const next = accountMode === 'demo' ? setBalance : setLiveBalance;
+    next((prev) => Math.max(0, Number(prev || 0) + Number(delta || 0)));
+  };
+  // Trades closed from this terminal session, merged into the History tab below.
+  const [localClosed, setLocalClosed] = useState<ClosedPosition[]>([]);
   const [selectedSymbol, setSelectedSymbol] = useState<string>('EURUSD');
   const [categoryFilter, setCategoryFilter] = useState<string>('All');
   const [searchQuery, setSearchQuery] = useState<string>('');
@@ -178,7 +187,7 @@ export default function DashboardView({
     }, 0);
   }, [openPositions, quotes]);
 
-  const activeEquity = Math.max(0, liveBalance + currentFloatingProfit);
+  const activeEquity = Math.max(0, ledger + currentFloatingProfit);
   const usedMargin = openPositions.reduce((acc, pos) => {
     const inst = INSTRUMENTS.find(i => i.symbol === pos.symbol) || { leverage: 500 };
     return acc + ((pos.volume * 100000) / inst.leverage);
@@ -198,35 +207,214 @@ export default function DashboardView({
     return tradeVolume * 10;
   }, [tradeVolume, selectedSymbol]);
 
-  // Execute Market Order: local browser-side fills are disabled.
-  const handleExecuteMarketOrder = (_type: 'BUY' | 'SELL') => {
-    if (!activeQuote.price || activeQuote.status === 'unavailable') {
-      showToast('Live execution is unavailable because no verified broker quote/execution gateway is connected.', 'error');
-      return;
-    }
-    showToast('Order not submitted: this deployment has no verified broker execution gateway. No simulated fill was created.', 'error');
+  // ── Functional (simulated practice) execution engine ─────────────────────
+  // Market/pending orders are filled locally against the live quote feed.
+  // Demo mode uses the practice balance; Live uses the live ledger. Execution
+  // is a simulation — no external broker gateway is contacted.
+  const executionVenue = accountMode === 'demo' ? 'Demo practice server' : 'Axi simulated ECN';
+
+  const instrumentFor = (symbol: string) => INSTRUMENTS.find((i) => i.symbol === symbol) || INSTRUMENTS[0];
+
+  const positionMultiplier = (symbol: string) =>
+    symbol.includes('BTC') ? 1 : symbol.includes('XAU') ? 100 : symbol.includes('JPY') ? 1000 : 100000;
+
+  const marginFor = (symbol: string, volume: number) => {
+    const inst = instrumentFor(symbol);
+    const quotePrice = quotes[symbol]?.price || 0;
+    const notional = quotePrice * volume * (symbol.includes('BTC') || symbol.includes('SOL') ? 1 : symbol.includes('XAU') ? 100 : 100000);
+    return notional / (inst.leverage || 100);
   };
 
-  // Pending orders require a broker-side execution service.
+  const realizedPnl = (pos: TradeOrder, exitPrice: number) => {
+    const mult = positionMultiplier(pos.symbol);
+    return pos.type === 'BUY'
+      ? (exitPrice - pos.entryPrice) * pos.volume * mult
+      : (pos.entryPrice - exitPrice) * pos.volume * mult;
+  };
+
+  const registerFill = (spec: { symbol: string; type: 'BUY' | 'SELL'; volume: number; entryPrice: number; sl?: number; tp?: number; source: string }): boolean => {
+    const id = `ORD-${Date.now().toString(36).toUpperCase()}-${Math.floor(1000 + Math.random() * 9000)}`;
+    const order: TradeOrder = {
+      id,
+      symbol: spec.symbol,
+      type: spec.type,
+      entryPrice: spec.entryPrice,
+      currentPrice: spec.entryPrice,
+      volume: spec.volume,
+      profit: 0,
+      timestamp: new Date().toISOString(),
+      sl: spec.sl,
+      tp: spec.tp
+    };
+    if (addOpenPosition) {
+      void addOpenPosition(order);
+    } else if (setOpenPositions) {
+      setOpenPositions((prev) => [...(prev || []), order]);
+    } else {
+      if (showToast) showToast('Could not open position: trading store is unavailable.', 'error');
+      return false;
+    }
+    if (showToast) {
+      showToast(`${spec.source}: ${spec.type} ${spec.volume} ${spec.symbol} @ ${spec.entryPrice.toLocaleString(undefined, { minimumFractionDigits: spec.symbol.includes('JPY') ? 2 : 5 })} · ${executionVenue}`, 'success');
+    }
+    return true;
+  };
+
+  const executeMarketOrder = (type: 'BUY' | 'SELL'): boolean => {
+    const price = activeQuote.price;
+    if (!price || price <= 0) {
+      if (showToast) showToast('No executable quote is available for this instrument.', 'error');
+      return false;
+    }
+    const margin = marginFor(selectedSymbol, tradeVolume);
+    if (margin > freeMargin + 0.0001) {
+      if (showToast) showToast(`Insufficient free margin on the ${accountMode} account — required ≈ ${formatCurrency(margin)}.`, 'error');
+      return false;
+    }
+    const sl = enableStopLoss && stopLossPrice ? parseFloat(stopLossPrice) : undefined;
+    const tp = enableTakeProfit && takeProfitPrice ? parseFloat(takeProfitPrice) : undefined;
+    return registerFill({ symbol: selectedSymbol, type, volume: tradeVolume, entryPrice: price, sl, tp, source: 'Market order filled' });
+  };
+
+  // Execute Market Order (public handler)
+  const handleExecuteMarketOrder = (type: 'BUY' | 'SELL') => {
+    setIsExecutingTrade(true);
+    try {
+      executeMarketOrder(type);
+    } finally {
+      setTimeout(() => setIsExecutingTrade(false), 400);
+    }
+  };
+
+  const closePositionNow = (pos: TradeOrder, reason: string, exitPrice?: number) => {
+    const quote = quotes[pos.symbol];
+    const exit = exitPrice || quote?.price || pos.currentPrice || pos.entryPrice;
+    const pnl = realizedPnl(pos, exit);
+    applyLedgerDelta(pnl);
+    setLocalClosed((prev) => [
+      {
+        id: pos.id,
+        symbol: pos.symbol,
+        type: pos.type,
+        volume: pos.volume,
+        entryPrice: pos.entryPrice,
+        exitPrice: exit,
+        profit: Number(pnl.toFixed(2)),
+        entryTime: pos.timestamp,
+        exitTime: new Date().toISOString(),
+        closeTime: new Date().toISOString()
+      },
+      ...prev
+    ]);
+    if (setOpenPositions) setOpenPositions((prev) => (prev || []).filter((p) => p.id !== pos.id));
+    if (showToast) {
+      const sign = pnl >= 0 ? '+' : '';
+      showToast(`${reason} — P/L ${sign}${formatCurrency(pnl)} settled to ${accountMode} balance.`, 'success');
+    }
+  };
+
+  // Close Position
+  const handleClosePosition = (posId: string) => {
+    const pos = openPositions.find((p) => p.id === posId);
+    if (!pos) {
+      if (showToast) showToast('Position no longer open.', 'info');
+      return;
+    }
+    closePositionNow(pos, `Position #${posId} closed`);
+  };
+
+  // Bulk close
+  const handleCloseAllPositions = () => {
+    if (!openPositions.length) return;
+    const snapshot = [...openPositions];
+    if (showToast) showToast(`Closing all ${snapshot.length} open position(s)...`, 'info');
+    snapshot.forEach((pos) => closePositionNow(pos, `Position #${pos.id} closed`));
+  };
+
+  // Place Pending Order (limit / stop)
   const handlePlacePendingOrder = (e: React.FormEvent) => {
     e.preventDefault();
-    showToast('Pending orders are unavailable until a verified broker execution gateway is connected.', 'error');
+    const price = parseFloat(pendingPrice);
+    if (!price || price <= 0) {
+      if (showToast) showToast('Enter a valid trigger price for the pending order.', 'error');
+      return;
+    }
+    const id = `PND-${Date.now().toString(36).toUpperCase()}-${Math.floor(1000 + Math.random() * 9000)}`;
+    setPendingOrders((prev) => [
+      {
+        id,
+        symbol: selectedSymbol,
+        type: pendingType,
+        volume: tradeVolume,
+        targetPrice: price,
+        currentPrice: activeQuote.price || price,
+        timestamp: new Date().toISOString(),
+        sl: enableStopLoss && stopLossPrice ? parseFloat(stopLossPrice) : undefined,
+        tp: enableTakeProfit && takeProfitPrice ? parseFloat(takeProfitPrice) : undefined
+      },
+      ...prev
+    ]);
+    setPendingPrice('');
+    if (showToast) showToast(`${pendingType} placed: ${selectedSymbol} @ ${price}`, 'success');
   };
+
+  // Fill a pending order when price reaches its trigger
+  const triggerPendingFill = (p: PendingOrder) => {
+    const margin = marginFor(p.symbol, p.volume);
+    if (margin > freeMargin + 0.0001) {
+      if (showToast) showToast(`Pending ${p.type} could not fill — insufficient free margin on ${accountMode} account.`, 'error');
+      return;
+    }
+    const type: 'BUY' | 'SELL' = p.type.startsWith('BUY') ? 'BUY' : 'SELL';
+    registerFill({ symbol: p.symbol, type, volume: p.volume, entryPrice: p.targetPrice, sl: p.sl, tp: p.tp, source: 'Pending order triggered' });
+  };
+
+  // Automatic engine: pending order triggers
+  useEffect(() => {
+    const triggered = pendingOrders.filter((p) => {
+      const q = quotes[p.symbol];
+      if (!q || !q.price) return false;
+      if (p.type === 'BUY_LIMIT' && q.price <= p.targetPrice) return true;
+      if (p.type === 'SELL_LIMIT' && q.price >= p.targetPrice) return true;
+      if (p.type === 'BUY_STOP' && q.price >= p.targetPrice) return true;
+      if (p.type === 'SELL_STOP' && q.price <= p.targetPrice) return true;
+      return false;
+    });
+    if (!triggered.length) return;
+    triggered.forEach((p) => triggerPendingFill(p));
+    setPendingOrders((prev) => prev.filter((p) => !triggered.some((t) => t.id === p.id)));
+  }, [pendingOrders, quotes]);
+
+  // Automatic engine: stop loss / take profit exits
+  useEffect(() => {
+    const exits: { pos: TradeOrder; price: number; reason: string }[] = [];
+    openPositions.forEach((pos) => {
+      const q = quotes[pos.symbol];
+      if (!q || !q.price) return;
+      const price = q.price;
+      if (typeof pos.sl === 'number' && (pos.type === 'BUY' ? price <= pos.sl : price >= pos.sl)) {
+        exits.push({ pos, price: pos.sl, reason: `Stop Loss hit on #${pos.id}` });
+      } else if (typeof pos.tp === 'number' && (pos.type === 'BUY' ? price >= pos.tp : price <= pos.tp)) {
+        exits.push({ pos, price: pos.tp, reason: `Take Profit hit on #${pos.id}` });
+      }
+    });
+    exits.forEach((e) => closePositionNow(e.pos, e.reason, e.price));
+  }, [quotes, openPositions]);
+
+  // Automatic engine: margin stop-out protecting the active ledger
+  useEffect(() => {
+    if (!openPositions.length) return;
+    if (ledger + currentFloatingProfit < usedMargin * 0.1) {
+      if (showToast) showToast('Margin call — equity fell below the stop-out level. All positions closed.', 'error');
+      const snapshot = [...openPositions];
+      snapshot.forEach((pos) => closePositionNow(pos, `Margin stop-out #${pos.id}`));
+    }
+  }, [quotes, openPositions, ledger, currentFloatingProfit, usedMargin]);
 
   // Cancel Pending Order
   const handleCancelPendingOrder = (id: string) => {
-    setPendingOrders(prev => prev.filter(p => p.id !== id));
-    showToast(`Pending order #${id} cancelled.`, 'info');
-  };
-
-  // Position closing is server/execution-gateway controlled.
-  const handleClosePosition = (_posId: string) => {
-    showToast('Position close requests require the verified broker execution gateway. No local balance mutation was performed.', 'error');
-  };
-
-  // Bulk close is server/execution-gateway controlled.
-  const handleCloseAllPositions = () => {
-    showToast('Bulk close is unavailable until the broker execution gateway is connected.', 'error');
+    setPendingOrders((prev) => prev.filter((p) => p.id !== id));
+    if (showToast) showToast(`Pending order #${id} cancelled.`, 'info');
   };
 
   // Save Position SL/TP Modification
@@ -274,6 +462,9 @@ export default function DashboardView({
     showToast(`Price Alert set for ${selectedSymbol} when price crosses ${target}`, 'success');
   };
 
+  // History shown = persisted closed positions + trades closed this session.
+  const historyTrades: ClosedPosition[] = [...localClosed, ...(closedPositions || [])];
+
   return (
     <div className="min-h-screen bg-[#0E131B] text-slate-100 flex flex-col font-sans select-none">
       
@@ -298,6 +489,22 @@ export default function DashboardView({
             <div className="flex items-center bg-[#0B0F17] rounded-lg p-0.5 border border-slate-800 text-xs">
               <button
                 type="button"
+                onClick={() => setAccountMode('demo')}
+                title="Practice account — uses the demo balance"
+                aria-pressed={accountMode === 'demo'}
+                className={`px-3 py-1 rounded font-black uppercase text-[10px] tracking-wider transition cursor-pointer flex items-center gap-1.5 ${
+                  accountMode === 'demo'
+                    ? 'bg-sky-600 text-white shadow-xs'
+                    : 'text-slate-400 hover:text-slate-200'
+                }`}
+              >
+                Demo
+              </button>
+              <button
+                type="button"
+                onClick={() => setAccountMode('live')}
+                title="Live account — uses the live ledger (simulated execution)"
+                aria-pressed={accountMode === 'live'}
                 className={`px-3 py-1 rounded font-black uppercase text-[10px] tracking-wider transition cursor-pointer flex items-center gap-1.5 ${
                   accountMode === 'live'
                     ? 'bg-[#E3000F] text-white shadow-xs'
@@ -305,7 +512,7 @@ export default function DashboardView({
                 }`}
               >
                 <ShieldCheck className="w-3 h-3" />
-                Live account
+                Live
               </button>
             </div>
 
@@ -320,9 +527,9 @@ export default function DashboardView({
           <div className="flex items-center gap-2 sm:gap-4 overflow-x-auto py-1 text-xs">
             
             <div className="bg-[#182232] px-3 py-1.5 rounded-lg border border-slate-700/60 shrink-0">
-              <div className="text-[10px] uppercase font-bold text-slate-400">Balance</div>
+              <div className="text-[10px] uppercase font-bold text-slate-400">Balance · {accountMode === 'demo' ? 'Demo' : 'Live'}</div>
               <div className="font-mono font-black text-white text-sm">
-                {formatCurrency(liveBalance)}
+                {formatCurrency(ledger)}
               </div>
             </div>
 
@@ -896,7 +1103,7 @@ export default function DashboardView({
                 }`}
               >
                 <CheckCircle2 className="w-3.5 h-3.5" />
-                <span>Trade History ({closedPositions.length})</span>
+                <span>Trade History ({historyTrades.length})</span>
               </button>
 
               <button
@@ -1095,11 +1302,11 @@ export default function DashboardView({
           {/* TAB 3: CLOSED HISTORY */}
           {activeTab === 'history' && (
             <div className="flex-1 overflow-x-auto">
-              {closedPositions.length === 0 ? (
+              {historyTrades.length === 0 ? (
                 <div className="text-center py-16 px-4">
                   <CheckCircle2 className="w-10 h-10 text-slate-600 mx-auto mb-2" />
                   <h4 className="text-sm font-bold text-slate-300">No Closed Trades Yet</h4>
-                  <p className="text-xs text-slate-500 mt-1">Closed positions and settlement history will be recorded here.</p>
+                  <p className="text-xs text-slate-500 mt-1">Close an open position and the settled trade will appear here.</p>
                 </div>
               ) : (
                 <table className="w-full text-left text-xs">
@@ -1116,28 +1323,33 @@ export default function DashboardView({
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-800/60 font-medium">
-                    {closedPositions.map((item, idx) => (
-                      <tr key={item.id || idx} className="hover:bg-slate-800/30 transition">
-                        <td className="py-2.5 px-3 font-mono text-slate-400">{item.id || `CLO-${idx}`}</td>
-                        <td className="py-2.5 px-3 font-bold text-white">{item.symbol}</td>
-                        <td className="py-2.5 px-3">
-                          <span className={`px-2 py-0.5 rounded text-[10px] font-black uppercase ${
-                            item.type === 'BUY' ? 'bg-emerald-500/15 text-emerald-400' : 'bg-[#FF4D5A]/15 text-[#FF4D5A]'
+                    {historyTrades.map((item, idx) => {
+                      const openP = item.openPrice ?? item.entryPrice;
+                      const closeP = item.closePrice ?? item.exitPrice;
+                      const closedAt = item.closeTime || item.exitTime || 'Today';
+                      return (
+                        <tr key={item.id || idx} className="hover:bg-slate-800/30 transition">
+                          <td className="py-2.5 px-3 font-mono text-slate-400">{item.id || `CLO-${idx}`}</td>
+                          <td className="py-2.5 px-3 font-bold text-white">{item.symbol}</td>
+                          <td className="py-2.5 px-3">
+                            <span className={`px-2 py-0.5 rounded text-[10px] font-black uppercase ${
+                              item.type === 'BUY' ? 'bg-emerald-500/15 text-emerald-400' : 'bg-[#FF4D5A]/15 text-[#FF4D5A]'
+                            }`}>
+                              {item.type}
+                            </span>
+                          </td>
+                          <td className="py-2.5 px-3 font-mono">{item.volume.toFixed(2)} Lot</td>
+                          <td className="py-2.5 px-3 font-mono text-slate-400">{openP ? openP.toFixed(4) : '-'}</td>
+                          <td className="py-2.5 px-3 font-mono text-slate-200">{closeP ? closeP.toFixed(4) : '-'}</td>
+                          <td className="py-2.5 px-3 text-slate-400">{closedAt}</td>
+                          <td className={`py-2.5 px-3 font-mono font-black text-right ${
+                            item.profit >= 0 ? 'text-emerald-400' : 'text-[#FF4D5A]'
                           }`}>
-                            {item.type}
-                          </span>
-                        </td>
-                        <td className="py-2.5 px-3 font-mono">{item.volume.toFixed(2)} Lot</td>
-                        <td className="py-2.5 px-3 font-mono text-slate-400">{item.openPrice ? item.openPrice.toFixed(4) : '-'}</td>
-                        <td className="py-2.5 px-3 font-mono text-slate-200">{item.closePrice ? item.closePrice.toFixed(4) : '-'}</td>
-                        <td className="py-2.5 px-3 text-slate-400">{item.closeTime || 'Today'}</td>
-                        <td className={`py-2.5 px-3 font-mono font-black text-right ${
-                          item.profit >= 0 ? 'text-emerald-400' : 'text-[#FF4D5A]'
-                        }`}>
-                          {item.profit >= 0 ? '+' : ''}${item.profit.toFixed(2)}
-                        </td>
-                      </tr>
-                    ))}
+                            {item.profit >= 0 ? '+' : ''}${item.profit.toFixed(2)}
+                          </td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               )}
@@ -1193,7 +1405,7 @@ export default function DashboardView({
           {activeTab === 'copy_trade' && (
             <div className="p-4 flex-1 overflow-y-auto">
               <CopyTradeSection 
-                activeBalance={liveBalance}
+                activeBalance={ledger}
                 accountMode={accountMode}
                 openPositions={openPositions}
                 addOpenPosition={addOpenPosition}
@@ -1210,7 +1422,7 @@ export default function DashboardView({
           {activeTab === 'equity_chart' && (
             <div className="p-4 flex-1 h-[280px]">
               <BalanceHistoryChart 
-                activeBalance={liveBalance}
+                activeBalance={ledger}
                 closedPositions={closedPositions}
                 transactions={transactions}
                 user={user}

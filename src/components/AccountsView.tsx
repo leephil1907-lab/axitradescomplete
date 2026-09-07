@@ -30,7 +30,7 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { auth } from '../firebase';
-import { createUserWithEmailAndPassword, updateProfile } from 'firebase/auth';
+import { createUserWithEmailAndPassword, updateProfile, signInWithEmailAndPassword } from 'firebase/auth';
 import { ACCOUNT_TYPES } from '../data';
 import CountrySelect from './CountrySelect';
 
@@ -609,47 +609,86 @@ export default function AccountsView({
     else if (wizardStep === 14) {
       // Final application step: create the real Firebase identity first.
       // Broker credentials are never fabricated in the browser; they must come from the broker/execution backend.
-      try {
-        const displayName = formData.firstName ? `${formData.firstName} ${formData.lastName}`.trim() : formData.email.split('@')[0];
-        const userCred = await createUserWithEmailAndPassword(auth, formData.email.trim().toLowerCase(), formData.password);
-        await updateProfile(userCred.user, { displayName });
-
-        const newUserPayload = {
-          id: userCred.user.uid,
-          uid: userCred.user.uid,
-          name: displayName,
-          email: formData.email.trim().toLowerCase(),
-          country: formData.country,
-          status: 'Pending',
-          verificationStatus: 'Pending',
-          kycStatus: 'NOT_STARTED',
-          balance: 0,
-          liveBalance: 0,
-          accountNo: '',
-          accountType: `${formData.accountType} — awaiting broker provisioning`,
-          tradingPlatform: formData.tradingPlatform,
-          leverage: formData.leverage,
-          currency: formData.currency,
-          employment: formData.employment,
-          avgIncome: formData.avgIncome,
-          savingsValue: formData.savingsValue,
-          sourceFunds: formData.sourceFunds,
-          authMethod: formData.authMethod,
-          registeredAt: new Date().toISOString()
-        };
-
+      const postRegisterSync = async () => {
         const response = await fetch('/api/users/register', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(newUserPayload)
         });
         if (!response.ok) throw new Error('The registration service did not accept the new account record.');
+      };
+
+      const emailValue = formData.email.trim().toLowerCase();
+      const displayName = formData.firstName ? `${formData.firstName} ${formData.lastName}`.trim() : emailValue.split('@')[0];
+
+      const newUserPayload = {
+        id: '',
+        uid: '',
+        name: displayName,
+        email: emailValue,
+        country: formData.country,
+        status: 'Pending',
+        verificationStatus: 'Pending',
+        kycStatus: 'NOT_STARTED',
+        balance: 0,
+        liveBalance: 0,
+        accountNo: '',
+        accountType: `${formData.accountType} — awaiting broker provisioning`,
+        tradingPlatform: formData.tradingPlatform,
+        leverage: formData.leverage,
+        currency: formData.currency,
+        employment: formData.employment,
+        avgIncome: formData.avgIncome,
+        savingsValue: formData.savingsValue,
+        sourceFunds: formData.sourceFunds,
+        authMethod: formData.authMethod,
+        registeredAt: new Date().toISOString()
+      };
+
+      try {
+        // 1) Obtain a Firebase identity. If the email is already registered we
+        //    re-sign-in with the supplied password (covers retries after a
+        //    transient /api/users/register failure) instead of dead-ending the
+        //    wizard with auth/email-already-in-use.
+        let uid = auth.currentUser?.uid || '';
+        const signedInAsEmail = (auth.currentUser?.email || '').toLowerCase();
+        if (uid && signedInAsEmail === emailValue) {
+          // Already authenticated as this exact email (earlier attempt partially succeeded).
+          uid = auth.currentUser?.uid || uid;
+        } else {
+          try {
+            const userCred = await createUserWithEmailAndPassword(auth, emailValue, formData.password);
+            await updateProfile(userCred.user, { displayName });
+            uid = userCred.user.uid;
+          } catch (createErr: any) {
+            if (String(createErr?.code || '') === 'auth/email-already-in-use') {
+              // Pre-existing account — sign in with the supplied password to resume.
+              const cred = await signInWithEmailAndPassword(auth, emailValue, formData.password);
+              uid = cred.user.uid;
+            } else {
+              throw createErr;
+            }
+          }
+        }
+
+        newUserPayload.id = uid;
+        newUserPayload.uid = uid;
+        await postRegisterSync();
 
         setGeneratedAccount(null);
         showToast('Account registration completed. Your application is pending KYC/admin review; broker credentials will only appear after real provisioning.', 'success');
         setWizardStep(15);
       } catch (err: any) {
-        showToast((err?.message || 'Unable to complete registration. Please try again.').replace('Firebase: ', ''), 'error');
+        const raw = String(err?.code || err?.message || err || '');
+        const friendly = raw.replace('Firebase: ', '');
+        if (/email-already-in-use|already exists/i.test(raw)) {
+          showToast('An account already exists for this email. If it is yours, sign in with its password — otherwise use a different email address.', 'error');
+        } else if (/invalid-credential|wrong-password|invalid-login-credentials/i.test(raw)) {
+          showToast('This email is already registered but the password is incorrect. Please sign in with the correct password.', 'error');
+        } else {
+          showToast((err?.message || 'Unable to complete registration. Please try again.').replace('Firebase: ', ''), 'error');
+        }
+        void friendly;
       }
     }
   };

@@ -126,7 +126,8 @@ export function registerControlPlane(app: Express) {
   });
 
   app.get('/api/admin/users/:id', adminMiddleware, async (req, res) => {
-    try { await ensureSchema(); const user = await findUser(String(req.params.id)); if (!user) return res.status(404).json({ success: false, error: 'User not found' }); const d = db()!; const [ledger, withdrawals] = await Promise.all([d.query('SELECT * FROM axi_balance_ledger WHERE user_id=$1 ORDER BY created_at DESC LIMIT 200',[user.id]), d.query('SELECT * FROM axi_withdrawal_records WHERE user_id=$1 ORDER BY created_at DESC LIMIT 100',[user.id])]); return res.json({ success:true, user, ledger: ledger.rows, withdrawals: withdrawals.rows }); }
+      // ADMIN_USER_DETAIL_AUDIT_V1
+    try { await ensureSchema(); const user = await findUser(String(req.params.id)); if (!user) return res.status(404).json({ success: false, error: 'User not found' }); const d = db()!; const [ledger, withdrawals, audit] = await Promise.all([d.query('SELECT * FROM axi_balance_ledger WHERE user_id=$1 ORDER BY created_at DESC LIMIT 200',[user.id]), d.query('SELECT * FROM axi_withdrawal_records WHERE user_id=$1 ORDER BY created_at DESC LIMIT 100',[user.id]), d.query('SELECT * FROM axi_audit_logs WHERE target_user_id=$1 ORDER BY created_at DESC LIMIT 200',[user.id])]); return res.json({ success:true, user, ledger: ledger.rows, withdrawals: withdrawals.rows }); }
     catch(e){ return res.status(503).json({success:false,error:'User control data unavailable'}); }
   });
 

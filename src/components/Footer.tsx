@@ -97,12 +97,6 @@ export default function Footer({ setView }: FooterProps) {
             >
               Open Live Account
             </button>
-            <button
-              onClick={() => handleNav('platforms')}
-              className="bg-black/30 hover:bg-black/45 text-white font-bold text-xs sm:text-sm border border-white/30 px-5 py-3 rounded-md transition cursor-pointer"
-            >
-              Try Demo
-            </button>
           </div>
         </div>
       </div>

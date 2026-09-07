@@ -21,3 +21,6 @@ Thumbs.db
 # Temporary build/fix scripts
 *.py
 fix_*.cjs
+
+# Runtime file-fallback store (PostgreSQL is the source of truth)
+data/

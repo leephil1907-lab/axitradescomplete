@@ -1,3 +1,9 @@
+import { authHeaders } from '../utils/authHeaders';
+
+const authenticatedFetch = async (input: RequestInfo | URL, init: RequestInit = {}) => {
+  const headers = await authHeaders(init.headers ? Object.fromEntries(new Headers(init.headers).entries()) : {});
+  return fetch(input, { ...init, headers });
+};
 import { useEffect, useState } from 'react';
 import { useFirebaseData } from './useFirebaseData';
 
@@ -35,7 +41,7 @@ export function useStripePayment(showToast?: (msg: string, type: 'success' | 'er
     const verifyDepositOnServer = async () => {
       setIsVerifying(true);
       try {
-        const response = await fetch('/api/stripe/verify-deposit', {
+        const response = await authenticatedFetch('/api/stripe/verify-deposit', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({

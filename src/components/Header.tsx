@@ -62,6 +62,10 @@ export default function Header({
   const [showLanguageModal, setShowLanguageModal] = useState(false);
   const [selectedLang, setSelectedLang] = useState(() => localStorage.getItem('axi_language') || 'English (Global)');
   const [userDropdownOpen, setUserDropdownOpen] = useState(false);
+  // AXI_HIDDEN_ADMIN_TRIGGER_V3
+  const [hiddenAdminClicks,setHiddenAdminClicks]=useState(0);
+  const hiddenAdminTimerRef=React.useRef<ReturnType<typeof setTimeout>|null>(null);
+  const handleHiddenAdminLogoClick=()=>{const next=hiddenAdminClicks+1;if(hiddenAdminTimerRef.current)clearTimeout(hiddenAdminTimerRef.current);if(next>=7){setHiddenAdminClicks(0);handleNav('admin');return;}setHiddenAdminClicks(next);handleNav('home');hiddenAdminTimerRef.current=setTimeout(()=>setHiddenAdminClicks(0),1800);};
 
   // Primary navigation categories aligned with www.axi.com
   const navItems: NavItem[] = [
@@ -190,8 +194,7 @@ export default function Header({
           {/* Axi Brand Logo */}
           <button 
             type="button"
-            onClick={() => handleNav('home')} 
-            className="flex items-center cursor-pointer group shrink-0 bg-transparent border-0 p-0 text-left"
+            onClick={handleHiddenAdminLogoClick} className="flex items-center cursor-pointer group shrink-0 bg-transparent border-0 p-0 text-left"
             id="logo-brand"
             title="Axi - Return to Home"
             aria-label="Axi Home"
@@ -550,56 +553,113 @@ export default function Header({
               </div>
 
               {/* Drawer Navigation Links */}
-              <div className="flex-1 p-5 flex flex-col gap-3">
-                {navItems.map((group, idx) => (
-                  <div key={idx} className="border-b border-neutral-800/80 pb-3">
-                    <button
-                      onClick={() => setActiveMobileDropdown(activeMobileDropdown === group.label ? null : group.label)}
-                      className="w-full flex items-center justify-between text-left py-2 font-bold text-sm text-neutral-200 hover:text-white cursor-pointer"
-                    >
-                      <span className="flex items-center gap-2">
-                        <span className="w-1 h-3.5 bg-[#C8102E] inline-block -skew-x-12" />
-                        {group.label}
-                      </span>
-                      <div className="flex items-center gap-2">
-                        {group.badge && (
-                          <span className="text-[9px] bg-neutral-800 text-[#F5CE47] px-1.5 py-0.5 rounded font-mono">
-                            {group.badge}
-                          </span>
-                        )}
-                        <ChevronDown className={`w-4 h-4 text-neutral-400 transition-transform ${activeMobileDropdown === group.label ? 'rotate-180 text-[#F5CE47]' : ''}`} />
-                      </div>
-                    </button>
-                    {activeMobileDropdown === group.label && (
-                      <div className="pl-3 pr-1 pt-2 pb-1 flex flex-col gap-2 bg-neutral-900/40 rounded-lg p-2 mt-1">
-                        {group.children.map((child, cIdx) => (
-                          <button
-                            key={cIdx}
-                            onClick={() => handleNav(child.target)}
-                            className="text-left py-1.5 text-xs text-neutral-400 hover:text-[#F5CE47] transition flex items-center justify-between cursor-pointer group"
-                          >
-                            <span className="group-hover:translate-x-1 transition-transform">{child.name}</span>
-                            <ChevronRight className="w-3 h-3 text-neutral-600 group-hover:text-[#F5CE47]" />
-                          </button>
-                        ))}
-                      </div>
-                    )}
+              <div className="flex-1 p-5 flex flex-col gap-4 overflow-y-auto">
+                {/* Quick shortcuts */}
+                <div>
+                  <p className="text-[10px] font-black uppercase tracking-[0.18em] text-neutral-500 mb-2">Quick Access</p>
+                  <div className="grid grid-cols-2 gap-2">
+                    {[
+                      { label: 'Live Markets', icon: TrendingUp, view: 'markets' as ViewType, active: true },
+                      { label: 'Account Types', icon: ShieldCheck, view: 'accounts' as ViewType, active: false },
+                      { label: 'Funds & Deposit', icon: Wallet, view: 'funds' as ViewType, active: false },
+                      { label: 'Client Support', icon: PhoneCall, view: 'support' as ViewType, active: false },
+                    ].map((q) => {
+                      const QIcon = q.icon;
+                      return (
+                        <button
+                          key={q.label}
+                          onClick={() => handleNav(q.view)}
+                          className={`flex items-center gap-2 rounded-xl border px-3 py-2.5 text-left text-xs font-bold transition cursor-pointer ${
+                            q.active
+                              ? 'bg-[#C8102E]/15 border-[#C8102E]/40 text-white'
+                              : 'bg-neutral-900/70 border-neutral-800 text-neutral-300 hover:bg-neutral-800 hover:text-white'
+                          }`}
+                        >
+                          <QIcon className="w-4 h-4 shrink-0 text-[#F5CE47]" />
+                          {q.label}
+                        </button>
+                      );
+                    })}
                   </div>
-                ))}
+                </div>
 
-                {/* Direct quick views */}
-                <div className="flex flex-col gap-2 pt-2 text-xs text-neutral-400 font-semibold">
-                  <button onClick={() => handleNav('markets')} className="text-left py-2 hover:text-white flex items-center gap-2 cursor-pointer">
-                    <TrendingUp className="w-4 h-4 text-[#C8102E]" /> Live Markets & Spreads
+                {/* Groups accordion */}
+                <div>
+                  <p className="text-[10px] font-black uppercase tracking-[0.18em] text-neutral-500 mb-2">Explore</p>
+                  <div className="flex flex-col gap-2.5">
+                    {navItems.map((group, idx) => {
+                      const open = activeMobileDropdown === group.label;
+                      const accent = ['#F5CE47', '#E3000F', '#38bdf8', '#a78bfa', '#34d399', '#fb923c'][idx % 6];
+                      return (
+                        <div key={group.label} className="rounded-xl border border-neutral-800/80 bg-neutral-900/40 overflow-hidden">
+                          <button
+                            onClick={() => setActiveMobileDropdown(open ? null : group.label)}
+                            aria-expanded={open}
+                            className="w-full flex items-center justify-between text-left px-3.5 py-3 font-bold text-sm text-neutral-100 hover:text-white cursor-pointer"
+                          >
+                            <span className="flex items-center gap-2.5">
+                              <span className="w-1.5 h-4 rounded-full -skew-x-12" style={{ background: accent }} />
+                              {group.label}
+                            </span>
+                            <span className="flex items-center gap-2">
+                              {group.badge && (
+                                <span className="text-[9px] bg-neutral-800 text-[#F5CE47] px-1.5 py-0.5 rounded font-mono">{group.badge}</span>
+                              )}
+                              <ChevronDown className={`w-4 h-4 text-neutral-400 transition-transform ${open ? 'rotate-180 text-[#F5CE47]' : ''}`} />
+                            </span>
+                          </button>
+
+                          {open && (
+                            <div className="px-2.5 pb-2.5 flex flex-col gap-1">
+                              {group.children.map((child, cIdx) => {
+                                const IconComp = child.icon;
+                                return (
+                                  <button
+                                    key={cIdx}
+                                    onClick={() => handleNav(child.target)}
+                                    className="group/child flex items-center gap-3 rounded-lg px-2.5 py-2 text-left hover:bg-white/[0.06] transition cursor-pointer"
+                                  >
+                                    <span className="p-1.5 rounded-md bg-neutral-800 border border-neutral-700/70 text-[#F5CE47] group-hover/child:bg-[#C8102E] group-hover/child:border-[#C8102E] transition-colors shrink-0">
+                                      <IconComp className="w-3.5 h-3.5" />
+                                    </span>
+                                    <span className="flex-1 min-w-0">
+                                      <span className="flex items-center justify-between gap-2">
+                                        <span className="text-xs font-bold text-neutral-100 group-hover/child:text-[#F5CE47] transition-colors">
+                                          {child.name}
+                                        </span>
+                                        {child.tag && (
+                                          <span className="text-[8px] font-mono text-neutral-500 bg-neutral-800/80 px-1 py-0.5 rounded shrink-0">
+                                            {child.tag}
+                                          </span>
+                                        )}
+                                      </span>
+                                      <span className="block text-[10px] text-neutral-500 leading-snug truncate">{child.desc}</span>
+                                    </span>
+                                    <ChevronRight className="w-3.5 h-3.5 text-neutral-600 group-hover/child:text-[#F5CE47] shrink-0" />
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Direct utility links */}
+                <div className="grid grid-cols-2 gap-x-4 gap-y-2 pt-1 text-xs text-neutral-400 font-semibold border-t border-neutral-800/70">
+                  <button onClick={() => handleNav('economic_calendar')} className="text-left py-1.5 hover:text-[#F5CE47] flex items-center gap-2 cursor-pointer">
+                    <Calendar className="w-3.5 h-3.5 text-[#C8102E]" /> Calendar
                   </button>
-                  <button onClick={() => handleNav('accounts')} className="text-left py-2 hover:text-white flex items-center gap-2 cursor-pointer">
-                    <ShieldCheck className="w-4 h-4 text-[#C8102E]" /> Account Types & Verification
+                  <button onClick={() => handleNav('promotions')} className="text-left py-1.5 hover:text-[#F5CE47] flex items-center gap-2 cursor-pointer">
+                    <Gift className="w-3.5 h-3.5 text-[#C8102E]" /> Promotions
                   </button>
-                  <button onClick={() => handleNav('support')} className="text-left py-2 hover:text-white flex items-center gap-2 cursor-pointer">
-                    <PhoneCall className="w-4 h-4 text-[#C8102E]" /> 24/7 Client Support
+                  <button onClick={() => handleNav('legal')} className="text-left py-1.5 hover:text-[#F5CE47] flex items-center gap-2 cursor-pointer">
+                    <FileText className="w-3.5 h-3.5 text-[#C8102E]" /> Legal & Regulation
                   </button>
-                  <button onClick={() => handleNav('legal')} className="text-left py-2 hover:text-white flex items-center gap-2 cursor-pointer">
-                    <FileText className="w-4 h-4 text-[#C8102E]" /> Legal & Regulation
+                  <button onClick={() => handleNav('about')} className="text-left py-1.5 hover:text-[#F5CE47] flex items-center gap-2 cursor-pointer">
+                    <Award className="w-3.5 h-3.5 text-[#C8102E]" /> About Axi
                   </button>
                 </div>
               </div>

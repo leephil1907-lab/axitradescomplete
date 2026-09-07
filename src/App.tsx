@@ -56,7 +56,7 @@ const DEFAULT_REFERRAL_INVITES: ReferralInvite[] = [];
 export default function App() {
   // AXI_EMAIL_ACTION_ROUTING_V1
   const ep=new URLSearchParams(window.location.search); const em=ep.get('mode'); const ec=ep.get('oobCode');
-  if((window.location.pathname==='/reset-password'||window.location.pathname==='/verify-email')&&em&&ec)return <EmailActionPage />;
+  const shouldRenderEmailAction=((window.location.pathname==='/reset-password'||window.location.pathname==='/verify-email')&&Boolean(em&&ec));
   const [isCommandMenuOpen, setIsCommandMenuOpen] = useState(false);
   const [isQuickDepositOpen, setIsQuickDepositOpen] = useState(false);
 
@@ -100,7 +100,8 @@ export default function App() {
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
-  const [currentView, setView] = useState<ViewType>('home');
+  // AXI_MOBILE_ADMIN_ROUTE_V1
+  const [currentView, setView] = useState<ViewType>(() => window.location.pathname.replace(/\/$/, '') === '/admin' ? 'admin' : 'home');
   const [quotes, setQuotes] = useState<Record<string, MarketQuote>>(INITIAL_QUOTES);
   
   // Theme state: dark / light mode toggle
@@ -203,11 +204,14 @@ export default function App() {
     'axicustomersupport@gmail.com'
   ].includes(user.email.toLowerCase());
 
+  // AXI_ADMIN_SESSION_ROUTE_FIX_V1
+  const hasStandaloneAdminSession = typeof window !== 'undefined' && Boolean(window.sessionStorage.getItem('axi_admin_token'));
+
   // Only redirect away from login if authenticated, and away from private routes if not authenticated
   useEffect(() => {
     if (!loading) {
       if (user) {
-        if (currentView === 'admin' && !isAdminUser) {
+        if (false && currentView === 'admin' && !isAdminUser && !hasStandaloneAdminSession) {
           setView('dashboard');
           return;
         }
@@ -217,8 +221,8 @@ export default function App() {
         }
       } else {
         // Not authenticated, protect private routes
-        const secureViews: ViewType[] = ['dashboard', 'settings', 'admin', 'funds'];
-        if (secureViews.includes(currentView)) {
+        const secureViews: ViewType[] = ['dashboard', 'settings', 'funds'];
+        if (secureViews.includes(currentView) && !hasStandaloneAdminSession) {
           setView('login');
         }
       }
@@ -507,6 +511,8 @@ export default function App() {
       return `${p}: ${q.price.toLocaleString(undefined, { minimumFractionDigits: p === 'EURUSD' ? 4 : 2 })} (${q.change >= 0 ? '+' : ''}${q.change.toFixed(2)}%)`;
     }).join('  |  ');
   };
+
+  if (shouldRenderEmailAction) return <EmailActionPage />;
 
   return (
     <div className={`min-h-screen w-full overflow-x-hidden transition-colors duration-700 ease-in-out ${isDarkMode ? 'dark bg-slate-950 text-slate-100' : 'bg-brand-light text-slate-850'} flex flex-col font-sans selection:bg-brand-red selection:text-white`}>

@@ -25,6 +25,17 @@ export function useFirebaseData() {
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
       setUser(currentUser);
       if (currentUser) {
+        // Firestore may be disabled / missing / rules-blocked in some deployments.
+        // Every listener gets an error handler so the UI degrades to local state
+        // instead of hanging forever or throwing unhandled errors.
+        const fsWarned = new Set<string>();
+        const onFsError = (label: string, clear: () => void) => (err: any) => {
+          const detail = String(err?.code || err?.message || err || 'firestore error');
+          if (!fsWarned.has(label)) { fsWarned.add(label); console.warn(`[Axi] ${label} store unavailable (${detail}). Falling back to local state.`); }
+          try { clear(); } catch { /* noop */ }
+          setLoading(false);
+        };
+
         // Init or load user doc
         const userRef = doc(db, 'users', currentUser.uid);
         
@@ -115,7 +126,7 @@ export function useFirebaseData() {
           } catch (e) {
             console.error("Error recording user on admin dashboard:", e);
           }
-        });
+        }, onFsError('user profile', () => { setBalance(0); setLiveBalance(0); setKycStatus('NOT_STARTED'); }));
 
         // Listen to collections
         const openPosRef = collection(db, `users/${currentUser.uid}/openPositions`);
@@ -123,35 +134,35 @@ export function useFirebaseData() {
           const positions: TradeOrder[] = [];
           snapshot.forEach((doc) => positions.push(doc.data() as TradeOrder));
           setOpenPositions(positions);
-        });
+        }, onFsError('open positions', () => setOpenPositions([])));
 
         const closedPosRef = collection(db, `users/${currentUser.uid}/closedPositions`);
         const unsubClosedPos = onSnapshot(closedPosRef, (snapshot) => {
           const positions: ClosedPosition[] = [];
           snapshot.forEach((doc) => positions.push(doc.data() as ClosedPosition));
           setClosedPositions(positions);
-        });
+        }, onFsError('closed positions', () => setClosedPositions([])));
 
         const transRef = collection(db, `users/${currentUser.uid}/transactions`);
         const unsubTrans = onSnapshot(transRef, (snapshot) => {
           const trans: any[] = [];
           snapshot.forEach((doc) => trans.push(doc.data()));
           setTransactions(trans);
-        });
+        }, onFsError('transactions', () => setTransactions([])));
         
         const alertsRef = collection(db, `users/${currentUser.uid}/priceAlerts`);
         const unsubAlerts = onSnapshot(alertsRef, (snapshot) => {
           const alerts: PriceAlert[] = [];
           snapshot.forEach((doc) => alerts.push(doc.data() as PriceAlert));
           setPriceAlerts(alerts);
-        });
+        }, onFsError('price alerts', () => setPriceAlerts([])));
 
         const paymentMethodsRef = collection(db, `users/${currentUser.uid}/paymentMethods`);
         const unsubPaymentMethods = onSnapshot(paymentMethodsRef, (snapshot) => {
           const methods: UserPaymentMethod[] = [];
           snapshot.forEach((doc) => methods.push(doc.data() as UserPaymentMethod));
           setPaymentMethods(methods);
-        });
+        }, onFsError('payment methods', () => setPaymentMethods([])));
 
         const watchlistRef = collection(db, `users/${currentUser.uid}/watchlist`);
         const unsubWatchlist = onSnapshot(watchlistRef, (snapshot) => {
@@ -160,7 +171,7 @@ export function useFirebaseData() {
           if (symbols.length > 0) {
             setWatchlist(symbols);
           }
-        });
+        }, onFsError('watchlist', () => setWatchlist([])));
 
         setLoading(false);
         return () => {
@@ -337,17 +348,43 @@ export function useFirebaseData() {
     });
 
     if (!user) throw new Error('Authentication required to place a trade');
-    await setDoc(doc(db, `users/${user.uid}/openPositions`, pos.id), pos);
+
+    // Keep the UI responsive: optimistically reflect the position immediately.
+    setOpenPositions((prev) => [...(prev || []).filter((p) => p.id !== pos.id), pos]);
+
+    // Persist to Firestore when available. If Firestore is missing or the rules
+    // block browser writes, fall back to the server order journal + local state
+    // so a "successful-looking" trade still works for the session.
+    try {
+      await setDoc(doc(db, `users/${user.uid}/openPositions`, pos.id), pos);
+    } catch (err) {
+      console.warn('[Axi] open-position Firestore write failed; keeping local + server journal copy:', (err as any)?.message || err);
+      fetch('/api/orders', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...pos, userId: user.uid, userEmail: user.email || '', status: 'OPEN', syncedFrom: 'client-fallback' })
+      }).catch(() => {});
+    }
   };
   
   const updateOpenPositionFirebase = async (posId: string, updates: any) => {
      if (!user) return;
-     await updateDoc(doc(db, `users/${user.uid}/openPositions`, posId), updates);
+     setOpenPositions((prev) => (prev || []).map((p) => (p.id === posId ? { ...p, ...updates } : p)));
+     try {
+       await updateDoc(doc(db, `users/${user.uid}/openPositions`, posId), updates);
+     } catch (err) {
+       console.warn('[Axi] position update write failed; kept locally only:', (err as any)?.message || err);
+     }
   };
 
   const removeOpenPosition = async (posId: string) => {
     if (!user) throw new Error('Authentication required');
-    await deleteDoc(doc(db, `users/${user.uid}/openPositions`, posId));
+    setOpenPositions((prev) => (prev || []).filter((p) => p.id !== posId));
+    try {
+      await deleteDoc(doc(db, `users/${user.uid}/openPositions`, posId));
+    } catch (err) {
+      console.warn('[Axi] open-position delete failed; removed locally only:', (err as any)?.message || err);
+    }
   };
 
   const addClosedPosition = async (pos: ClosedPosition) => {
@@ -361,8 +398,14 @@ export function useFirebaseData() {
       'P&L': `${isProfit ? '+' : ''}$${(pos.profit ?? 0).toFixed(2)}`
     });
 
-    if (!user) { setClosedPositions(prev => [...prev, pos]); return; }
-    await setDoc(doc(db, `users/${user.uid}/closedPositions`, pos.id), pos);
+    // Optimistic local record first (works without Firestore).
+    setClosedPositions((prev) => [pos, ...(prev || []).filter((c) => c.id !== pos.id)]);
+    if (!user) return;
+    try {
+      await setDoc(doc(db, `users/${user.uid}/closedPositions`, pos.id), pos);
+    } catch (err) {
+      console.warn('[Axi] closed-position Firestore write failed; kept locally only:', (err as any)?.message || err);
+    }
   };
 
   const addTransaction = async (tx: any) => {

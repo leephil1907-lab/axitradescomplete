@@ -1,4 +1,23 @@
+import { authHeaders } from '../utils/authHeaders';
+
+const authenticatedFetch = async (input: RequestInfo | URL, init: RequestInit = {}) => {
+  const headers = await authHeaders(init.headers ? Object.fromEntries(new Headers(init.headers).entries()) : {});
+  return fetch(input, { ...init, headers });
+};
 import React, { useState, useEffect } from 'react';
+
+async function readApiJson(response: Response) {
+  const text = await response.text();
+  let data: any = null;
+  try { data = text ? JSON.parse(text) : null; } catch {
+    const preview = text.replace(/\s+/g, ' ').trim().slice(0, 180);
+    throw new Error(`Payment API returned an invalid response (HTTP ${response.status})${preview ? ': ' + preview : '.'}`);
+  }
+  if (!data || typeof data !== 'object') {
+    throw new Error(`Payment API returned an unexpected response (HTTP ${response.status}).`);
+  }
+  return data;
+}
 import { 
   CreditCard, 
   ArrowDownRight, 
@@ -51,6 +70,14 @@ export function PaymentMethodBrandIcon({ id, className = "w-6 h-6" }: { id: stri
           <circle cx="13" cy="12" r="7" fill="#EB001B"/>
           <circle cx="23" cy="12" r="7" fill="#F79E1B"/>
           <path d="M18 6.9A6.97 6.97 0 0 0 15.5 12A6.97 6.97 0 0 0 18 17.1A6.97 6.97 0 0 0 20.5 12A6.97 6.97 0 0 0 18 6.9Z" fill="#FF5F00"/>
+        </svg>
+      );
+    case 'paypal':
+      return (
+        <svg className={className} viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg" aria-label="PayPal" role="img">
+          <circle cx="24" cy="24" r="23" fill="white" stroke="#D7DEE8"/>
+          <path d="M17 35 20.8 12h8.7c5.6 0 8.7 2.7 7.7 7.1-.9 4.6-4.2 6.8-9.3 6.8h-3.4L23 35H17Z" fill="#003087"/>
+          <path d="m22 31.5 1.5-8.7h4.5c4.8 0 7.7-2.1 8.6-5.7.2.6.2 1.3 0 2.1-.9 4.6-4.2 6.8-9.3 6.8h-3.4l-1 5.5H22Z" fill="#009CDE"/>
         </svg>
       );
     case 'skrill':
@@ -159,9 +186,10 @@ export function PaymentMethodBrandIcon({ id, className = "w-6 h-6" }: { id: stri
       );
     default:
       return (
-        <div className={`${className} bg-slate-100 rounded-md border border-slate-200 flex items-center justify-center text-slate-800 font-bold text-xs`}>
-          <CreditCard className="w-4 h-4 text-slate-600" />
-        </div>
+        <svg className={className} viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg" aria-label="Payment method" role="img">
+          <circle cx="18" cy="18" r="17" fill="white" stroke="#CBD5E1"/>
+          <path d="M10 13.5h16M10 18h16M10 22.5h10" stroke="#64748B" strokeWidth="2" strokeLinecap="round"/>
+        </svg>
       );
   }
 }
@@ -279,6 +307,47 @@ export default function FundsView({
         unsubscribe();
       }
     };
+  }, []);
+
+  // AXI_REAL_FUNDING_CONFIG_V1: server-side admin configuration is authoritative for customers.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch('/api/payment-methods');
+        const data = await readApiJson(res).catch(() => ({}));
+        if (!res.ok || !Array.isArray(data.methods) || cancelled) return;
+        const methods = data.methods;
+        const cryptoMethods = methods.filter((m: any) => m.type === 'crypto' && m.active);
+        const crypto = cryptoMethods[0];
+        const bank = methods.find((m: any) => m.id === 'bankTransfer');
+        const instant = methods.find((m: any) => m.id === 'instantTransfer');
+        const normalizedMethods = methods.filter((m: any) => m.active).map((m: any) => ({
+          id: m.id, name: m.name, type: m.type, currency: m.currency || 'USD', active: true,
+          minDeposit: Number(m.minDeposit || 0), maxDeposit: Number(m.maxDeposit || 0), feePercent: Number(m.feePercent || 0),
+          processingTime: m.processingTime || 'Manual verification', walletAddress: m.walletAddress || m.address, network: m.network, memo: m.memo,
+          bankName: m.bankName, accountName: m.accountName, accountNumber: m.accountNumber, swiftBic: m.swiftBic, routingNumber: m.routingNumber, bankAddress: m.bankAddress,
+          walletIdentifier: m.account || m.walletIdentifier, instructions: m.instructions || 'Follow the payment instructions shown for this method.', iconName: m.iconName || m.id
+        }));
+        const next = { ...paymentConfig, paymentMethods: normalizedMethods, updatedAt: Date.now() } as CentralPaymentConfig;
+        if (cryptoMethods.length) {
+          const configuredWallets = cryptoMethods.map((method: any, index: number) => {
+            const d = method.details || method;
+            const asset = String(d.asset || ('crypto-' + index)).toLowerCase();
+            const network = String(d.network || '');
+            const key = asset + '-' + network.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') + '-' + String(index);
+            return [key, { address: String(d.walletAddress || d.address || ''), network, memo: d.memo || undefined, active: true, label: d.label || d.asset || network, iconName: method.iconName || 'crypto' }];
+          });
+          next.cryptoWallets = { ...next.cryptoWallets, ...Object.fromEntries(configuredWallets) };
+        }
+        if (bank || instant) {
+          const d = (bank || instant).details || (bank || instant);
+          next.bankSettings = { ...next.bankSettings, bankName: String(d.bankName || ''), accountName: String(d.accountName || ''), accountNumber: String(d.accountNumber || ''), swiftBic: String(d.swiftBic || ''), routingNumber: String(d.routingNumber || ''), bankAddress: String(d.bankAddress || ''), instructions: String(d.instructions || ''), supportEmail: d.supportEmail || '', active: Boolean((bank || instant).active) };
+        }
+        setPaymentConfig(next);
+      } catch (error) { console.warn('[FundsView] server payment configuration unavailable:', error); }
+    })();
+    return () => { cancelled = true; };
   }, []);
 
   const cryptoWallets = paymentConfig.cryptoWallets || defaultCryptoWallets;
@@ -410,7 +479,7 @@ export default function FundsView({
     };
 
     addTransaction(newTx);
-    fetch('/api/transactions/create', {
+    authenticatedFetch('/api/transactions/create', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(newTx)
@@ -441,7 +510,7 @@ export default function FundsView({
       const currentUser = auth.currentUser;
       const userId = currentUser?.uid || currentUser?.email || '';
       const depositId = `DEP-${Date.now()}`;
-      const res = await fetch('/api/stripe/create-checkout-session', {
+      const res = await authenticatedFetch('/api/stripe/create-checkout-session', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -453,7 +522,7 @@ export default function FundsView({
         })
       });
 
-      const data = await res.json();
+      const data = await readApiJson(res);
       if (data.url) {
         showToast('Redirecting to secure card processing gateway...', 'info');
         window.location.href = data.url;
@@ -525,7 +594,7 @@ export default function FundsView({
       };
 
       addTransaction(newTx);
-      fetch('/api/transactions/create', {
+      authenticatedFetch('/api/transactions/create', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(newTx)
@@ -845,7 +914,7 @@ export default function FundsView({
                   const customMethodConfig = paymentConfig.paymentMethods?.find(m => m.id === selectedMethodId);
                   const merchantAccount = customMethodConfig?.walletIdentifier || customMethodConfig?.walletAddress || (
                     selectedMethodId === 'skrill' 
-                      ? 'payments@axi-clearing.com' 
+                      ? '' 
                       : selectedMethodId === 'neteller' 
                       ? 'neteller-settlement@axi.com' 
                       : 'U39281094 (Axi Corp)'

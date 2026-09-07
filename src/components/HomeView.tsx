@@ -478,7 +478,12 @@ export default function HomeView({ quotes, setView, openSignUp, user }: HomeView
       
       {/* 1. HERO CAROUSEL CONTAINER WITH ACCENT OVERLAPPING STATS STRIP */}
       <div className="w-full relative z-0">
-        <HeroSlideshow />
+        <HeroSlideshow onAction={(action) => {
+          if (action === 'open-account') { openSignUp(); }
+          else if (action === 'markets') { setView('markets'); }
+          else if (action === 'axi-select') { setView('select'); }
+          else if (action === 'platforms') { setView('platforms'); }
+        }} />
       </div>
 
       {/* PERSISTENT OVERLAPPING STATS STRIP AS SEEN IN THE VIDEO */}

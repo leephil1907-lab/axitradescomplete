@@ -1,3 +1,9 @@
+import { authHeaders } from '../utils/authHeaders';
+
+const authenticatedFetch = async (input: RequestInfo | URL, init: RequestInit = {}) => {
+  const headers = await authHeaders(init.headers ? Object.fromEntries(new Headers(init.headers).entries()) : {});
+  return fetch(input, { ...init, headers });
+};
 import { safeStorage } from '../utils/storage';
 import { auth } from '../firebase';
 import React, { useState } from 'react';
@@ -190,7 +196,7 @@ export default function QuickDepositModal({
     if (addTransaction) {
       addTransaction(newTx);
     }
-    fetch('/api/transactions/create', {
+    authenticatedFetch('/api/transactions/create', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(newTx)
@@ -223,7 +229,7 @@ export default function QuickDepositModal({
     if (addTransaction) {
       addTransaction(newTx);
     }
-    fetch('/api/transactions/create', {
+    authenticatedFetch('/api/transactions/create', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(newTx)
@@ -276,7 +282,7 @@ export default function QuickDepositModal({
       const userId = currentUser?.uid || currentUser?.email || '';
       const depositId = `DEP-${Date.now()}`;
       // 1. Preferred path: Stripe Checkout Session (hosted, supports card + Link + ACH)
-      const checkoutRes = await fetch('/api/stripe/create-checkout-session', {
+      const checkoutRes = await authenticatedFetch('/api/stripe/create-checkout-session', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ amount: numAmount, currency: 'usd', method: selectedMethod, userId, depositId })
@@ -289,7 +295,7 @@ export default function QuickDepositModal({
       }
 
       // 2. Embedded path: Stripe PaymentIntent + Elements (inline card form)
-      const res = await fetch('/api/stripe/create-payment-intent', {
+      const res = await authenticatedFetch('/api/stripe/create-payment-intent', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ amount: numAmount, currency: "usd", userId, depositId })

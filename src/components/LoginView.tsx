@@ -43,10 +43,10 @@ export default function LoginView({
   openForgotPassword,
   showToast
 }: LoginViewProps) {
-  const [email, setEmail] = useState('');
+  const [email, setEmail] = useState(() => (typeof window !== 'undefined' ? (localStorage.getItem('axi_remembered_email') || '') : ''));
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [rememberMe, setRememberMe] = useState(false);
+  const [rememberMe, setRememberMe] = useState(() => (typeof window !== 'undefined' ? Boolean(localStorage.getItem('axi_remembered_email')) : false));
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);

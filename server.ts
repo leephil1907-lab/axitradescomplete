@@ -9,7 +9,7 @@ import Stripe from 'stripe';
 import nodemailer from 'nodemailer';
 import { sendAxiEmail } from './emailService';
 import { sendRegistrationEmails, sendPasswordResetEmail } from './server/emailService';
-import { hasPostgres, initPostgres, dbUsers, dbUpsertUser, dbUpdateUser, dbAdjustBalance, dbBalanceLedger, audit, dbAuditLogs, dbPaymentMethods, dbSavePaymentMethods, dbCreateFunding, dbFundingPending, dbCreditFunding } from './server/postgres';
+import { hasPostgres, initPostgres, dbUsers, dbFindUser, dbUpsertUser, dbUpdateUser, dbAdjustBalance, dbBalanceLedger, audit, dbAuditLogs, dbPaymentMethods, dbSavePaymentMethods, dbCreateFunding, dbFundingPending, dbCreditFunding } from './server/postgres';
 import YahooFinanceRaw from 'yahoo-finance2';
 import { requireAuth, requireAdmin, authenticateAdminCredentials, adminLoginConfigured } from './server/adminAuth';
 import { initControlPlane, registerControlPlane } from './server/controlPlane';
@@ -54,9 +54,20 @@ try {
 const app = express();
 
 // POSTGRES_PERSISTENCE_MARKER
-initPostgres().then(() => { if (hasPostgres()) console.log('PostgreSQL persistence initialized'); }).catch((error) => {
-  console.error('PostgreSQL initialization failed; application will retain its existing fallback stores:', error);
-});
+initPostgres()
+  .then(async () => {
+    if (hasPostgres()) console.log('PostgreSQL persistence initialized');
+    // Eagerly run the control-plane schema migrations and hydrate the legacy in-memory
+    // user store only after the base tables exist (avoids first-boot race failures).
+    await Promise.all([
+      hydrateAppUsersStoreFromPostgres(),
+      initControlPlane().catch((error: any) => console.error('Control plane initialization failed:', error?.message || error)),
+      initFundingControlPlane().catch((error: any) => console.error('Funding control plane initialization failed:', error?.message || error))
+    ]);
+  })
+  .catch((error) => {
+    console.error('PostgreSQL initialization failed; application will retain its existing fallback stores:', error);
+  });
 
 app.get('/api/health', (_req, res) => { res.status(200).json({ ok: true, service: 'axi-trades', environment: process.env.NODE_ENV || 'development', timestamp: new Date().toISOString() }); });
 
@@ -168,14 +179,22 @@ app.post('/api/stripe/webhook', express.raw({ type: 'application/json' }), async
   // IMPORTANT: Stripe does NOT credit the user balance automatically. The payment
   // is received into the merchant Stripe balance, and the admin is notified so the
   // admin can manually credit the exact paid amount to the user's account.
-  const recordPaymentForAdmin = (email: string, amountUsd: number, refCode: string, method: string) => {
-    if (!email || amountUsd <= 0) return;
+  // The authoritative record is written to PostgreSQL (axi_funding_records) because
+  // the admin funding queue reads that table; the legacy JSON file is kept too.
+  const recordPaymentForAdmin = async (email: string, userIdHint: string, amountUsd: number, refCode: string, method: string) => {
+    const safeEmail = String(email || '').trim().toLowerCase();
+    if (!safeEmail || amountUsd <= 0) return;
+    let user = appUsersStore.find(u => u.id === userIdHint || u.email.toLowerCase() === safeEmail);
+    let resolvedUserId = user?.id || '';
+    // Prefer PostgreSQL as the source of truth for the paying account.
+    const dbUser = (await dbFindUser(userIdHint || safeEmail).catch(() => null)) || (await dbFindUser(safeEmail).catch(() => null));
+    if (dbUser) { resolvedUserId = String(dbUser.id); user = user && !dbUser ? user : { id: dbUser.id, name: dbUser.name, email: dbUser.email }; }
     // Record a pending deposit entry for the admin to review & manually approve
     const pendingDeposits = readDataFile<any[]>('pendingDeposits.json', []);
     const entry = {
       id: refCode,
-      userEmail: email,
-      user: appUsersStore.find(u => u.email.toLowerCase() === email.toLowerCase()),
+      userEmail: safeEmail,
+      user: user || null,
       amount: amountUsd,
       method,
       status: 'Payment Received — Awaiting Admin Credit',
@@ -188,7 +207,11 @@ app.post('/api/stripe/webhook', express.raw({ type: 'application/json' }), async
       pendingDeposits.unshift(entry);
       writeDataFile('pendingDeposits.json', pendingDeposits);
     }
-    notifyTelegram(`💰 <b>STRIPE PAYMENT RECEIVED</b>\nAmount: $${amountUsd.toFixed(2)} USD\nMethod: ${method}\nUser: ${email}\nRef: ${refCode}\n\n✅ Funds received into Stripe balance.\n⚠️ ACTION REQUIRED: Admin must manually credit this amount to the user's account balance from the Admin Dashboard.`);
+    // PostgreSQL single-source-of-truth record for the admin funding queue.
+    if (hasPostgres()) {
+      await dbCreateFunding({ id: refCode, userId: resolvedUserId || null, userEmail: safeEmail, amount: amountUsd, currency: 'USD', method, status: 'Awaiting Admin Credit', externalReference: refCode }).catch((error: any) => console.warn('[Axi] webhook funding record could not be written to PostgreSQL:', error?.message || error));
+    }
+    notifyTelegram(`💰 <b>STRIPE PAYMENT RECEIVED</b>\nAmount: $${amountUsd.toFixed(2)} USD\nMethod: ${method}\nUser: ${safeEmail}\nRef: ${refCode}\n\n✅ Funds received into Stripe balance.\n⚠️ ACTION REQUIRED: Admin must manually credit this amount to the user's account balance from the Admin Dashboard.`);
   };
 
   switch (event.type) {
@@ -203,7 +226,7 @@ app.post('/api/stripe/webhook', express.raw({ type: 'application/json' }), async
         // Try to find user by metadata userId, then by receipt email
         const piUser = piUserId ? appUsersStore.find(u => u.id === piUserId || u.email.toLowerCase() === piUserId.toLowerCase()) : null;
         const piEmail = piUser?.email || paymentIntent.receipt_email || '';
-        if (piEmail) recordPaymentForAdmin(piEmail, piAmount, piRef, 'Card (PaymentIntent)');
+        if (piEmail) await recordPaymentForAdmin(piEmail, piUserId, piAmount, piRef, 'Card (PaymentIntent)');
         else notifyTelegram(`💰 <b>STRIPE PAYMENT RECEIVED</b>\nAmount: $${piAmount.toFixed(2)} ${piCurrency}\nRef: ${piRef}\n\n⚠️ No matching user found — admin must verify manually and credit the correct account.`);
       }
       break;
@@ -219,7 +242,7 @@ app.post('/api/stripe/webhook', express.raw({ type: 'application/json' }), async
         // Find user by metadata userId or customer email
         const csUser = csUserId ? appUsersStore.find(u => u.id === csUserId || u.email.toLowerCase() === csUserId.toLowerCase()) : null;
         const finalEmail = csUser?.email || csEmail || '';
-        if (finalEmail) recordPaymentForAdmin(finalEmail, csAmount, csRef, 'Card (Checkout)');
+        if (finalEmail) await recordPaymentForAdmin(finalEmail, csUserId, csAmount, csRef, 'Card (Checkout)');
         else notifyTelegram(`💰 <b>STRIPE CHECKOUT COMPLETED</b>\nAmount: $${csAmount.toFixed(2)} ${csCurrency}\nRef: ${csRef}\n\n⚠️ No matching user found — admin must verify manually and credit the correct account.`);
       }
       break;
@@ -266,13 +289,35 @@ app.use((req, res, next) => {
 app.use(express.json());
 
 // AUTHORITATIVE_CONTROL_PLANE_WIRED
-initControlPlane().catch((error) => console.error('Control plane initialization failed:', error));
 registerControlPlane(app);
-initFundingControlPlane().catch((error) => console.error('Funding control plane initialization failed:', error));
 registerFundingControlPlane(app);
-app.get('/api/payment-methods', requireAuth, async (_req, res) => {
+// The control-plane schema helpers run lazily inside every route, so registering
+// routes above is safe immediately. Deferring the eager init until after the base
+// tables exist avoids noisy startup failures on the first boot with a fresh DB.
+// File-backed fallback for payment methods: keeps the client + admin views
+// functional when PostgreSQL is unavailable instead of returning 503s.
+function paymentMethodsFallbackRows() {
+  const saved = readDataFile<any>('paymentMethods.json', null);
+  if (!saved || typeof saved !== 'object' || Array.isArray(saved)) return [];
+  const rows: any[] = [];
+  for (const type of ['bankTransfer', 'instantTransfer', 'paypal', 'skrill', 'neteller']) {
+    const d = saved[type];
+    if (d && typeof d === 'object') rows.push({ id: type, method_type: type, enabled: d.enabled !== false, details: d });
+  }
+  const crypto = Array.isArray(saved.crypto) ? saved.crypto : (saved.crypto && typeof saved.crypto === 'object' ? [saved.crypto] : []);
+  crypto.forEach((w: any, i: number) => {
+    if (w && typeof w === 'object') rows.push({ id: String(w.id || `crypto-fb-${i}`), method_type: 'crypto', enabled: w.enabled !== false, details: w });
+  });
+  return rows;
+}
+
+// Customer payment-config read: intentionally public. It only exposes deposit
+// destination configuration (receiving wallets/accounts) that the deposit page
+// must render before/independent of authentication, and never exposes balances.
+// Administrative writes stay behind requireAdmin below.
+app.get('/api/payment-methods', async (_req, res) => {
   try {
-    const rows = await dbPaymentMethods().catch(() => null);
+    const rows = (await dbPaymentMethods().catch(() => null)) || paymentMethodsFallbackRows();
     if (!rows) return res.json({ success: true, source: 'unconfigured', methods: [] });
     const names: Record<string, string> = { bankTransfer: 'Bank Transfer', instantTransfer: 'Instant Transfer', crypto: 'Crypto', paypal: 'PayPal', skrill: 'Skrill', neteller: 'Neteller' };
     const types: Record<string, string> = { bankTransfer: 'bank', instantTransfer: 'bank', crypto: 'crypto', paypal: 'wallet', skrill: 'wallet', neteller: 'wallet' };
@@ -297,7 +342,7 @@ app.get('/api/payment-methods', requireAuth, async (_req, res) => {
   }
 });
 
-app.post('/api/admin/login',(req,res)=>{if(!adminLoginConfigured())return res.status(503).json({error:'Administrator authentication is not configured'});const token=authenticateAdminCredentials(String(req.body?.email||process.env.ADMIN_EMAIL||''),String(req.body?.password||''));if(!token)return res.status(401).json({error:'Incorrect administrator email or password.'});return res.json({token,expiresIn:43200});});
+app.post('/api/admin/login',(req,res)=>{if(!adminLoginConfigured())return res.status(503).json({error:'Administrator authentication is not configured'});const fallbackEmail=String(process.env.ADMIN_EMAIL||String((process.env.ADMIN_EMAILS||'').split(',').map(v=>v.trim()).filter(Boolean)[0]||''));const token=authenticateAdminCredentials(String(req.body?.email||fallbackEmail),String(req.body?.password||''));if(!token)return res.status(401).json({error:'Incorrect administrator email or password.'});return res.json({token,expiresIn:43200});});
 
 // POSTGRES_OPERATIONAL_ROUTES_MARKER
 // Production operational records are persisted in PostgreSQL. These routes are
@@ -374,7 +419,20 @@ const PAYMENT_METHODS_FILE = 'paymentMethods.json';
 app.get('/api/admin/payment-methods', requireAdmin, async (_req, res) => {
   const persistedMethods = await dbPaymentMethods().catch(() => null);
   const defaultCryptoWalletsForPaymentMethods = [{"id":"crypto-usdc-erc20","enabled":true,"asset":"USDC","network":"Ethereum ERC20","address":"0x12107F3eB874442301756daFBd3360418ae3C366","memo":"","label":"USDC (ERC20)","instructions":""},{"id":"crypto-btc","enabled":true,"asset":"BTC","network":"Bitcoin","address":"bc1qndch4p2dm8hdv4e4t0zm7jaf7ajasnjum25dhu","memo":"","label":"Bitcoin","instructions":""},{"id":"crypto-usdt-trc20","enabled":true,"asset":"USDT","network":"TRON TRC20","address":"TBcivkHbpBh3fa14pPwYemqtNzg7bDQJZ4","memo":"","label":"USDT (TRC20)","instructions":""},{"id":"crypto-sol","enabled":true,"asset":"SOL","network":"Solana","address":"7ds3cKbJNVXTLcsUea6qj1WsisdqRuqBTYENYi9vsd7F","memo":"","label":"Solana","instructions":""},{"id":"crypto-bnb","enabled":true,"asset":"BNB","network":"BNB Smart Chain","address":"0x12107F3eB874442301756daFBd3360418ae3C366","memo":"","label":"BNB (BSC)","instructions":""},{"id":"crypto-eth","enabled":true,"asset":"ETH","network":"Ethereum","address":"0x12107F3eB874442301756daFBd3360418ae3C366","memo":"","label":"Ethereum","instructions":""},{"id":"crypto-xrp","enabled":true,"asset":"XRP","network":"XRP Ledger","address":"rwyQp3eC5j6AumcptZhfmiXAykpeswZKeJ","memo":"1476340","label":"XRP","instructions":""}];
-  if (!persistedMethods) return res.status(503).json({ success: false, error: 'Payment methods storage is unavailable' });
+  if (!persistedMethods) {
+    const saved = readDataFile<any>(PAYMENT_METHODS_FILE, null);
+    if (saved && typeof saved === 'object' && !Array.isArray(saved)) {
+      return res.json({ success: true, source: 'file', methods: saved });
+    }
+    return res.json({ success: true, source: 'file', methods: {
+      bankTransfer: { enabled: false, iconName: 'bank' },
+      instantTransfer: { enabled: false, iconName: 'bank' },
+      paypal: { enabled: false, iconName: 'paypal' },
+      skrill: { enabled: false, iconName: 'skrill' },
+      neteller: { enabled: false, iconName: 'neteller' },
+      crypto: defaultCryptoWalletsForPaymentMethods
+    } });
+  }
   const bankRow = persistedMethods.find((row) => row.method_type === 'bankTransfer');
   const instantRow = persistedMethods.find((row) => row.method_type === 'instantTransfer');
   const persistedCrypto = persistedMethods.filter((row) => row.method_type === 'crypto').map((row) => ({ id: row.id, ...(row.details || {}), enabled: Boolean(row.enabled), iconName: 'crypto' }));
@@ -400,8 +458,14 @@ app.post('/api/admin/payment-methods', requireAdmin, async (req, res) => {
       return res.status(400).json({ success: false, error: 'Invalid payment methods payload' });
     }
     const actor = String((req as any).adminEmail || 'admin');
-    const persisted = await dbSavePaymentMethods(incoming, actor);
-    if (!persisted) return res.status(503).json({ success: false, error: 'Payment methods storage is unavailable' });
+    let persisted: any = null; let persistError: any = null;
+    try { persisted = await dbSavePaymentMethods(incoming, actor); } catch (e) { persistError = e; }
+    if (!persisted) {
+      console.warn('Payment methods PostgreSQL save unavailable; persisting to file fallback:', persistError?.message || 'no database configured');
+      writeDataFile(PAYMENT_METHODS_FILE, JSON.parse(JSON.stringify(incoming)));
+      await audit('ADMIN_PAYMENT_METHODS_UPDATED', { actor, metadata: { methodTypes: Object.keys(incoming), source: 'file-fallback' } }).catch(() => {});
+      return res.json({ success: true, source: 'file' });
+    }
     await audit('ADMIN_PAYMENT_METHODS_UPDATED', { actor, metadata: { methodTypes: Object.keys(incoming) } }).catch(() => {});
     return res.json({ success: true, source: 'postgres' });
   } catch (error: any) {
@@ -417,8 +481,14 @@ app.post('/api/admin/payment-method', requireAdmin, async (req, res) => {
       return res.status(400).json({ success: false, error: 'Invalid payment methods payload' });
     }
     const actor = String((req as any).adminEmail || 'admin');
-    const persisted = await dbSavePaymentMethods(incoming, actor);
-    if (!persisted) return res.status(503).json({ success: false, error: 'Payment methods storage is unavailable' });
+    let persisted: any = null; let persistError: any = null;
+    try { persisted = await dbSavePaymentMethods(incoming, actor); } catch (e) { persistError = e; }
+    if (!persisted) {
+      console.warn('Payment methods PostgreSQL save unavailable (compat route); persisting to file fallback:', persistError?.message || 'no database configured');
+      writeDataFile(PAYMENT_METHODS_FILE, JSON.parse(JSON.stringify(incoming)));
+      await audit('ADMIN_PAYMENT_METHODS_UPDATED', { actor, metadata: { methodTypes: Object.keys(incoming), compatibilityRoute: true, source: 'file-fallback' } }).catch(() => {});
+      return res.json({ success: true, source: 'file' });
+    }
     await audit('ADMIN_PAYMENT_METHODS_UPDATED', { actor, metadata: { methodTypes: Object.keys(incoming), compatibilityRoute: true } }).catch(() => {});
     return res.json({ success: true, source: 'postgres' });
   } catch (error: any) {
@@ -1208,7 +1278,7 @@ Use markdown for elegant styling. Keep responses under 220 words. If the user as
 // Create Stripe PaymentIntent
 app.post('/api/stripe/create-payment-intent', requireAuth,  async (req, res) => {
   const { amount, currency = 'usd', depositId } = req.body;
-  const userId = String((req as any).authUser?.uid || '');
+  const userId = String(((req as any).user?.uid) || ((req as any).authUser?.uid) || '');
   const numAmount = parseFloat(amount);
   if (!numAmount || numAmount <= 0) {
     return res.status(400).json({ error: 'Invalid deposit amount' });
@@ -1246,7 +1316,7 @@ app.post('/api/stripe/create-checkout-session', requireAuth,  async (req, res) =
   
   try {
     const { amount, currency = 'usd', depositId, method } = req.body;
-    const userId = String((req as any).authUser?.uid || '');
+    const userId = String(((req as any).user?.uid) || ((req as any).authUser?.uid) || '');
     const numAmount = parseFloat(amount);
     if (!numAmount || numAmount <= 0) {
       return res.status(400).json({ error: 'Invalid deposit amount' });
@@ -1306,7 +1376,8 @@ app.post('/api/stripe/create-checkout-session', requireAuth,  async (req, res) =
 // Verify completed Stripe deposit endpoint
 app.post('/api/stripe/verify-deposit', requireAuth,  async (req, res) => {
   const { paymentIntentId, sessionId, amount } = req.body || {};
-  const userId = String((req as any).authUser?.uid || '');
+  const userId = String(((req as any).user?.uid) || ((req as any).authUser?.uid) || '');
+  const userEmail = String(((req as any).user?.email) || '').toLowerCase();
   const stripe = getStripe();
 
   let verified = false;
@@ -1350,15 +1421,24 @@ app.post('/api/stripe/verify-deposit', requireAuth,  async (req, res) => {
   // If Stripe confirmed the payment, record it for admin manual review.
   // Stripe does NOT credit the user balance — the admin must manually credit the
   // exact paid amount from the Admin Dashboard after confirming receipt in Stripe.
+  // The authoritative record is written to PostgreSQL (axi_funding_records) because
+  // the admin funding queue reads that table. The legacy JSON file is kept as a
+  // secondary record for tooling that still reads it.
   if (verified && verifiedAmount > 0 && userId) {
-    const targetUser = appUsersStore.find(u => u.id === userId || u.email.toLowerCase() === userId.toLowerCase());
-    const email = targetUser?.email || userId;
+    let targetUser = appUsersStore.find(u => u.id === userId || u.email.toLowerCase() === userId.toLowerCase());
+    let resolvedUserId = targetUser?.id || '';
+    let resolvedEmail = String(targetUser?.email || userEmail || userId || '').toLowerCase();
+    // Prefer PostgreSQL as the source of truth for the account.
+    const dbUser = await dbFindUser(userId).catch(() => null);
+    if (dbUser) { resolvedUserId = String(dbUser.id); resolvedEmail = String(dbUser.email || '').toLowerCase(); }
+    else if (resolvedEmail && !resolvedUserId) { const byMail = await dbFindUser(resolvedEmail).catch(() => null); if (byMail) { resolvedUserId = String(byMail.id); resolvedEmail = String(byMail.email || resolvedEmail).toLowerCase(); } }
+    const email = resolvedEmail || userId;
     const pendingDeposits = readDataFile<any[]>('pendingDeposits.json', []);
     if (!pendingDeposits.find(d => d.id === refCode)) {
       pendingDeposits.unshift({
         id: refCode,
         userEmail: email,
-        user: targetUser || null,
+        user: targetUser || (dbUser ? { id: dbUser.id, email: dbUser.email, name: dbUser.name } : null),
         amount: verifiedAmount,
         method: 'Card (Stripe)',
         status: 'Payment Received — Awaiting Admin Credit',
@@ -1367,6 +1447,10 @@ app.post('/api/stripe/verify-deposit', requireAuth,  async (req, res) => {
         creditedByAdmin: false
       });
       writeDataFile('pendingDeposits.json', pendingDeposits);
+    }
+    // PostgreSQL single-source-of-truth record for the admin funding queue.
+    if (hasPostgres() && email) {
+      await dbCreateFunding({ id: refCode, userId: resolvedUserId || null, userEmail: email, amount: verifiedAmount, currency: 'USD', method: 'Card (Stripe)', status: 'Awaiting Admin Credit', externalReference: refCode }).catch((error: any) => console.warn('[Axi] verify-deposit funding record could not be written to PostgreSQL:', error?.message || error));
     }
     const botToken2 = process.env.TELEGRAM_BOT_TOKEN;
     const chatId2 = process.env.TELEGRAM_CHAT_ID;
@@ -1578,6 +1662,51 @@ function writeDataFile(filename: string, data: any) {
 
 // In-memory + File Backed Stores
 let appUsersStore: any[] = readDataFile('users.json', []);
+function mapDbUserRow(r: any): any {
+  const fmt = (v: any) => (v instanceof Date ? v.toISOString().replace('T', ' ').substring(0, 16) : String(v || '').replace('T', ' ').substring(0, 16));
+  return {
+    id: String(r.id || ''), name: String(r.name || ''), email: String(r.email || '').toLowerCase(),
+    phone: String(r.phone || ''), country: String(r.country || ''),
+    status: String(r.status || 'Pending'), verificationStatus: String(r.verification_status || 'Pending'),
+    kycStatus: String(r.kyc_status || 'NOT_STARTED'), balance: Number(r.balance || 0), demoBalance: Number(r.demo_balance || 0),
+    provider: String(r.provider || 'Email / Portal Auth'), registeredAt: fmt(r.registered_at), lastActive: fmt(r.last_active),
+    accountNo: '', accountType: String(r.account_type || 'Pending broker provisioning'), tradingPlatform: String(r.trading_platform || 'MT5'),
+    leverage: String(r.leverage || ''), currency: String(r.currency || 'USD'), updatedAt: fmt(r.updated_at),
+    // Postgres control-plane columns may be absent before ensureSchema(); default them safely.
+    allow_login: r.allow_login === null || r.allow_login === undefined ? true : Boolean(r.allow_login),
+    allow_trading: r.allow_trading === null || r.allow_trading === undefined ? true : Boolean(r.allow_trading),
+    allow_deposits: r.allow_deposits === null || r.allow_deposits === undefined ? true : Boolean(r.allow_deposits),
+    allow_withdrawals: r.allow_withdrawals === null || r.allow_withdrawals === undefined ? true : Boolean(r.allow_withdrawals),
+    risk_status: String(r.risk_status || 'NORMAL'), session_status: String(r.session_status || 'ACTIVE'), admin_notes: String(r.admin_notes || '')
+  };
+}
+// After startup, hydrate the legacy in-memory/file user store from PostgreSQL so the
+// Stripe webhook, verify-deposit, and legacy routes resolve the same accounts that the
+// admin dashboard sees, with admin-controlled status/balance values surviving restarts.
+async function hydrateAppUsersStoreFromPostgres() {
+  if (!hasPostgres()) return;
+  try {
+    const rows = await dbUsers();
+    if (!rows || !rows.length) return;
+    const dbById = new Map<string, any>(); const dbByEmail = new Map<string, any>();
+    for (const r of rows) { const m = mapDbUserRow(r); dbById.set(m.id, m); dbByEmail.set(String(m.email).toLowerCase(), m); }
+    const merged: any[] = [];
+    for (const u of appUsersStore) {
+      const dbv = dbById.get(String(u.id)) || dbByEmail.get(String(u.email || '').toLowerCase());
+      merged.push(dbv || u);
+    }
+    for (const r of rows) {
+      const m = mapDbUserRow(r);
+      const key = String(m.email).toLowerCase();
+      if (!merged.some((u) => String(u.id) === m.id || String(u.email || '').toLowerCase() === key)) merged.push(m);
+    }
+    appUsersStore = merged;
+    try { writeDataFile('users.json', merged); } catch (e) { /* non-fatal */ }
+    console.log(`[Axi] Hydrated ${rows.length} user account(s) from PostgreSQL into the server user store.`);
+  } catch (error: any) {
+    console.error('[Axi] User store hydration from PostgreSQL failed; continuing with file store:', error?.message || error);
+  }
+}
 
 let appKycStore: any[] = readDataFile('kyc.json', []);
 let appTransactionsStore: any[] = readDataFile('transactions.json', []);
@@ -1732,7 +1861,10 @@ app.post('/api/users/register', async (req, res) => {
   writeDataFile('users.json', appUsersStore);
   await dbUpsertUser(userData).catch((error) => console.error('Postgres new user sync failed:', error));
   await audit('USER_REGISTERED', { userId: userData.id, email: userData.email, metadata: { provider: userData.provider } }).catch(() => {});
-  void sendRegistrationEmails(userData);
+  // Emails must NEVER take down registration: always guard the async call. When
+  // Firebase Admin / Resend are not configured (or fail), the account is still
+  // registered and the client receives a success response.
+  sendRegistrationEmails(userData).catch((error) => console.warn('[Axi registration email] non-fatal:', error?.message || error));
   res.json({ success: true, user: userData, totalUsers: appUsersStore.length });
 });
 

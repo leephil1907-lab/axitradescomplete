@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Activity, Ban, CheckCircle2, Clock3, FileText, History, Lock, RefreshCw, ShieldCheck, UserRound, Wallet, X } from 'lucide-react';
-import { authHeaders } from '../utils/authHeaders';
+import { adminAuthHeaders } from '../utils/authHeaders';
 
 type Detail = { user:any; ledger:any[]; withdrawals:any[]; audit:any[] };
 
@@ -11,11 +11,11 @@ function date(v:any) { if(!v) return '—'; const d=new Date(v); return Number.i
 export default function AdminUserDetailDrawer({ userId, onClose, showToast }:{userId:string|null;onClose:()=>void;showToast:(message:string,type?:'success'|'error'|'info')=>void}) {
   const [data,setData]=useState<Detail|null>(null); const [loading,setLoading]=useState(false); const [tab,setTab]=useState<'overview'|'ledger'|'withdrawals'|'activity'>('overview'); const [saving,setSaving]=useState<string|null>(null);
 
-  const load=async()=>{if(!userId)return;setLoading(true);try{const r=await fetch(`/api/admin/users/${encodeURIComponent(userId)}`,{headers:await authHeaders()});const d=await r.json();if(!r.ok)throw new Error(d.error||'Unable to load user details');setData({user:d.user,ledger:Array.isArray(d.ledger)?d.ledger:[],withdrawals:Array.isArray(d.withdrawals)?d.withdrawals:[],audit:Array.isArray(d.audit)?d.audit:[]});}catch(e:any){showToast(e?.message||'Unable to load user details','error');setData(null);}finally{setLoading(false);}};
+  const load=async()=>{if(!userId)return;setLoading(true);try{const r=await fetch(`/api/admin/users/${encodeURIComponent(userId)}`,{headers:await adminAuthHeaders()});const d=await r.json();if(!r.ok)throw new Error(d.error||'Unable to load user details');setData({user:d.user,ledger:Array.isArray(d.ledger)?d.ledger:[],withdrawals:Array.isArray(d.withdrawals)?d.withdrawals:[],audit:Array.isArray(d.audit)?d.audit:[]});}catch(e:any){showToast(e?.message||'Unable to load user details','error');setData(null);}finally{setLoading(false);}};
   useEffect(()=>{void load();},[userId]);
   if(!userId)return null;
 
-  const setControl=async(key:string,value:any)=>{if(!data?.user)return;setSaving(key);try{const r=await fetch(`/api/admin/users/${encodeURIComponent(data.user.id)}/controls`,{method:'POST',headers:await authHeaders({'Content-Type':'application/json'}),body:JSON.stringify({[key]:value})});const d=await r.json().catch(()=>({}));if(!r.ok||!d.success)throw new Error(d.error||'Control change failed');setData(prev=>prev?{...prev,user:d.user}:prev);showToast('Account control updated.','success');}catch(e:any){showToast(e?.message||'Control change failed','error');}finally{setSaving(null);}};
+  const setControl=async(key:string,value:any)=>{if(!data?.user)return;setSaving(key);try{const r=await fetch(`/api/admin/users/${encodeURIComponent(data.user.id)}/controls`,{method:'POST',headers:await adminAuthHeaders({'Content-Type':'application/json'}),body:JSON.stringify({[key]:value})});const d=await r.json().catch(()=>({}));if(!r.ok||!d.success)throw new Error(d.error||'Control change failed');setData(prev=>prev?{...prev,user:d.user}:prev);showToast('Account control updated.','success');}catch(e:any){showToast(e?.message||'Control change failed','error');}finally{setSaving(null);}};
   const toggle=async(key:string,current:boolean)=>{await setControl(key,!current);};
   const u=data?.user||{};
 
