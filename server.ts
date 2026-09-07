@@ -3200,6 +3200,18 @@ app.get('/api/news', async (req, res) => {
   }
 });
 
+// WhatsApp support config (used by the floating WhatsApp chat button).
+// The number itself is never exposed/rendered - only the wa.me deep link.
+app.get('/api/support/whatsapp', (_req, res) => {
+  const raw = String(process.env.WHATSAPP_NUMBER || '+18649358993').replace(/[^0-9]/g, '');
+  if (!raw) return res.json({ success: true, enabled: false });
+  res.json({
+    success: true,
+    enabled: true,
+    link: `https://wa.me/${raw}?text=${encodeURIComponent('Hello Axi Trades team, I have a question.')}`
+  });
+});
+
 // Telegram Bot Configuration Status (used by Admin System panel)
 app.get('/api/telegram/status', requireAdmin, (_req, res) => {
   const botTokenSet = Boolean(process.env.TELEGRAM_BOT_TOKEN);

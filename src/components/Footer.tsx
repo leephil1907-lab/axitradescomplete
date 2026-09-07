@@ -2,6 +2,7 @@ import React from 'react';
 import { ViewType } from '../types';
 import { Facebook, Instagram, Twitter, Linkedin, ShieldCheck, Award, TrendingUp, HelpCircle } from 'lucide-react';
 import AxiLogo from './AxiLogo';
+import { WHATSAPP_ICON_PATH } from './WhatsAppChatButton';
 
 interface FooterProps {
   setView: (view: ViewType) => void;
@@ -162,6 +163,11 @@ export default function Footer({ setView }: FooterProps) {
                 </a>
                 <a href="https://linkedin.com/company/axi" target="_blank" rel="noreferrer" className="p-2 rounded bg-neutral-900 border border-neutral-800 hover:text-white hover:border-neutral-700 transition cursor-pointer" aria-label="LinkedIn">
                   <Linkedin className="w-4 h-4" />
+                </a>
+                <a href="https://wa.me/18649358993" target="_blank" rel="noreferrer" className="p-2 rounded bg-neutral-900 border border-neutral-800 hover:text-[#25D366] hover:border-[#25D366]/60 transition cursor-pointer" aria-label="WhatsApp" title="Chat on WhatsApp">
+                  <svg className="w-4 h-4 fill-current" viewBox="0 0 24 24" aria-hidden="true">
+                    <path d={WHATSAPP_ICON_PATH} />
+                  </svg>
                 </a>
               </div>
             </div>

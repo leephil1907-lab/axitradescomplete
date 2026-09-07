@@ -40,6 +40,7 @@ import PromotionsView from './components/PromotionsView';
 import ForexVpsView from './components/ForexVpsView';
 import EconomicCalendar from './components/EconomicCalendar';
 import TawkToWidget from './components/TawkToWidget';
+import WhatsAppChatButton from './components/WhatsAppChatButton';
 import { ASSET_METADATA } from './data';
 import { liveMarketFeed } from './services/liveMarketFeed';
 
@@ -723,6 +724,9 @@ export default function App() {
         } : null}
       />
 
+
+      {/* WhatsApp chat launcher (number never shown, deep-links to wa.me) */}
+      <WhatsAppChatButton />
       {/* Floating Toast Notification Box */}
       <AnimatePresence>
         {toast && (
