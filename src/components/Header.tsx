@@ -9,6 +9,7 @@ import {
 import { ViewType, DisplayCurrency } from '../types';
 import CurrencySelector from './CurrencySelector';
 import AxiHamburgerIcon from './AxiHamburgerIcon';
+import AxiLogo from './AxiLogo';
 
 interface HeaderProps {
   currentView: ViewType;
@@ -232,9 +233,7 @@ export default function Header({
             aria-label="Axi Home"
           >
             <div className="flex items-center">
-              <svg className="h-8 sm:h-9 w-auto text-white drop-shadow-sm transition-transform group-hover:scale-105" viewBox="0 0 110 36" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <text x="0" y="29" fill="#FFFFFF" fontSize="36" fontWeight="900" fontFamily="'Clash Display', 'General Sans', system-ui, sans-serif" letterSpacing="-1.5">axi</text>
-              </svg>
+              <AxiLogo variant="white" size="md" className="drop-shadow-sm transition-transform duration-200 group-hover:scale-105" />
             </div>
           </button>
 
@@ -539,9 +538,7 @@ export default function Header({
                   style={{ clipPath: 'polygon(0 0, 100% 0, 80% 100%, 0% 100%)' }}
                 />
                 <div className="relative flex items-center gap-1">
-                  <svg className="h-7 w-auto text-white" viewBox="0 0 110 36" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <text x="0" y="29" fill="#FFFFFF" fontSize="35" fontWeight="900" fontFamily="'Clash Display', 'General Sans', system-ui, sans-serif" letterSpacing="-1.5">axi</text>
-                  </svg>
+                  <AxiLogo variant="white" size="sm" />
                 </div>
                 <button
                   onClick={() => setMobileMenuOpen(false)}

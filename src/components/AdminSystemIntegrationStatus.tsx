@@ -21,8 +21,13 @@ import {
   CreditCard, 
   Terminal, 
   AlertTriangle,
-  Play
+  Play,
+  MessageSquare,
+  Save
 } from 'lucide-react';
+import { adminAuthHeaders } from '../utils/authHeaders';
+import { safeStorage } from '../utils/storage';
+import { getTawkToConfig, loadTawkToScript, TawkToConfig } from '../utils/tawkto';
 
 interface WebhookHistoryEntry {
   timestamp: string;
@@ -58,6 +63,13 @@ export default function AdminSystemIntegrationStatus({ onShowToast }: AdminSyste
   const [isPinging, setIsPinging] = useState<boolean>(false);
   const [copiedUrl, setCopiedUrl] = useState<boolean>(false);
   const [autoRefresh, setAutoRefresh] = useState<boolean>(true);
+  const [tgStatus, setTgStatus] = useState<any>(null);
+  const [tgTesting, setTgTesting] = useState(false);
+  const [tawkCfg, setTawkCfg] = useState<TawkToConfig | null>(null);
+  const [tawkEnabled, setTawkEnabled] = useState(true);
+  const [tawkPropId, setTawkPropId] = useState('6a877895e687441d49b91140');
+  const [tawkWidgetId, setTawkWidgetId] = useState('default');
+  const [tawkSaving, setTawkSaving] = useState(false);
 
   const fetchStatus = async (showLoadingState = false) => {
     if (showLoadingState) setIsLoading(true);
@@ -76,6 +88,19 @@ export default function AdminSystemIntegrationStatus({ onShowToast }: AdminSyste
 
   useEffect(() => {
     fetchStatus(true);
+  }, []);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const tg = await fetch('/api/telegram/config', { headers: await adminAuthHeaders() });
+        if (tg.ok) { const d = await tg.json(); setTgStatus(d); }
+      } catch (e) { /* non-fatal */ }
+      try {
+        const tw = await fetch('/api/tawkto/config');
+        if (tw.ok) { const d = await tw.json(); if (d?.config) { setTawkCfg(d.config); setTawkEnabled(d.config.enabled !== false); setTawkPropId(d.config.propertyId || ''); setTawkWidgetId(d.config.widgetId || 'default'); } }
+      } catch (e) { /* non-fatal */ }
+    })();
   }, []);
 
   useEffect(() => {
@@ -126,6 +151,50 @@ export default function AdminSystemIntegrationStatus({ onShowToast }: AdminSyste
     } catch (err: any) {
       if (onShowToast) onShowToast('Error toggling status', 'error');
     }
+  };
+
+  const handleTelegramTest = async () => {
+    setTgTesting(true);
+    try {
+      const res = await fetch('/api/telegram/notify', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: '✅ Axi Trades — this is an admin test notification from the System panel.', type: 'ADMIN_TEST' })
+      });
+      const d = await res.json().catch(() => ({}));
+      if (d.delivered) {
+        if (onShowToast) onShowToast('Telegram test delivered — check your Telegram chat.', 'success');
+      } else if (d.standby) {
+        if (onShowToast) onShowToast('Telegram is in standby: set TELEGRAM_BOT_TOKEN + TELEGRAM_CHAT_ID on the server to go live.', 'info');
+      } else if (onShowToast) {
+        onShowToast(d.error || 'Telegram test could not be delivered.', 'error');
+      }
+    } catch (err: any) {
+      if (onShowToast) onShowToast('Telegram test failed: ' + (err?.message || 'network error'), 'error');
+    } finally { setTgTesting(false); }
+  };
+
+  const handleTawkSave = async () => {
+    const propId = tawkPropId.trim();
+    const widgetId = tawkWidgetId.trim() || 'default';
+    if (!propId) { if (onShowToast) onShowToast('Enter your Tawk.to Property ID first.', 'error'); return; }
+    setTawkSaving(true);
+    try {
+      const payload = { enabled: tawkEnabled, propertyId: propId, widgetId, directChatUrl: `https://tawk.to/chat/${propId}/${widgetId}` };
+      const res = await fetch('/api/tawkto/config', {
+        method: 'POST', headers: await adminAuthHeaders({ 'Content-Type': 'application/json' }),
+        body: JSON.stringify(payload)
+      });
+      const d = await res.json().catch(() => ({}));
+      if (!res.ok) { if (onShowToast) onShowToast(d?.error || 'Failed to save Tawk.to config (admin auth required).', 'error'); return; }
+      const cfg: TawkToConfig = { ...getTawkToConfig(), ...d.config, ...payload };
+      safeStorage.setItem('axi_tawkto_config', JSON.stringify(cfg));
+      window.dispatchEvent(new CustomEvent('axi_tawkto_config_updated', { detail: cfg }));
+      loadTawkToScript(cfg, true);
+      setTawkCfg(d.config || cfg);
+      if (onShowToast) onShowToast('Tawk.to live chat config saved & widget reloaded.', 'success');
+    } catch (err: any) {
+      if (onShowToast) onShowToast('Tawk.to save failed: ' + (err?.message || 'network error'), 'error');
+    } finally { setTawkSaving(false); }
   };
 
   const copyEndpointUrl = () => {
@@ -353,24 +422,77 @@ export default function AdminSystemIntegrationStatus({ onShowToast }: AdminSyste
                 </div>
               </div>
 
-              {/* Telegram Bot */}
-              <div className="bg-slate-950/60 border border-slate-800/80 p-3 rounded-xl flex items-center justify-between">
-                <div className="flex items-center gap-2.5">
-                  <div className="p-2 rounded-lg bg-sky-500/10 text-sky-400">
-                    <Bell className="w-4 h-4" />
+                            {/* Telegram Bot */}
+              <div className="bg-slate-950/60 border border-slate-800/80 p-3 rounded-xl">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2.5">
+                    <div className="p-2 rounded-lg bg-sky-500/10 text-sky-400"><Bell className="w-4 h-4" /></div>
+                    <div>
+                      <div className="text-xs font-bold text-white">Telegram Alert Bot</div>
+                      <div className="text-[10px] text-slate-400 font-mono">TELEGRAM_BOT_TOKEN · TELEGRAM_CHAT_ID</div>
+                    </div>
                   </div>
-                  <div>
-                    <div className="text-xs font-bold text-white">Telegram Alert Bot</div>
-                    <div className="text-[10px] text-slate-400 font-mono">TELEGRAM_BOT_TOKEN</div>
+                  <div className="flex items-center gap-1.5">
+                    <span className={`w-2 h-2 rounded-full ${tgStatus?.configured ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400'}`} />
+                    <span className={`text-[11px] font-bold ${tgStatus?.configured ? 'text-emerald-300' : 'text-amber-300'}`}>{tgStatus ? (tgStatus.configured ? 'Connected' : 'Standby') : 'Checking…'}</span>
                   </div>
                 </div>
-                <div className="flex items-center gap-1.5">
-                  <span className="w-2 h-2 rounded-full bg-emerald-400" />
-                  <span className="text-[11px] font-bold text-slate-300">Active</span>
-                </div>
+                {tgStatus && !tgStatus.configured && (
+                  <p className="mt-2 text-[10px] text-slate-500 leading-relaxed">
+                    Notifications only fire after you set <span className="font-mono text-amber-300/90">TELEGRAM_BOT_TOKEN</span> and
+                    <span className="font-mono text-amber-300/90"> TELEGRAM_CHAT_ID</span> on the server (Railway → Variables) and restart.
+                    The chat ID is the chat that receives alerts — a private DM requires opening a chat with the bot first.
+                  </p>
+                )}
+                <button onClick={handleTelegramTest} disabled={tgTesting}
+                  className="mt-2 w-full inline-flex items-center justify-center gap-1.5 rounded-lg bg-sky-500/15 border border-sky-500/25 text-sky-300 px-2.5 py-2 text-[11px] font-bold hover:bg-sky-500/25 transition disabled:opacity-60 cursor-pointer">
+                  <Send className="w-3.5 h-3.5" /> {tgTesting ? 'Sending…' : 'Send Telegram test notification'}
+                </button>
               </div>
 
-              {/* Firestore Realtime DB */}
+              {/* Tawk.to Live Chat */}
+              <div className="bg-slate-950/60 border border-slate-800/80 p-3 rounded-xl">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2.5">
+                    <div className="p-2 rounded-lg bg-teal-500/10 text-teal-400"><MessageSquare className="w-4 h-4" /></div>
+                    <div>
+                      <div className="text-xs font-bold text-white">Tawk.to Live Chat</div>
+                      <div className="text-[10px] text-slate-400 font-mono">embed.tawk.to/{tawkCfg?.propertyId || '—'}</div>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <span className={`w-2 h-2 rounded-full ${tawkCfg?.enabled ? 'bg-emerald-400 animate-pulse' : 'bg-slate-500'}`} />
+                    <span className={`text-[11px] font-bold ${tawkCfg?.enabled ? 'text-emerald-300' : 'text-slate-400'}`}>{tawkCfg ? (tawkCfg.enabled ? 'Enabled' : 'Disabled') : '…'}</span>
+                  </div>
+                </div>
+                <div className="mt-2 grid grid-cols-2 gap-2">
+                  <label className="block">
+                    <span className="text-[9px] font-bold uppercase tracking-wider text-slate-500 block mb-0.5">Property ID</span>
+                    <input value={tawkPropId} onChange={e => setTawkPropId(e.target.value)} placeholder="6a877895e687441d49b91140"
+                      className="w-full rounded-md border border-slate-800 bg-slate-900 px-2 py-1.5 text-[11px] font-mono text-white outline-none focus:border-teal-500/60" />
+                  </label>
+                  <label className="block">
+                    <span className="text-[9px] font-bold uppercase tracking-wider text-slate-500 block mb-0.5">Widget ID</span>
+                    <input value={tawkWidgetId} onChange={e => setTawkWidgetId(e.target.value)} placeholder="default"
+                      className="w-full rounded-md border border-slate-800 bg-slate-900 px-2 py-1.5 text-[11px] font-mono text-white outline-none focus:border-teal-500/60" />
+                  </label>
+                </div>
+                <div className="mt-2 flex items-center gap-2">
+                  <button onClick={() => setTawkEnabled(!tawkEnabled)}
+                    className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-[11px] font-bold border transition cursor-pointer ${tawkEnabled ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-300' : 'border-slate-700 bg-slate-800 text-slate-400'}`}>
+                    {tawkEnabled ? 'Enabled' : 'Disabled'}
+                  </button>
+                  <button onClick={handleTawkSave} disabled={tawkSaving}
+                    className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-lg bg-teal-500/15 border border-teal-500/25 text-teal-300 px-2.5 py-2 text-[11px] font-bold hover:bg-teal-500/25 transition disabled:opacity-60 cursor-pointer">
+                    <Save className="w-3.5 h-3.5" /> {tawkSaving ? 'Saving…' : 'Save & reload widget'}
+                  </button>
+                </div>
+                <p className="mt-2 text-[10px] text-slate-500 leading-relaxed">
+                  Visitor conversations open in <b className="text-slate-300">tawk.to</b> and admins reply from the Tawk app. The Property ID must match the property that owns this website in your Tawk.to account (Administration → Properties).
+                </p>
+              </div>
+
+              {/* Firestore Realtime DB */}{/* Firestore Realtime DB */}
               <div className="bg-slate-950/60 border border-slate-800/80 p-3 rounded-xl flex items-center justify-between">
                 <div className="flex items-center gap-2.5">
                   <div className="p-2 rounded-lg bg-amber-500/10 text-amber-400">

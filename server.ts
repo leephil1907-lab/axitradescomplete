@@ -2443,7 +2443,7 @@ app.get('/api/tawkto/config', (req, res) => {
   });
 });
 
-app.post('/api/tawkto/config', (req, res) => {
+app.post('/api/tawkto/config', requireAdmin, (req, res) => {
   const updates = req.body || {};
   appTawkToConfigStore = {
     ...appTawkToConfigStore,
@@ -3200,7 +3200,28 @@ app.get('/api/news', async (req, res) => {
   }
 });
 
+// Telegram Bot Configuration Status (used by Admin System panel)
+app.get('/api/telegram/status', requireAdmin, (_req, res) => {
+  const botTokenSet = Boolean(process.env.TELEGRAM_BOT_TOKEN);
+  const chatIdSet = Boolean(process.env.TELEGRAM_CHAT_ID);
+  res.json({
+    success: true,
+    configured: botTokenSet && chatIdSet,
+    botTokenSet,
+    chatIdSet,
+    mode: botTokenSet && chatIdSet ? 'live' : 'standby',
+    endpoint: '/api/telegram/notify',
+    timestamp: new Date().toISOString()
+  });
+});
+
 // Telegram Notification Handler Endpoint
+app.get('/api/telegram/config', (_req, res) => {
+  const botTokenSet = Boolean(process.env.TELEGRAM_BOT_TOKEN);
+  const chatIdSet = Boolean(process.env.TELEGRAM_CHAT_ID);
+  res.json({ success: true, configured: botTokenSet && chatIdSet, botTokenSet, chatIdSet, mode: botTokenSet && chatIdSet ? 'live' : 'standby' });
+});
+
 app.post('/api/telegram/notify', async (req, res) => {
   const { message, chatId: customChatId, type = 'ALERT' } = req.body || {};
   const botToken = process.env.TELEGRAM_BOT_TOKEN;
@@ -3254,7 +3275,7 @@ if (!isVercel && process.env.NODE_ENV !== 'test') {
     if (!isProd) {
       const { createServer: createViteServer } = await import('vite');
       const vite = await createViteServer({
-        server: { middlewareMode: true },
+        server: { middlewareMode: true, allowedHosts: true },
         appType: 'spa',
       });
       app.use(vite.middlewares);
