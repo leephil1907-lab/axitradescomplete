@@ -26,7 +26,10 @@ import {
   ArrowRight,
   Info,
   Maximize2,
-  Plus
+  Plus,
+  Layers,
+  BarChart3,
+  Gift
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { auth } from '../firebase';
@@ -65,6 +68,19 @@ export default function AccountsView({
     setIsCreatingSubAccount(false);
     showToast('Sub-account request recorded. A broker-side account must be provisioned before credentials are issued.', 'info');
   };
+
+  // Trading platform catalogue shown on the client account hub (unified page)
+  const platformCards = [
+    { key: 'MT4', name: 'MetaTrader 4', icon: Layers, tag: 'EAs & Algo Trading',
+      blurb: 'The industry benchmark — expert advisors, custom indicators and one-click execution.',
+      points: ['Full Expert Advisor (EA) support', 'Advanced charting & hedging', 'Raw ECN spreads on Pro ECN'] },
+    { key: 'MT5', name: 'MetaTrader 5', icon: BarChart3, tag: 'Next-Gen Multi-Asset',
+      blurb: 'Trade more markets with depth-of-market, 21 timeframes and 6 order types.',
+      points: ['Level 2 market depth', '6 pending order types', 'Stocks, indices & crypto CFDs'] },
+    { key: 'WEB', name: 'Axi WebTrader', icon: Globe, tag: 'Zero Install',
+      blurb: 'Trade instantly from your browser — no download, no setup, full MT4/MT5 sync.',
+      points: ['Instant browser launch', 'Watchlist & position sync', 'Works on every OS'] },
+  ];
 
   // If user is already logged in, show their Axi Account Management Hub
   if (user) {
@@ -105,6 +121,94 @@ export default function AccountsView({
                 <Wallet className="w-4 h-4" />
                 <span>Deposit Funds</span>
               </button>
+            </div>
+          </div>
+
+          {/* 100% Deposit Bonus promo */}
+          <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-[#FFD250] via-[#F5CE47] to-[#E8B93A] p-[1px] shadow-lg">
+            <div className="relative overflow-hidden rounded-[15px] bg-[#FFF7DE] px-6 py-6">
+              <div className="absolute -right-10 -top-14 h-44 w-44 rounded-full bg-[#F5CE47]/40 blur-2xl" />
+              <div className="absolute -bottom-16 right-24 h-40 w-40 rounded-full bg-[#E61C3F]/10 blur-2xl" />
+              <div className="relative flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
+                <div className="flex items-start gap-4">
+                  <div className="grid h-14 w-14 shrink-0 place-items-center rounded-2xl bg-[#E61C3F] text-white shadow-md">
+                    <Gift className="h-7 w-7" />
+                  </div>
+                  <div>
+                    <span className="inline-flex items-center gap-1.5 rounded-full bg-[#E61C3F] px-2.5 py-1 text-[9px] font-black uppercase tracking-widest text-white">
+                      Limited-time offer
+                    </span>
+                    <h2 className="mt-2 text-xl font-black uppercase tracking-tight text-slate-950">
+                      100% Deposit Bonus
+                    </h2>
+                    <p className="mt-1 max-w-2xl text-xs font-semibold text-slate-600 leading-relaxed">
+                      Deposit funds and receive a <span className="font-black text-slate-950">100% match as non-withdrawable trading credit</span> (up to the
+                      published bonus cap) — doubling your buying power instantly. Bonus is credited as leverage-boosting trading credit;
+                      profits are yours to keep. Standard T&amp;Cs and eligibility apply.
+                    </p>
+                  </div>
+                </div>
+                <div className="flex flex-col gap-2.5 sm:flex-row lg:flex-col lg:items-end">
+                  <button type="button" onClick={() => setView && setView('funds')}
+                    className="rounded-xl bg-[#E61C3F] px-6 py-3 text-xs font-black uppercase tracking-wider text-white shadow-md transition hover:bg-red-700 cursor-pointer flex items-center justify-center gap-2">
+                    <Wallet className="h-4 w-4" /> Claim 100% bonus
+                  </button>
+                  <button type="button" onClick={() => { showToast('100% matched as trading credit on qualifying deposits. Bonus is not withdrawable — profits are. Full terms apply.', 'info'); }}
+                    className="rounded-xl border border-slate-300 bg-white/70 px-6 py-3 text-[11px] font-bold uppercase tracking-wider text-slate-700 transition hover:bg-white cursor-pointer">
+                    Read how it works
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Trading Platforms — MT4 / MT5 / WebTrader */}
+          <div>
+            <div className="mb-4 flex items-end justify-between">
+              <div>
+                <h3 className="text-sm font-black uppercase tracking-wider text-slate-900">
+                  Choose your platform
+                </h3>
+                <p className="text-[11px] font-semibold text-slate-500 mt-0.5">
+                  Every Axi Trading Account runs on the platform you prefer — MetaTrader 4, MetaTrader 5 or the browser-based Axi WebTrader.
+                </p>
+              </div>
+            </div>
+            <div className="grid gap-4 md:grid-cols-3">
+              {platformCards.map((p) => {
+                const PIcon = p.icon;
+                return (
+                  <div key={p.key} className="flex flex-col rounded-2xl border border-slate-200 bg-white p-5 shadow-xs transition hover:shadow-md hover:border-[#E61C3F]/40">
+                    <div className="flex items-center justify-between">
+                      <div className="grid h-11 w-11 place-items-center rounded-xl bg-[#E61C3F]/10 text-[#E61C3F]">
+                        <PIcon className="h-5.5 w-5.5" />
+                      </div>
+                      <span className="rounded-full bg-slate-100 px-2.5 py-1 text-[9px] font-black uppercase tracking-wider text-slate-500">{p.tag}</span>
+                    </div>
+                    <h4 className="mt-3 text-base font-black text-slate-950">{p.name}</h4>
+                    <p className="mt-1 text-[11.5px] leading-relaxed text-slate-500">{p.blurb}</p>
+                    <ul className="mt-3 space-y-1.5">
+                      {p.points.map((pt) => (
+                        <li key={pt} className="flex items-center gap-2 text-[11px] font-semibold text-slate-700">
+                          <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-emerald-500" />
+                          {pt}
+                        </li>
+                      ))}
+                    </ul>
+                    <div className="mt-4 flex gap-2 border-t border-slate-100 pt-4">
+                      <button type="button"
+                        onClick={() => { if (p.key === 'WEB') { setView && setView('platforms'); } else { setSelectedSubPlatform(p.key === 'MT4' ? 'MT4' : 'MT5'); setIsCreatingSubAccount(true); } }}
+                        className="flex-1 rounded-lg bg-slate-900 px-3 py-2.5 text-[11px] font-black uppercase tracking-wider text-white transition hover:bg-slate-800 cursor-pointer">
+                        Open {p.key === 'WEB' ? 'WebTrader' : p.key} account
+                      </button>
+                      <button type="button" onClick={() => setView && setView('platforms')}
+                        className="rounded-lg border border-slate-200 px-3 py-2.5 text-[11px] font-bold uppercase tracking-wider text-slate-600 transition hover:bg-slate-50 cursor-pointer">
+                        Launch
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           </div>
 
