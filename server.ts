@@ -264,7 +264,7 @@ app.post('/api/email/registration', async (req, res) => {
   } catch (e: any) { res.status(503).json({ error: e?.message || 'Email service unavailable' }); }
 });
 
-app.post('/api/admin/email', async (req, res) => {
+app.post('/api/admin/email', requireAdmin, async (req, res) => {
   try {
     const adminKey = process.env.ADMIN_API_KEY;
     if (!adminKey || req.headers['x-admin-api-key'] !== adminKey) return res.status(401).json({ error: 'Unauthorized' });
@@ -1932,7 +1932,7 @@ app.put('/api/users/:id/password', requireAdmin,  (req, res) => {
 });
 
 // Delete user
-app.delete('/api/users/:id', (req, res) => {
+app.delete('/api/users/:id', requireAdmin, (req, res) => {
   const userId = req.params.id;
   const initialLen = appUsersStore.length;
   appUsersStore = appUsersStore.filter(u => u.id !== userId && u.email.toLowerCase() !== userId.toLowerCase());
@@ -2117,7 +2117,7 @@ app.post('/api/transactions/create', (req, res) => {
   res.json({ success: true, transaction: tx });
 });
 
-app.post('/api/transactions/update-status', (req, res) => {
+app.post('/api/transactions/update-status', requireAdmin, (req, res) => {
   const { id, status } = req.body;
   const tx = appTransactionsStore.find(t => t.id === id);
   if (tx) {
@@ -2209,11 +2209,11 @@ app.post('/api/promos/claim', (req, res) => {
 // ----------------------------------------------------
 
 // --- Bot Config (Edit Bot section) ---
-app.get('/api/admin/bot-config', (req, res) => {
+app.get('/api/admin/bot-config', requireAdmin, (req, res) => {
   res.json({ success: true, config: appBotConfigStore });
 });
 
-app.post('/api/admin/bot-config', (req, res) => {
+app.post('/api/admin/bot-config', requireAdmin, (req, res) => {
   appBotConfigStore = { ...appBotConfigStore, ...req.body, updatedAt: new Date().toISOString() };
   writeDataFile('adminBotConfig.json', appBotConfigStore);
   notifyTelegram('ADMIN_BOT_CONFIG_UPDATED', {
@@ -2225,22 +2225,22 @@ app.post('/api/admin/bot-config', (req, res) => {
 });
 
 // --- Global Trading Bot Settings ---
-app.get('/api/admin/trading-bot-settings', (req, res) => {
+app.get('/api/admin/trading-bot-settings', requireAdmin, (req, res) => {
   res.json({ success: true, settings: appTradingBotSettingsStore });
 });
 
-app.post('/api/admin/trading-bot-settings', (req, res) => {
+app.post('/api/admin/trading-bot-settings', requireAdmin, (req, res) => {
   appTradingBotSettingsStore = { ...appTradingBotSettingsStore, ...req.body, updatedAt: new Date().toISOString() };
   writeDataFile('adminTradingBotSettings.json', appTradingBotSettingsStore);
   res.json({ success: true, settings: appTradingBotSettingsStore });
 });
 
 // --- Investment Plans ---
-app.get('/api/admin/investment-plans', (req, res) => {
+app.get('/api/admin/investment-plans', requireAdmin, (req, res) => {
   res.json({ success: true, plans: appInvestmentPlansStore });
 });
 
-app.post('/api/admin/investment-plans', (req, res) => {
+app.post('/api/admin/investment-plans', requireAdmin, (req, res) => {
   const plans = req.body?.plans;
   if (!Array.isArray(plans)) return res.status(400).json({ error: 'plans array is required' });
   appInvestmentPlansStore = plans;
@@ -2249,11 +2249,11 @@ app.post('/api/admin/investment-plans', (req, res) => {
 });
 
 // --- Trading Pairs ---
-app.get('/api/admin/trading-pairs', (req, res) => {
+app.get('/api/admin/trading-pairs', requireAdmin, (req, res) => {
   res.json({ success: true, pairs: appTradingPairsStore });
 });
 
-app.post('/api/admin/trading-pairs', (req, res) => {
+app.post('/api/admin/trading-pairs', requireAdmin, (req, res) => {
   const pairs = req.body?.pairs;
   if (!Array.isArray(pairs)) return res.status(400).json({ error: 'pairs array is required' });
   appTradingPairsStore = pairs;
@@ -2262,11 +2262,11 @@ app.post('/api/admin/trading-pairs', (req, res) => {
 });
 
 // --- Currencies ---
-app.get('/api/admin/currencies', (req, res) => {
+app.get('/api/admin/currencies', requireAdmin, (req, res) => {
   res.json({ success: true, currencies: appCurrenciesStore });
 });
 
-app.post('/api/admin/currencies', (req, res) => {
+app.post('/api/admin/currencies', requireAdmin, (req, res) => {
   const currencies = req.body?.currencies;
   if (!Array.isArray(currencies)) return res.status(400).json({ error: 'currencies array is required' });
   appCurrenciesStore = currencies;
@@ -2275,11 +2275,11 @@ app.post('/api/admin/currencies', (req, res) => {
 });
 
 // --- Copy Traders ---
-app.get('/api/admin/copy-traders', (req, res) => {
+app.get('/api/admin/copy-traders', requireAdmin, (req, res) => {
   res.json({ success: true, traders: appCopyTradersStore });
 });
 
-app.post('/api/admin/copy-traders', (req, res) => {
+app.post('/api/admin/copy-traders', requireAdmin, (req, res) => {
   const traders = req.body?.traders;
   if (!Array.isArray(traders)) return res.status(400).json({ error: 'traders array is required' });
   appCopyTradersStore = traders;
@@ -2287,7 +2287,7 @@ app.post('/api/admin/copy-traders', (req, res) => {
   res.json({ success: true, traders: appCopyTradersStore });
 });
 
-app.delete('/api/admin/copy-traders/:id', (req, res) => {
+app.delete('/api/admin/copy-traders/:id', requireAdmin, (req, res) => {
   const id = req.params.id;
   appCopyTradersStore = appCopyTradersStore.filter(t => t.id !== id);
   writeDataFile('adminCopyTraders.json', appCopyTradersStore);
@@ -2295,7 +2295,7 @@ app.delete('/api/admin/copy-traders/:id', (req, res) => {
 });
 
 // --- Admin Password Change (server-side verification) ---
-app.post('/api/admin/change-password', (req, res) => {
+app.post('/api/admin/change-password', requireAdmin, (req, res) => {
   const { currentPassword, newPassword } = req.body || {};
   if (!newPassword || newPassword.length < 6) {
     return res.status(400).json({ error: 'New password must be at least 6 characters' });
@@ -2345,7 +2345,7 @@ app.post('/api/tawkto/config', requireAdmin, (req, res) => {
 // ORDER EXECUTION & TRADING ENGINE API
 // ----------------------------------------------------
 
-app.get('/api/orders', (req, res) => {
+app.get('/api/orders', requireAdmin, (req, res) => {
   const email = req.query.email as string;
   if (email) {
     const userOrders = appOrdersStore.filter(o => o.userEmail === email || o.email === email);
@@ -2759,7 +2759,7 @@ function buildAxiEmailHtml({
 }
 
 // SMTP Status & Config Management Endpoint
-app.get('/api/email/config', (req, res) => {
+app.get('/api/email/config', requireAdmin, (req, res) => {
   res.json({
     success: true,
     smtpHost: smtpRuntimeConfig.host,
@@ -2773,7 +2773,7 @@ app.get('/api/email/config', (req, res) => {
   });
 });
 
-app.post('/api/email/config', (req, res) => {
+app.post('/api/email/config', requireAdmin, (req, res) => {
   const { host, port, user, pass, fromName, fromEmail } = req.body || {};
 
   if (host) smtpRuntimeConfig.host = host;
@@ -2798,7 +2798,7 @@ app.post('/api/email/config', (req, res) => {
 });
 
 // Direct Test Email Dispatch Endpoint
-app.post('/api/email/test', async (req, res) => {
+app.post('/api/email/test', requireAdmin, async (req, res) => {
   const { targetEmail, templateType = 'Registration' } = req.body || {};
 
   const recipient = targetEmail || smtpRuntimeConfig.user || 'axicustomersupport@gmail.com';
