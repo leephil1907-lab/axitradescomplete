@@ -16,6 +16,7 @@ import ReferAFriendModal from './components/ReferAFriendModal';
 import VoiceNoteRecorderModal, { VoiceNote } from './components/VoiceNoteRecorderModal';
 import Header from './components/Header';
 import Footer from './components/Footer';
+import ViewErrorBoundary from './components/ViewErrorBoundary';
 import LoginView from './components/LoginView';
 import AcademyView from './components/AcademyView';
 import AdminDashboardView from './components/AdminDashboardView';
@@ -563,6 +564,9 @@ export default function App() {
           exit={{ opacity: 0, y: -12, scale: 0.995 }}
           transition={{ duration: 0.28, ease: [0.16, 1, 0.3, 1] }}
         >
+          {/* Per-view boundary: a failure in one view must never dead-end the
+              whole application. Reset on every view change. */}
+          <ViewErrorBoundary viewKey={currentView}>
           {currentView === 'login' && (
             <LoginView 
               setView={setView} 
@@ -714,6 +718,7 @@ export default function App() {
               convertFromUSD={convertFromUSD}
             />
           )}
+          </ViewErrorBoundary>
         </motion.main>
       </AnimatePresence>
 

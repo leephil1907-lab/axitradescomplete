@@ -123,7 +123,16 @@ class LiveMarketFeedService {
   }
 
   private notify() {
-    for (const listener of this.listeners) listener({ ...this.currentQuotes });
+    const snapshot = { ...this.currentQuotes };
+    for (const listener of this.listeners) {
+      try {
+        listener(snapshot);
+      } catch (err) {
+        // A single failing subscriber must never break the quote loop or
+        // escape into an interval/websocket handler as an uncaught error.
+        console.error('[liveMarketFeed] subscriber error:', err);
+      }
+    }
   }
 
   public async fetchServerQuotes() {

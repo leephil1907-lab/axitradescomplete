@@ -63,7 +63,26 @@ export default function Header({
   const [activeDropdown, setActiveDropdown] = useState<string | null>(null);
   const [activeMobileDropdown, setActiveMobileDropdown] = useState<string | null>(null);
   const [showLanguageModal, setShowLanguageModal] = useState(false);
-  const [selectedLang, setSelectedLang] = useState(() => localStorage.getItem('axi_language') || 'English (Global)');
+  // NOTE: The platform is served in English. Browser auto-translate is disabled
+  // site-wide (index.html notranslate meta) because machine-translating this live
+  // React app corrupted React's DOM and caused the "NotFoundError … not found
+  // here" crash. So the interface always runs in English; the list is retained
+  // for display only.
+  const [selectedLang, setSelectedLang] = useState('English (Global)');
+
+  const handleLanguageSelect = (name: string) => {
+    localStorage.setItem('axi_language', name);
+    setShowLanguageModal(false);
+    if (name !== 'English (Global)') {
+      // Informational only — the live interface stays in English.
+      setSelectedLang('English (Global)');
+      if (showToast) {
+        showToast('The live trading interface is English-only to keep it stable and accurate. Browser auto-translation is disabled.', 'info');
+      }
+    } else {
+      setSelectedLang('English (Global)');
+    }
+  };
   const [userDropdownOpen, setUserDropdownOpen] = useState(false);
   // AXI_HIDDEN_ADMIN_TRIGGER_V3
   const [hiddenAdminClicks,setHiddenAdminClicks]=useState(0);
@@ -740,7 +759,7 @@ export default function Header({
               {languages.map((lang, idx) => (
                 <button
                   key={idx}
-                  onClick={() => { localStorage.setItem('axi_language', lang.name); setSelectedLang(lang.name); setShowLanguageModal(false); }}
+                  onClick={() => handleLanguageSelect(lang.name)}
                   className={`flex items-center gap-3 p-2.5 rounded-lg border text-left text-xs transition cursor-pointer ${
                     selectedLang === lang.name ? 'border-[#F5CE47] bg-[#F5CE47]/10 text-white font-bold' : 'border-neutral-800 hover:bg-neutral-800 text-neutral-300'
                   }`}
