@@ -1,4 +1,5 @@
 import React from 'react';
+import { reportFrontendError } from './utils/reportFrontendError';
 
 interface Props { children: React.ReactNode; }
 interface State { hasError: boolean; message: string; stack?: string; recovering: boolean; }
@@ -30,6 +31,9 @@ export default class AppErrorBoundary extends React.Component<Props, State> {
 
   componentDidCatch(error: unknown, info: React.ErrorInfo) {
     console.error('[AXI] Frontend runtime error', error, info);
+    // Ping the admin via Telegram (server forwards it) with the real error
+    // details, then self-heal transient failures with one auto-reload.
+    reportFrontendError(error, { componentStack: info.componentStack });
     this.scheduleAutoRecovery();
   }
 

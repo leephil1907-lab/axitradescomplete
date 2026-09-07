@@ -120,6 +120,15 @@ function clientIp(req: any): string {
 }
 const BASIC_EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 
+// Recent frontend crashes reported by the UI boundary (capped ring, in-memory)
+// — used as a diagnostic trail alongside the Telegram alert.
+const recentFrontendErrors: { message: string; pageUrl: string; browser: string; suppressed: boolean; at: string }[] = [];
+function recordFrontendError(entry: { message: string; pageUrl: string; browser: string; suppressed: boolean }) {
+  recentFrontendErrors.unshift({ ...entry, at: new Date().toISOString() });
+  if (recentFrontendErrors.length > 100) recentFrontendErrors.pop();
+  console.warn('[Axi client error]', entry.suppressed ? '(suppressed repeat)' : '(alerted)', entry.message.slice(0, 200), '|', entry.pageUrl);
+}
+
 // Stripe configuration & lazy client initialization
 let stripeClient: Stripe | null = null;
 function getStripe(): Stripe | null {
@@ -1759,6 +1768,87 @@ function notifyTelegram(title: string, fields: Record<string, any>) {
     })
   }).catch(e => console.error('Telegram notification error:', e));
 }
+
+// ----------------------------------------------------
+// CLIENT-SIDE CRASH REPORTER (Telegram alert)
+// ----------------------------------------------------
+// The UI error boundary POSTs uncaught frontend errors here so the admin is
+// alerted the moment any user hits the crash card — with the REAL (English)
+// message, the page URL and the browser UA (error messages often contain raw
+// "<...>" which would break Telegram's HTML mode, so we escape everything).
+// Anonymous by design (crashes hit guests too); rate-limited + deduped so the
+// chat can never be flooded. Fire-and-forget; the UI never blocks on it.
+function telegramEscape(value: string): string {
+  return String(value)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+app.post('/api/client/error-report', async (req, res) => {
+  try {
+    const body = req.body || {};
+    const rawMessage = String(body.message || '').trim();
+    const stack = String(body.stack || '').trim();
+    const componentStack = String(body.componentStack || '').trim();
+    const pageUrl = String(body.url || '').trim();
+
+    if (!rawMessage) {
+      return res.status(400).json({ success: false, message: 'message is required' });
+    }
+    const message = rawMessage.slice(0, 600);
+    const ipKey = clientIp(req);
+
+    // Anti-abuse: 8/min per IP, 80/10min globally — generous enough that a
+    // widespread release issue alerts many times, but bounded so the chat
+    // cannot be flooded by a single visitor or script.
+    if (hitRateLimit(`err-ip:${ipKey}`, 8, 60000)) {
+      return res.status(429).json({ success: false });
+    }
+    if (hitRateLimit(`err-global`, 80, 600000)) {
+      return res.status(429).json({ success: false });
+    }
+
+    // Dedupe: suppress near-identical repeats for the same page within 2
+    // minutes (e.g. the boundary's own auto-reload self-heal) so one crash
+    // does not spam the admin chat.
+    const dedupeKey = `err-dedupe:${message.slice(0, 140)}:${pageUrl.slice(0, 120)}`;
+    const suppressed = hitRateLimit(dedupeKey, 1, 120000);
+
+    if (!suppressed) {
+      const botToken = process.env.TELEGRAM_BOT_TOKEN;
+      const chatId = process.env.TELEGRAM_CHAT_ID;
+      if (botToken && chatId) {
+        const esc = telegramEscape;
+        const parts: string[] = [];
+        parts.push(`• <b>Message</b>: ${esc(message)}`);
+        parts.push(`• <b>Page</b>: ${esc(pageUrl || '(unknown)')}`);
+        parts.push(`• <b>Browser</b>: ${esc(String(req.headers['user-agent'] || '').slice(0, 220))}`);
+        if (stack) parts.push(`\n<b>Stack</b>:\n<pre>${esc(stack.slice(0, 1600))}</pre>`);
+        if (componentStack) parts.push(`\n<b>Component</b>:\n<pre>${esc(componentStack.slice(0, 600))}</pre>`);
+        const text = `<b>[Axi Trades - ⚠️ FRONTEND ERROR]</b>\n\n${parts.join('\n')}\n\n<i>Timestamp: ${new Date().toUTCString()}</i>`;
+        fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ chat_id: chatId, text, parse_mode: 'HTML' })
+        }).catch((e) => console.error('Telegram frontend-error alert failed:', e));
+      }
+    }
+
+    recordFrontendError({
+      message,
+      pageUrl: pageUrl || '(unknown)',
+      browser: String(req.headers['user-agent'] || '').slice(0, 220),
+      suppressed,
+    });
+
+    return res.json({ success: true, suppressed });
+  } catch (e: any) {
+    console.error('Error-report handler failed:', e?.message || e);
+    return res.status(500).json({ success: false });
+  }
+});
 
 // ----------------------------------------------------
 // USER ACCOUNTS & REGISTRATION API
