@@ -4,7 +4,7 @@ import {
   X, ChevronDown, Globe, ShieldCheck, User, LayoutDashboard, Wallet, 
   LogOut, TrendingUp, ChevronRight, PhoneCall, FileText, BarChart2, Zap, 
   BookOpen, Award, Layers, Coins, Landmark, HelpCircle, ArrowRight,
-  Users, Server, Gift, Calendar, Sparkles, DollarSign
+  Users, Server, Gift, Calendar, Sparkles, DollarSign, Sun, Moon
 } from 'lucide-react';
 import { ViewType, DisplayCurrency } from '../types';
 import CurrencySelector from './CurrencySelector';
@@ -55,6 +55,8 @@ export default function Header({
   showToast, 
   displayCurrency = 'USD',
   setDisplayCurrency,
+  isDarkMode = false,
+  toggleDarkMode,
 }: HeaderProps) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [activeDropdown, setActiveDropdown] = useState<string | null>(null);
@@ -459,6 +461,26 @@ export default function Header({
                   <button onClick={() => handleNav('settings')} className="w-full text-left p-2 rounded hover:bg-neutral-800 flex items-center gap-2 cursor-pointer">
                     <ShieldCheck className="w-3.5 h-3.5 text-[#F5CE47]" /> Profile & KYC
                   </button>
+                  {/* Theme toggle inside the account drop-down menu */}
+                  {toggleDarkMode && (
+                    <div className="p-2 border-t border-neutral-800 mt-1">
+                      <p className="text-[10px] uppercase font-black tracking-widest text-neutral-500 mb-1.5">Appearance</p>
+                      <div className="flex gap-1.5">
+                        <button
+                          onClick={() => { if (isDarkMode) toggleDarkMode(); }}
+                          className={`flex-1 flex items-center justify-center gap-1.5 rounded-lg px-2 py-1.5 text-[11px] font-bold transition cursor-pointer ${!isDarkMode ? 'bg-[#C8102E] text-white' : 'bg-neutral-900 text-neutral-300 hover:bg-neutral-800 hover:text-white'}`}
+                        >
+                          <Sun className="w-3.5 h-3.5" /> Light
+                        </button>
+                        <button
+                          onClick={() => { if (!isDarkMode) toggleDarkMode(); }}
+                          className={`flex-1 flex items-center justify-center gap-1.5 rounded-lg px-2 py-1.5 text-[11px] font-bold transition cursor-pointer ${isDarkMode ? 'bg-[#C8102E] text-white' : 'bg-neutral-900 text-neutral-300 hover:bg-neutral-800 hover:text-white'}`}
+                        >
+                          <Moon className="w-3.5 h-3.5" /> Dark
+                        </button>
+                      </div>
+                    </div>
+                  )}
                   {logout && (
                     <button onClick={() => { logout(); setUserDropdownOpen(false); }} className="w-full text-left p-2 rounded hover:bg-red-500/20 text-red-400 flex items-center gap-2 border-t border-neutral-800 mt-1 cursor-pointer">
                       <LogOut className="w-3.5 h-3.5" /> Log Out
@@ -554,6 +576,22 @@ export default function Header({
 
               {/* Drawer Navigation Links */}
               <div className="flex-1 p-5 flex flex-col gap-4 overflow-y-auto">
+                {/* Theme toggle inside mobile menu */}
+                {toggleDarkMode && (
+                  <button
+                    onClick={() => { toggleDarkMode(); }}
+                    className="w-full flex items-center justify-between gap-3 bg-neutral-900 border border-neutral-800 rounded-xl px-4 py-3 text-left transition cursor-pointer"
+                  >
+                    <span className="flex items-center gap-2.5 text-xs font-bold text-white">
+                      {isDarkMode ? <Sun className="w-4 h-4 text-[#F5CE47]" /> : <Moon className="w-4 h-4 text-[#F5CE47]" />}
+                      {isDarkMode ? 'Light Theme' : 'Dark Theme'}
+                    </span>
+                    <span className="text-[10px] uppercase tracking-wider font-black text-neutral-500">
+                      {isDarkMode ? 'Switch to cream' : 'Switch now'}
+                    </span>
+                  </button>
+                )}
+
                 {/* Quick shortcuts */}
                 <div>
                   <p className="text-[10px] font-black uppercase tracking-[0.18em] text-neutral-500 mb-2">Quick Access</p>

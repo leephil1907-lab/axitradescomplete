@@ -175,3 +175,36 @@ img, video, canvas, svg { max-width: 100%; height: auto; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: 0.001ms !important; transition-duration: 0.001ms !important; }
 }
+
+/* ============================================================================
+   Dark theme surfaces (html.dark) — the toggle re-skins the light fixed
+   palettes so the whole site flips to the dark navy scheme. The brand-red
+   chrome, header, footer, and dark product panels already use dark-safe
+   palettes and are intentionally left alone.
+   ========================================================================== */
+html.dark .bg-white { background-color: #0F172A; }
+html.dark .bg-slate-50 { background-color: #121B31; }
+html.dark .bg-slate-100 { background-color: #16203A; }
+html.dark .bg-slate-200 { background-color: #1D2A47; }
+html.dark .border-slate-100 { border-color: #22304E; }
+html.dark .border-slate-200 { border-color: #2A3A5C; }
+
+/* Body-copy colors on the (now dark) light surfaces become light text. */
+html.dark .text-slate-900 { color: #F1F5F9; }
+html.dark .text-slate-800 { color: #CBD5E1; }
+html.dark .text-slate-700 { color: #94A3B8; }
+html.dark .text-slate-600 { color: #94A3B8; }
+html.dark .text-slate-500 { color: #A3B2C7; }
+
+/* Brand light helpers map to dark equivalents. */
+html.dark .bg-brand-light { background-color: #0F172A; }
+html.dark .text-brand-dark { color: #F1F5F9; }
+
+/* Ensure dark-mode inputs/selects remain legible on the remapped surfaces. */
+html.dark input:not([type="checkbox"]):not([type="radio"]),
+html.dark select,
+html.dark textarea {
+  border-color: rgba(71, 85, 105, 0.8);
+  background-color: #0B1220;
+  color: #E2E8F0;
+}
