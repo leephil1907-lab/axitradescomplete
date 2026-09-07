@@ -89,30 +89,9 @@ export default function HeroSlideshow({ onAction }: HeroSlideshowProps) {
   
   const currentSlide = activeSlides[currentIndex];
 
-  const updateMetaTags = useCallback((slide: typeof activeSlides[0]) => {
-    // Basic meta tags update
-    const ogImage = document.querySelector('meta[property="og:image"]');
-    if (ogImage) ogImage.setAttribute('content', slide.image);
-    else {
-      const meta = document.createElement('meta');
-      meta.setAttribute('property', 'og:image');
-      meta.content = slide.image;
-      document.head.appendChild(meta);
-    }
-
-    const twImage = document.querySelector('meta[name="twitter:image"]');
-    if (twImage) twImage.setAttribute('content', slide.image);
-    else {
-      const meta = document.createElement('meta');
-      meta.name = 'twitter:image';
-      meta.content = slide.image;
-      document.head.appendChild(meta);
-    }
-  }, []);
-
-  useEffect(() => {
-    updateMetaTags(currentSlide);
-  }, [currentIndex, currentSlide, updateMetaTags]);
+  // NOTE: social/SEO metadata (og:image, twitter:image, title, description) is
+  // static in index.html — crawlers read the initial document head and never see
+  // client-side mutations, so we intentionally do NOT rewrite those tags here.
 
   const goToSlide = (index: number, manual: boolean = false) => {
     setCurrentIndex(index);

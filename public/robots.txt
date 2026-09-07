@@ -1,4 +1,9 @@
--e User-agent: *
+User-agent: *
 Allow: /
 
-Sitemap: https://axitrades.com/sitemap.xml
+# Private / account-only SPA paths — never index these.
+Disallow: /admin
+Disallow: /reset-password
+Disallow: /verify-email
+
+Sitemap: https://www.axitrades.com/sitemap.xml
