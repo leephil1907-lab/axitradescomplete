@@ -48,6 +48,7 @@ let currentCode = '';
 let observer: MutationObserver | null = null;
 let flushTimer: ReturnType<typeof setTimeout> | null = null;
 let retryCount = 0;
+let applying = false; // true while we are writing our own translations
 const cache = new Map<string, string>(); // `${code}\u0001${core}` -> translated
 const pending = new Set<Text>();
 
@@ -126,10 +127,10 @@ async function flush() {
       retryCount = 0;
       data.translated.forEach((tr: string, i: number) => {
         const src = toFetch[i];
-        if (tr && tr.trim() && tr.trim() !== src) {
+        if (tr && tr.trim()) {
           const safe = tr.trim();
-          fetched.set(src, safe);
-          cache.set(`${currentCode}\u0001${src}`, safe);
+          if (safe !== src) { fetched.set(src, safe); cache.set(`${currentCode}\u0001${src}`, safe); }
+          else { cache.set(`${currentCode}\u0001${src}`, src); } // identity (e.g. "Bitcoin"): remember so we never refetch
         }
       });
       // Success: remove the processed nodes from the pending queue.
@@ -147,18 +148,25 @@ async function flush() {
     for (const n of batch) pending.delete(n);
   }
   // apply
-  for (const core of unique) {
-    const tr = cache.get(`${currentCode}\u0001${core}`) || fetched.get(core);
-    if (!tr) continue;
-    for (const node of map.get(core) || []) {
-      if (!node.isConnected) continue;
-      const raw = node.nodeValue || '';
-      const trimmed = raw.trim();
-      if (!trimmed || trimmed === tr) continue;
-      const pre = raw.slice(0, raw.length - raw.trimStart().length);
-      const post = raw.slice(raw.trimEnd().length);
-      try { node.nodeValue = pre + tr + post; } catch { /* detached */ }
+  applying = true;
+  try {
+    for (const core of unique) {
+      const tr = cache.get(`${currentCode}\u0001${core}`) || fetched.get(core);
+      if (!tr) continue;
+      for (const node of map.get(core) || []) {
+        if (!node.isConnected) continue;
+        const raw = node.nodeValue || '';
+        const trimmed = raw.trim();
+        if (!trimmed || trimmed === tr) continue;
+        const pre = raw.slice(0, raw.length - raw.trimStart().length);
+        const post = raw.slice(raw.trimEnd().length);
+        try { node.nodeValue = pre + tr + post; } catch { /* detached */ }
+      }
     }
+  } finally {
+    // Leave `applying` true until queued observer microtasks have run, so our
+    // own characterData writes are not mistaken for React re-renders.
+    setTimeout(() => { applying = false; }, 0);
   }
   // Drain the queue: translations stream in batches so large views fully translate.
   if (pending.size) queueFlush(240);
@@ -177,9 +185,13 @@ function startEngine(code: string) {
     let changed = false;
     for (const m of muts) {
       if (m.type === 'characterData' && m.target.nodeType === Node.TEXT_NODE) {
+        if (applying) continue; // our own translation write, already handled
         const t = m.target as Text;
         if (looksSkippable(t)) continue;
         const core = coreOf(t);
+        // If React re-rendered a node back to its (cached) source English text,
+        // re-queue it so the translation is re-applied. Identity translations are
+        // cached as-is, so nodes that legitimately stay the same never re-fetch.
         if (core && core !== cache.get(`${currentCode}\u0001${core}`)) { pending.add(t); changed = true; }
       } else if (m.type === 'childList') {
         for (const added of m.addedNodes) {
