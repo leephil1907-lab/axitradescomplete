@@ -9,7 +9,7 @@ import Stripe from 'stripe';
 import nodemailer from 'nodemailer';
 import { sendAxiEmail } from './emailService';
 import { sendRegistrationEmails, sendPasswordResetEmail } from './server/emailService';
-import { hasPostgres, initPostgres, dbUsers, dbFindUser, dbUpsertUser, dbUpdateUser, dbAdjustBalance, dbBalanceLedger, audit, dbAuditLogs, dbPaymentMethods, dbSavePaymentMethods, dbCreateFunding, dbFundingPending, dbCreditFunding } from './server/postgres';
+import { hasPostgres, initPostgres, dbUsers, dbFindUser, dbUpsertUser, dbUpdateUser, dbAdjustBalance, dbBalanceLedger, audit, dbAuditLogs, dbPaymentMethods, dbSavePaymentMethods, dbCreateFunding } from './server/postgres';
 import YahooFinanceRaw from 'yahoo-finance2';
 import { requireAuth, requireAdmin, authenticateAdminCredentials, adminLoginConfigured } from './server/adminAuth';
 import { initControlPlane, registerControlPlane } from './server/controlPlane';
@@ -379,40 +379,10 @@ app.post('/api/webhook/trading-signals', (req, res) => {
 });
 
 
-// Production funding review endpoints. Stripe payments are never auto-credited.
-app.get('/api/admin/funding/pending', requireAdmin,  async (_req, res) => {
-  const persisted = await dbFundingPending().catch(() => null);
-  if (persisted) return res.json({ deposits: persisted, source: 'postgres' });
-  const deposits = readDataFile<any[]>('pendingDeposits.json', []);
-  res.json({ deposits: deposits.filter(d => !d.creditedByAdmin && d.status !== 'Rejected'), source: 'fallback' });
-});
-
-app.post('/api/admin/funding/:id/credit', requireAdmin,  async (req, res) => {
-  const id = String(req.params.id || '');
-  const deposits = readDataFile<any[]>('pendingDeposits.json', []);
-  const index = deposits.findIndex(d => d.id === id);
-  if (index < 0) return res.status(404).json({ error: 'Funding record not found' });
-  const persistedCredit = await dbCreditFunding(id, String((req as any).adminEmail || 'unknown-admin')).catch(() => null);
-  const deposit = deposits[index];
-  if (deposit.creditedByAdmin || deposit.status === 'Credited') return res.status(409).json({ error: 'Funding record has already been credited' });
-  const creditedBalance = Number(req.body?.creditedBalance);
-  if (!Number.isFinite(creditedBalance) || creditedBalance < 0) return res.status(400).json({ error: 'Invalid credited balance' });
-  deposits[index] = { ...deposit, status: 'Credited', creditedByAdmin: true, creditedAt: new Date().toISOString(), creditedBalance, creditedUserId: String(req.body?.userId || '') };
-  writeDataFile('pendingDeposits.json', deposits);
-  await audit('ADMIN_FUNDING_CREDIT', { actor: String((req as any).adminEmail || 'unknown-admin'), userId: String(req.body?.userId || ''), metadata: { fundingId: id, creditedBalance } }).catch(() => {});
-  res.json({ success: true, deposit: deposits[index], persisted: Boolean(persistedCredit) });
-});
-
-app.post('/api/admin/funding/:id/reject', requireAdmin,  (req, res) => {
-  const id = String(req.params.id || '');
-  const deposits = readDataFile<any[]>('pendingDeposits.json', []);
-  const index = deposits.findIndex(d => d.id === id);
-  if (index < 0) return res.status(404).json({ error: 'Funding record not found' });
-  if (deposits[index].creditedByAdmin) return res.status(409).json({ error: 'Credited funding cannot be rejected' });
-  deposits[index] = { ...deposits[index], status: 'Rejected', rejectedAt: new Date().toISOString(), rejectedByAdmin: true };
-  writeDataFile('pendingDeposits.json', deposits);
-  res.json({ success: true, deposit: deposits[index] });
-});
+// Admin funding review is owned by the atomic control-plane routes
+// (registerFundingControlPlane above): pending list, transaction-safe credit that
+// increases the user balance in PostgreSQL, and rejection. There is deliberately NO
+// second registration here — a duplicate could shadow the atomic implementation.
 
 const PAYMENT_METHODS_FILE = 'paymentMethods.json';
 
@@ -1434,7 +1404,10 @@ app.post('/api/stripe/verify-deposit', requireAuth,  async (req, res) => {
     else if (resolvedEmail && !resolvedUserId) { const byMail = await dbFindUser(resolvedEmail).catch(() => null); if (byMail) { resolvedUserId = String(byMail.id); resolvedEmail = String(byMail.email || resolvedEmail).toLowerCase(); } }
     const email = resolvedEmail || userId;
     const pendingDeposits = readDataFile<any[]>('pendingDeposits.json', []);
-    if (!pendingDeposits.find(d => d.id === refCode)) {
+    // If the Stripe webhook already recorded this refCode (and already sent the admin its
+    // STRIPE_PAYMENT alert), we must not duplicate either the record or the Telegram ping.
+    const alreadyRecorded = pendingDeposits.some(d => d.id === refCode);
+    if (!alreadyRecorded) {
       pendingDeposits.unshift({
         id: refCode,
         userEmail: email,
@@ -1449,12 +1422,15 @@ app.post('/api/stripe/verify-deposit', requireAuth,  async (req, res) => {
       writeDataFile('pendingDeposits.json', pendingDeposits);
     }
     // PostgreSQL single-source-of-truth record for the admin funding queue.
+    // Idempotent (ON CONFLICT DO NOTHING) so it is safe whether or not the webhook ran first.
     if (hasPostgres() && email) {
       await dbCreateFunding({ id: refCode, userId: resolvedUserId || null, userEmail: email, amount: verifiedAmount, currency: 'USD', method: 'Card (Stripe)', status: 'Awaiting Admin Credit', externalReference: refCode }).catch((error: any) => console.warn('[Axi] verify-deposit funding record could not be written to PostgreSQL:', error?.message || error));
     }
     const botToken2 = process.env.TELEGRAM_BOT_TOKEN;
     const chatId2 = process.env.TELEGRAM_CHAT_ID;
-    if (botToken2 && chatId2) {
+    // Alert the admin only when this call created the record. If the webhook already
+    // recorded it, that webhook already dispatched the ACTION REQUIRED Telegram ping.
+    if (!alreadyRecorded && botToken2 && chatId2) {
       fetch(`https://api.telegram.org/bot${botToken2}/sendMessage`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -2114,102 +2090,6 @@ app.post('/api/kyc/reject', requireAdmin,  (req, res) => {
   });
 
   res.json({ success: true, document: docItem });
-});
-
-// ----------------------------------------------------
-// PENDING STRIPE DEPOSITS — ADMIN MANUAL CREDIT API
-// ----------------------------------------------------
-// Stripe payments are collected into the Stripe balance only. They are recorded
-// here as "pending" and the admin manually credits the exact paid amount to the
-// user from the Admin Dashboard. Stripe never touches the user balance.
-
-app.get('/api/deposits/pending', (req, res) => {
-  const pendingDeposits = readDataFile<any[]>('pendingDeposits.json', []);
-  res.json({
-    success: true,
-    deposits: pendingDeposits,
-    total: pendingDeposits.length,
-    pendingCount: pendingDeposits.filter(d => !d.creditedByAdmin).length
-  });
-});
-
-// Admin manually credits a pending Stripe deposit to the user's balance.
-// Body: { id, amount (exact paid amount), userId (optional override) }
-app.post('/api/deposits/credit', (req, res) => {
-  const { id, amount, userId } = req.body || {};
-  if (!id) return res.status(400).json({ error: 'Deposit id is required' });
-
-  const pendingDeposits = readDataFile<any[]>('pendingDeposits.json', []);
-  const deposit = pendingDeposits.find(d => d.id === id || d.stripeRef === id);
-  if (!deposit) return res.status(404).json({ error: 'Pending deposit not found' });
-  if (deposit.creditedByAdmin) return res.status(409).json({ error: 'This deposit has already been credited' });
-
-  const creditAmount = typeof amount === 'number' && amount > 0 ? amount : deposit.amount;
-  const lookupKey = (userId || deposit.userEmail || deposit.user?.email || deposit.id || '').toLowerCase();
-
-  const targetUser = appUsersStore.find(
-    u => u.email.toLowerCase() === lookupKey ||
-         u.id.toLowerCase() === lookupKey ||
-         (deposit.user && u.id === deposit.user.id)
-  );
-
-  if (!targetUser) {
-    return res.status(404).json({ error: 'User not found for this deposit. Ensure the user is registered.' });
-  }
-
-  // Credit the EXACT paid amount to the user's live balance
-  targetUser.balance = (typeof targetUser.balance === 'number' ? targetUser.balance : 0) + creditAmount;
-  targetUser.updatedAt = new Date().toISOString();
-
-  // Mark deposit as credited
-  deposit.creditedByAdmin = true;
-  deposit.creditedAt = new Date().toISOString();
-  deposit.creditedAmount = creditAmount;
-  deposit.creditedToUser = targetUser.email;
-
-  writeDataFile('users.json', appUsersStore);
-  writeDataFile('pendingDeposits.json', pendingDeposits);
-
-  // Record a transaction for audit
-  const txEntry = {
-    id: deposit.id,
-    type: 'Deposit',
-    amount: creditAmount,
-    method: deposit.method || 'Stripe Card',
-    date: new Date().toISOString().replace('T', ' ').substring(0, 19),
-    status: 'Approved',
-    account: 'Live ECN Account',
-    refCode: deposit.stripeRef || deposit.id,
-    userEmail: targetUser.email,
-    proofNote: `Manually credited by admin (Stripe payment ${deposit.stripeRef || deposit.id})`
-  };
-  appTransactionsStore.unshift(txEntry);
-  writeDataFile('transactions.json', appTransactionsStore);
-
-  notifyTelegram('ADMIN_DEPOSIT_CREDITED', {
-    'User': `${targetUser.name} (${targetUser.email})`,
-    'Amount Credited': `$${creditAmount.toFixed(2)} USD`,
-    'Stripe Ref': deposit.stripeRef || deposit.id,
-    'New Balance': `$${targetUser.balance.toLocaleString()} USD`
-  });
-
-  res.json({ success: true, deposit, user: targetUser, creditedAmount: creditAmount });
-});
-
-// Dismiss / remove a pending deposit (e.g. disputed or invalid) without crediting
-app.post('/api/deposits/dismiss', (req, res) => {
-  const { id, reason } = req.body || {};
-  const pendingDeposits = readDataFile<any[]>('pendingDeposits.json', []);
-  const deposit = pendingDeposits.find(d => d.id === id || d.stripeRef === id);
-  if (!deposit) return res.status(404).json({ error: 'Pending deposit not found' });
-
-  deposit.creditedByAdmin = false;
-  deposit.dismissed = true;
-  deposit.dismissedAt = new Date().toISOString();
-  deposit.dismissedReason = reason || 'Dismissed by admin without credit';
-  writeDataFile('pendingDeposits.json', pendingDeposits);
-
-  res.json({ success: true, deposit });
 });
 
 // ----------------------------------------------------

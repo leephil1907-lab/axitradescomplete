@@ -43,6 +43,7 @@ export function StripeCheckoutForm({ amount, currency, onSuccess, onCancel }: St
     } else if (paymentIntent && paymentIntent.status === 'succeeded') {
       onSuccess({
         id: paymentIntent.id,
+        status: paymentIntent.status,
         method: 'Credit/Debit Card (Stripe)',
         amount: (paymentIntent.amount / 100),
         date: new Date().toISOString().replace('T', ' ').substring(0, 19),
@@ -56,8 +57,12 @@ export function StripeCheckoutForm({ amount, currency, onSuccess, onCancel }: St
       setErrorMessage('Additional authentication is required by your bank. Please complete the 3D-Secure verification prompted by your card issuer, then try again.');
       setIsProcessing(false);
     } else if (paymentIntent && paymentIntent.status === 'processing') {
+      // Rare async-authorization state: the charge has not settled yet. Surface it as
+      // "processing" so the caller records it as pending and lets the Stripe webhook
+      // (payment_intent.succeeded) drive the admin alert when the charge completes.
       onSuccess({
         id: paymentIntent.id,
+        status: paymentIntent.status,
         method: 'Credit/Debit Card (Stripe)',
         amount: (paymentIntent.amount / 100),
         date: new Date().toISOString().replace('T', ' ').substring(0, 19),

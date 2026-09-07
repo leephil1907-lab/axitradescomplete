@@ -434,36 +434,16 @@ export default function FundsView({
     const urlParams = new URLSearchParams(window.location.search);
     const depositSuccess = urlParams.get('deposit_success');
     const sessionId = urlParams.get('session_id');
-    const depositAmountParam = urlParams.get('amount');
     const depositCancelled = urlParams.get('deposit_cancelled');
-    const paymentIntentResult = urlParams.get('payment_intent_result');
 
     if (depositSuccess && sessionId) {
-      const amountNum = parseFloat(depositAmountParam || '0') || 0;
-      const txId = `DEP-STRIPE-${sessionId.substring(sessionId.length - 6).toUpperCase()}`;
-      
-      const newTx = {
-        id: txId,
-        type: 'Deposit',
-        amount: amountNum,
-        date: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' }),
-        status: 'Pending Verification',
-        method: 'Credit / Debit Card (Stripe Verified)',
-        network: 'Stripe 3DS Secure',
-        recipient: 'Axi Clearing House',
-        txHash: sessionId,
-        senderName: 'Authorized Cardholder',
-        notes: 'Stripe Checkout Session confirmed. Awaiting Compliance clearance.'
-      };
-
-      addTransaction(newTx);
-      showToast(`Stripe deposit of $${amountNum.toLocaleString()} received. Under review by Axi Compliance.`, 'success');
-      setActiveTab('history');
-
-      // Clean URL without reloading
-      const cleanUrl = window.location.pathname;
-      window.history.replaceState({}, document.title, cleanUrl);
-    } else if (depositCancelled) {
+      // The confirmed Stripe Checkout payment is verified server-side by the app-wide
+      // useStripePayment hook (it records the "Awaiting Admin Credit" funding entry, alerts
+      // the admin on Telegram and cleans the URL). Nothing extra is recorded here — that
+      // would create a duplicate transaction and a misleading "Compliance clearance" state.
+      return;
+    }
+    if (depositCancelled) {
       showToast('Card deposit session was cancelled.', 'info');
       const cleanUrl = window.location.pathname;
       window.history.replaceState({}, document.title, cleanUrl);

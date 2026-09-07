@@ -320,6 +320,71 @@ export default function QuickDepositModal({
     if (showToast) showToast(`Wire Transfer Recorded: $${numAmount.toLocaleString()} USD pending bank receipt.`, 'info');
   };
 
+  // Stripe inline card success (PaymentElement confirmPayment returned a terminal state).
+  // Stripe has already collected the money into the merchant Stripe balance. The server is
+  // asked to confirm the PaymentIntent with Stripe so it can (a) record the payment as
+  // "Awaiting Admin Credit" for the admin funding queue and (b) alert the admin on Telegram
+  // to manually credit the exact paid amount. The user balance is NEVER touched on the client.
+  const handleStripeCardSuccess = async (txResult: any) => {
+    const numAmount = Number(txResult.amount || amount) || 0;
+    const paymentIntentId = String(txResult.id || '');
+    const piStatus = String(txResult.status || 'succeeded');
+    setIsProcessing(true);
+    let refCode = String(txResult.refCode || '');
+    try {
+      const res = await authenticatedFetch('/api/stripe/verify-deposit', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ paymentIntentId, sessionId: '', amount: numAmount })
+      });
+      const data = await res.json().catch(() => ({}));
+      if (data && data.verified && data.refCode) refCode = String(data.refCode);
+    } catch (e) {
+      // If this transiently fails, the Stripe webhook still records the payment and alerts
+      // the admin; the receipt below honestly reports that the payment was received.
+      console.warn('Card verify-deposit unreachable — the Stripe webhook remains the fallback notifier.', e);
+    }
+
+    const received = piStatus === 'succeeded';
+    const status = received
+      ? 'Payment Received — Awaiting Admin Credit'
+      : 'Payment Processing — Awaiting Confirmation';
+
+    const newTx = {
+      id: String(txResult.id || `DEP-${Math.random().toString(36).substring(2, 8).toUpperCase()}`),
+      type: 'Deposit',
+      amount: numAmount,
+      method: 'Credit/Debit Card (Stripe)',
+      date: String(txResult.date || new Date().toISOString().replace('T', ' ').substring(0, 19)),
+      status,
+      account: 'Live ECN Account',
+      refCode,
+      proofNote: 'Stripe card payment received — admin must manually credit the user balance (no auto-credit).',
+      stripeCard: true
+    };
+
+    if (addTransaction) addTransaction(newTx);
+    authenticatedFetch('/api/transactions/create', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(newTx)
+    }).catch(e => console.info('Transaction sync:', e));
+
+    setTxReceipt(newTx);
+    setIsProcessing(false);
+    setStep('receipt');
+    if (showToast) {
+      if (received) {
+        showToast(
+          `Payment received by Stripe: $${numAmount.toLocaleString()} USD (Ref: ${refCode}). Our finance team will credit your trading balance after verification.`,
+          'success'
+        );
+      } else {
+        showToast(`Payment is processing: $${numAmount.toLocaleString()} USD. We will notify you once it is confirmed.`, 'info');
+      }
+    }
+  };
+
   const handleProceedToDetails = async () => {
     if (maintenanceMode?.active && maintenanceMode?.disableDeposits !== false) {
       if (showToast) {
@@ -915,23 +980,7 @@ export default function QuickDepositModal({
                 <StripeCheckoutForm 
                    amount={Number(amount)} 
                    currency={currency}
-                   onSuccess={(txResult) => {
-                      const newTx = {
-                        id: txResult.id || `DEP-${Math.random().toString(36).substring(2, 8).toUpperCase()}`,
-                        type: 'Deposit',
-                        amount: txResult.amount || Number(amount),
-                        method: txResult.method || 'Credit/Debit Card (Stripe)',
-                        date: txResult.date || new Date().toISOString().replace('T', ' ').substring(0, 19),
-                        status: 'Pending Verification',
-                        account: 'Live ECN Account (#8849201)',
-                        refCode: txResult.refCode || '',
-                        proofNote: 'Stripe Gateway Authorization Submitted • Awaiting Settlement'
-                      };
-                      if (addTransaction) addTransaction(newTx);
-                      setTxReceipt(newTx);
-                      setStep('receipt');
-                      if (showToast) showToast(`Payment Submitted: $${newTx.amount.toLocaleString()} USD is pending verification.`, 'info');
-                   }}
+                   onSuccess={handleStripeCardSuccess}
                    onCancel={() => setStep('amount_method')}
                 />
               </Elements>
@@ -981,9 +1030,17 @@ export default function QuickDepositModal({
                 <span className={`text-[10px] font-black uppercase tracking-widest px-2.5 py-1 rounded-full ${
                   txReceipt.status === 'Completed'
                     ? 'bg-emerald-500/10 text-emerald-500'
-                    : 'bg-amber-500/10 text-amber-500'
+                    : txReceipt.stripeCard
+                      ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
+                      : 'bg-amber-500/10 text-amber-500'
                 }`}>
-                  {txReceipt.status === 'Completed' ? 'Deposit Completed Successfully' : 'Deposit Transfer Recorded'}
+                  {txReceipt.status === 'Completed'
+                    ? 'Deposit Completed Successfully'
+                    : txReceipt.stripeCard && String(txReceipt.status || '').startsWith('Payment Received')
+                      ? 'Payment Received — Admin Credit Pending'
+                      : txReceipt.stripeCard
+                        ? 'Card Payment Recorded'
+                        : 'Deposit Transfer Recorded'}
                 </span>
                 <h3 className="text-2xl font-black text-slate-900 dark:text-white mt-2">
                   ${txReceipt.amount.toLocaleString(undefined, { minimumFractionDigits: 2 })} {currency}
@@ -991,7 +1048,11 @@ export default function QuickDepositModal({
                 <p className="text-xs text-slate-500 font-medium mt-0.5">
                   {txReceipt.status === 'Completed'
                     ? 'Funds credited instantly to Live ECN Trading Account'
-                    : 'Transaction is queued for blockchain / bank verification'}
+                    : txReceipt.stripeCard && String(txReceipt.status || '').startsWith('Payment Received')
+                      ? 'Received securely by Stripe into the company balance. Our finance team credits your trading balance after verification — no card charge is ever auto-credited.'
+                      : txReceipt.stripeCard
+                        ? 'Your card was not charged. Payment is awaiting final confirmation from your bank.'
+                        : 'Transaction is queued for blockchain / bank verification'}
                 </p>
               </div>
 
