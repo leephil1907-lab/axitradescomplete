@@ -307,6 +307,92 @@ app.post('/api/admin/email', requireAdmin, async (req, res) => {
   } catch (e: any) { res.status(503).json({ error: e?.message || 'Email service unavailable' }); }
 });
 
+// ---------------------------------------------------------------------------
+// Admin Compose Email — lets an administrator email a specific real client
+// (or broadcast to every real registered user) straight from the Users
+// section of the dashboard, using the exact same branded HTML template as
+// every automated transactional email. Auth is the admin session/token only
+// (no separate static API key requirement, unlike the legacy endpoint above).
+// ---------------------------------------------------------------------------
+function renderAdminComposeEmailHtml(recipientName: string, recipientEmail: string, subject: string, message: string) {
+  const escapedMessage = String(message || '')
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/\n/g, '<br/>');
+  return buildAxiEmailHtml({
+    recipientName: recipientName || 'Valued Trader',
+    recipientEmail,
+    type: 'Custom',
+    subject,
+    customBody: escapedMessage
+  });
+}
+
+// Preview only — renders the branded email exactly as it will be sent,
+// without dispatching anything. Used by the admin "Preview" step.
+// (express.json() is registered later in the middleware chain, so these two
+// routes parse their own JSON body to avoid depending on route order.)
+app.post('/api/admin/email/preview', express.json(), requireAdmin, async (req, res) => {
+  try {
+    const { recipientEmail, recipientName, subject, message } = req.body || {};
+    const safeSubject = String(subject || '').trim();
+    const safeMessage = String(message || '').trim();
+    if (!safeSubject || !safeMessage) return res.status(400).json({ success: false, error: 'Subject and message are required' });
+    const toEmail = String(recipientEmail || '').trim().toLowerCase() || 'preview@axitrades.com';
+    const html = renderAdminComposeEmailHtml(recipientName, toEmail, safeSubject, safeMessage);
+    res.json({ success: true, html });
+  } catch (e: any) {
+    res.status(500).json({ success: false, error: e?.message || 'Unable to render preview' });
+  }
+});
+
+// Send — single recipient or broadcast to every real registered user.
+app.post('/api/admin/email/compose', express.json(), requireAdmin, async (req, res) => {
+  try {
+    const { recipientEmail, recipientName, subject, message, broadcast } = req.body || {};
+    const safeSubject = String(subject || '').trim();
+    const safeMessage = String(message || '').trim();
+    if (!safeSubject || !safeMessage) return res.status(400).json({ success: false, error: 'Subject and message are required' });
+
+    const actor = String((req as any).adminEmail || (req as any).admin?.email || 'admin');
+
+    const dispatchOne = async (toEmail: string, toName?: string) => {
+      if (!smtpRuntimeConfig.user || !smtpRuntimeConfig.pass) throw new Error('SMTP is not configured on the server');
+      const html = renderAdminComposeEmailHtml(toName || '', toEmail, safeSubject, safeMessage);
+      const transporter = createSmtpTransporter();
+      await transporter.sendMail({
+        from: `"${smtpRuntimeConfig.fromName}" <${smtpRuntimeConfig.fromEmail}>`,
+        to: toEmail,
+        subject: safeSubject,
+        html
+      });
+    };
+
+    if (broadcast) {
+      const users = (await dbUsers().catch(() => null)) || [];
+      const targets = (users as any[]).filter((u: any) => u?.email);
+      if (!targets.length) return res.status(404).json({ success: false, error: 'No real registered users found to email' });
+      let sent = 0;
+      const failures: string[] = [];
+      for (const u of targets) {
+        try { await dispatchOne(String(u.email), u.name); sent++; }
+        catch { failures.push(String(u.email)); }
+      }
+      await audit('ADMIN_EMAIL_BROADCAST', { actor, metadata: { subject: safeSubject, totalRecipients: targets.length, sent, failed: failures.length } });
+      return res.json({ success: true, broadcast: true, totalRecipients: targets.length, sent, failed: failures.length, failures });
+    }
+
+    const toEmail = String(recipientEmail || '').trim().toLowerCase();
+    if (!toEmail) return res.status(400).json({ success: false, error: 'recipientEmail is required' });
+    await dispatchOne(toEmail, recipientName);
+    await audit('ADMIN_EMAIL_SENT', { actor, email: toEmail, metadata: { subject: safeSubject } });
+    res.json({ success: true, dispatchedTo: toEmail });
+  } catch (e: any) {
+    console.error('[Admin Compose Email] dispatch failed:', e?.message || e);
+    res.status(503).json({ success: false, error: e?.message || 'Email service unavailable' });
+  }
+});
+
+
 
 // Return 404 for common framework/config probes instead of serving the SPA shell.
 app.use((req, res, next) => {
