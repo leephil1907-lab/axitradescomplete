@@ -1,35 +1,129 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import {
-  ArrowRight, ArrowUpRight, ChevronDown, Clock, Coins, CreditCard, DollarSign,
-  Globe, Landmark, ShieldCheck, TrendingUp, TrendingDown, Wallet, Zap, X,
-  CheckCircle2, AlertCircle, RefreshCw
+  ArrowRight, ChevronDown, Clock, Coins, DollarSign, Globe, Landmark, ShieldCheck,
+  TrendingUp, TrendingDown, Wallet, Zap, X, CheckCircle2, AlertCircle, RefreshCw,
+  Search, Filter, List, BarChart3
 } from 'lucide-react';
 import { MarketQuote, ViewType } from '../types';
 import AssetBrandLogo from './AssetBrandLogo';
 
-const SPOT_CRYPTO_INSTRUMENTS = [
-  { symbol: 'BTCUSD', name: 'Bitcoin', icon: '₿', color: '#F7931A', minOrder: 0.0001 },
-  { symbol: 'ETHUSD', name: 'Ethereum', icon: 'Ξ', color: '#627EEA', minOrder: 0.001 },
-  { symbol: 'SOLUSD', name: 'Solana', icon: '◎', color: '#00FF87', minOrder: 0.01 },
-  { symbol: 'XRPUSD', name: 'XRP', icon: '✦', color: '#23292F', minOrder: 1 },
-  { symbol: 'DOGEUSD', name: 'Dogecoin', icon: 'Ð', color: '#C2A633', minOrder: 10 },
-  { symbol: 'ADAUSD', name: 'Cardano', icon: '◈', color: '#0033AD', minOrder: 1 },
-  { symbol: 'AVAXUSD', name: 'Avalanche', icon: '🏔️', color: '#EB6925', minOrder: 0.01 },
-  { symbol: 'LINKUSD', name: 'Chainlink', icon: '🔗', color: '#24292E', minOrder: 0.1 },
+export interface SpotInstrument {
+  symbol: string;
+  name: string;
+  category: 'crypto' | 'forex' | 'commodity' | 'index' | 'stock';
+  color: string;
+  minOrder: number;
+  icon?: string;
+}
+
+const SPOT_CRYPTO_INSTRUMENTS: SpotInstrument[] = [
+  { symbol: 'BTCUSD', name: 'Bitcoin', category: 'crypto', color: '#F7931A', minOrder: 0.0001, icon: '₿' },
+  { symbol: 'ETHUSD', name: 'Ethereum', category: 'crypto', color: '#627EEA', minOrder: 0.001, icon: 'Ξ' },
+  { symbol: 'SOLUSD', name: 'Solana', category: 'crypto', color: '#00FF87', minOrder: 0.01, icon: '◎' },
+  { symbol: 'XRPUSD', name: 'XRP', category: 'crypto', color: '#23292F', minOrder: 1, icon: '✦' },
+  { symbol: 'DOGEUSD', name: 'Dogecoin', category: 'crypto', color: '#C2A633', minOrder: 10, icon: 'Ð' },
+  { symbol: 'ADAUSD', name: 'Cardano', category: 'crypto', color: '#0033AD', minOrder: 1, icon: '◈' },
+  { symbol: 'AVAXUSD', name: 'Avalanche', category: 'crypto', color: '#EB6925', minOrder: 0.01, icon: '🏔️' },
+  { symbol: 'LINKUSD', name: 'Chainlink', category: 'crypto', color: '#24292E', minOrder: 0.1, icon: '🔗' },
+  { symbol: 'BNBUSD', name: 'BNB', category: 'crypto', color: '#F3BA2F', minOrder: 0.01, icon: 'bnb' },
+  { symbol: 'DOTUSD', name: 'Polkadot', category: 'crypto', color: '#E6007A', minOrder: 0.1, icon: '•' },
+  { symbol: 'LTCUSD', name: 'Litecoin', category: 'crypto', color: '#B6B7BC', minOrder: 0.01, icon: 'Ł' },
+  { symbol: 'TRXUSD', name: 'TRON', category: 'crypto', color: '#23292F', minOrder: 10, icon: '✦' },
+  { symbol: 'TONUSD', name: 'Toncoin', category: 'crypto', color: '#0088CC', minOrder: 0.1, icon: '💎' },
+  { symbol: 'NEARUSD', name: 'NEAR Protocol', category: 'crypto', color: '#FFFFFF', minOrder: 1, icon: '⧗' },
+  { symbol: 'SUIUSD', name: 'Sui', category: 'crypto', color: '#000000', minOrder: 1, icon: '👁️' },
+  { symbol: 'SHIBUSD', name: 'Shiba Inu', category: 'crypto', color: '#F39C12', minOrder: 100000, icon: '🐕' },
+  { symbol: 'PEPEUSD', name: 'Pepe', category: 'crypto', color: '#3A3A3A', minOrder: 1000000, icon: '🐸' },
+  { symbol: 'MATICUSD', name: 'Polygon', category: 'crypto', color: '#8247E5', minOrder: 1, icon: '△' },
 ];
 
+const SPOT_FOREX_INSTRUMENTS: SpotInstrument[] = [
+  { symbol: 'EURUSD', name: 'EUR / USD', category: 'forex', color: '#003399', minOrder: 0.01 },
+  { symbol: 'GBPUSD', name: 'GBP / USD', category: 'forex', color: '#012169', minOrder: 0.01 },
+  { symbol: 'USDJPY', name: 'USD / JPY', category: 'forex', color: '#BC002D', minOrder: 0.01 },
+  { symbol: 'AUDUSD', name: 'AUD / USD', category: 'forex', color: '#00008B', minOrder: 0.01 },
+  { symbol: 'USDCAD', name: 'USD / CAD', category: 'forex', color: '#D80027', minOrder: 0.01 },
+  { symbol: 'USDCHF', name: 'USD / CHF', category: 'forex', color: '#D52B1E', minOrder: 0.01 },
+  { symbol: 'NZDUSD', name: 'NZD / USD', category: 'forex', color: '#00247D', minOrder: 0.01 },
+  { symbol: 'EURGBP', name: 'EUR / GBP', category: 'forex', color: '#1e293b', minOrder: 0.01 },
+  { symbol: 'EURJPY', name: 'EUR / JPY', category: 'forex', color: '#003399', minOrder: 0.01 },
+  { symbol: 'GBPJPY', name: 'GBP / JPY', category: 'forex', color: '#012169', minOrder: 0.01 },
+];
+
+const SPOT_COMMODITY_INSTRUMENTS: SpotInstrument[] = [
+  { symbol: 'XAUUSD', name: 'Gold', category: 'commodity', color: '#eab308', minOrder: 0.01 },
+  { symbol: 'XAGUSD', name: 'Silver', category: 'commodity', color: '#a1a1aa', minOrder: 0.1 },
+  { symbol: 'USOUSD', name: 'WTI Crude Oil', category: 'commodity', color: '#713f12', minOrder: 0.1 },
+  { symbol: 'BRENTUSD', name: 'Brent Crude Oil', category: 'commodity', color: '#713f12', minOrder: 0.1 },
+  { symbol: 'NATGAS', name: 'Natural Gas', category: 'commodity', color: '#87CEEB', minOrder: 0.1 },
+];
+
+const SPOT_INDEX_INSTRUMENTS: SpotInstrument[] = [
+  { symbol: 'US30', name: 'US 30', category: 'index', color: '#f59e0b', minOrder: 0.1 },
+  { symbol: 'SPX500', name: 'S&P 500', category: 'index', color: '#f59e0b', minOrder: 0.1 },
+  { symbol: 'NAS100', name: 'Nasdaq 100', category: 'index', color: '#f59e0b', minOrder: 0.1 },
+  { symbol: 'UK100', name: 'UK 100', category: 'index', color: '#f59e0b', minOrder: 0.1 },
+  { symbol: 'GER40', name: 'Germany 40', category: 'index', color: '#f59e0b', minOrder: 0.1 },
+];
+
+const SPOT_STOCK_INSTRUMENTS: SpotInstrument[] = [
+  { symbol: 'AAPL', name: 'Apple Inc', category: 'stock', color: '#6366f1', minOrder: 0.01 },
+  { symbol: 'TSLA', name: 'Tesla Inc', category: 'stock', color: '#ea0000', minOrder: 0.01 },
+  { symbol: 'NVDA', name: 'NVIDIA Corp', category: 'stock', color: '#76b900', minOrder: 0.01 },
+  { symbol: 'MSFT', name: 'Microsoft Corp', category: 'stock', color: '#00a4ef', minOrder: 0.01 },
+  { symbol: 'AMZN', name: 'Amazon.com Inc', category: 'stock', color: '#ff9900', minOrder: 0.01 },
+  { symbol: 'GOOGL', name: 'Alphabet Inc', category: 'stock', color: '#4285f4', minOrder: 0.01 },
+  { symbol: 'META', name: 'Meta Platforms', category: 'stock', color: '#1877f2', minOrder: 0.01 },
+  { symbol: 'AMD', name: 'Advanced Micro Devices', category: 'stock', color: '#ed3833', minOrder: 0.01 },
+  { symbol: 'NFLX', name: 'Netflix Inc', category: 'stock', color: '#e50914', minOrder: 0.01 },
+  { symbol: 'COIN', name: 'Coinbase Global', category: 'stock', color: '#00a4ef', minOrder: 0.01 },
+];
+
+const ALL_SPOT_INSTRUMENTS = [
+  ...SPOT_CRYPTO_INSTRUMENTS,
+  ...SPOT_FOREX_INSTRUMENTS,
+  ...SPOT_COMMODITY_INSTRUMENTS,
+  ...SPOT_INDEX_INSTRUMENTS,
+  ...SPOT_STOCK_INSTRUMENTS,
+];
+
+const CATEGORY_COLORS: Record<string, string> = {
+  crypto: '#F7931A',
+  forex: '#003399',
+  commodity: '#eab308',
+  index: '#f59e0b',
+  stock: '#6366f1',
+};
+
 export default function SpotCryptoView({ quotes, setView, user }: { quotes: Record<string, MarketQuote>; setView: (view: ViewType) => void; user?: any }) {
+  const [category, setCategory] = useState<'all' | 'crypto' | 'forex' | 'commodity' | 'index' | 'stock'>('all');
   const [selectedSymbol, setSelectedSymbol] = useState('BTCUSD');
   const [action, setAction] = useState<'buy' | 'sell'>('buy');
   const [amount, setAmount] = useState('');
   const [cryptoAmount, setCryptoAmount] = useState('');
   const [orderProcessing, setOrderProcessing] = useState(false);
   const [orderConfirmed, setOrderConfirmed] = useState<{ symbol: string; type: string; amount: number; price: number; total: number; txId: string } | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
+
+  const instruments = useMemo(() => {
+    let filtered = ALL_SPOT_INSTRUMENTS;
+    if (category !== 'all') {
+      filtered = filtered.filter(i => i.category === category);
+    }
+    if (searchQuery.trim()) {
+      const q = searchQuery.toUpperCase().trim();
+      filtered = filtered.filter(i =>
+        i.symbol.includes(q) ||
+        i.name.toUpperCase().includes(q)
+      );
+    }
+    return filtered;
+  }, [category, searchQuery]);
 
   const quote = quotes[selectedSymbol];
   const price = quote?.price || 0;
-  const inst = SPOT_CRYPTO_INSTRUMENTS.find(i => i.symbol === selectedSymbol);
+  const inst = instruments.find(i => i.symbol === selectedSymbol) || SPOT_CRYPTO_INSTRUMENTS[0];
 
   useEffect(() => {
     if (amount && price > 0) {
@@ -53,7 +147,6 @@ export default function SpotCryptoView({ quotes, setView, user }: { quotes: Reco
     const cryptoAmt = parseFloat(cryptoAmount);
     if (!amt || amt <= 0 || !price || price <= 0) return;
     setOrderProcessing(true);
-    // Simulate order execution
     await new Promise(r => setTimeout(r, 1500));
     const txId = `SPOT-${Date.now().toString(36).toUpperCase()}-${Math.floor(1000 + Math.random() * 9000)}`;
     setOrderConfirmed({
@@ -65,6 +158,26 @@ export default function SpotCryptoView({ quotes, setView, user }: { quotes: Reco
       txId
     });
     setOrderProcessing(false);
+  };
+
+  const formatPrice = (symbol: string, p: number) => {
+    if (symbol === 'BTCUSD') return p.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    if (symbol === 'JPY' || symbol === 'USDJPY' || symbol === 'EURJPY' || symbol === 'GBPJPY') return p.toLocaleString(undefined, { minimumFractionDigits: 3, maximumFractionDigits: 3 });
+    if (symbol === 'SHIBUSD' || symbol === 'PEPEUSD') return p.toLocaleString(undefined, { minimumFractionDigits: 6, maximumFractionDigits: 6 });
+    if (symbol === 'XAUUSD' || symbol === 'XAGUSD') return p.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    if (p >= 1000) return p.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    return p.toLocaleString(undefined, { minimumFractionDigits: 4, maximumFractionDigits: 4 });
+  };
+
+  const categoryLabel = (cat: string) => {
+    const labels: Record<string, string> = {
+      crypto: 'Cryptocurrencies',
+      forex: 'Forex Pairs',
+      commodity: 'Commodities',
+      index: 'Global Indices',
+      stock: 'Stocks & ETFs',
+    };
+    return labels[cat] || cat;
   };
 
   return (
@@ -79,15 +192,15 @@ export default function SpotCryptoView({ quotes, setView, user }: { quotes: Reco
               <div className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center">
                 <Coins className="w-5 h-5 text-[#F7931A]" />
               </div>
-              <h2 className="text-2xl font-black tracking-tight">Spot Crypto</h2>
+              <h2 className="text-2xl font-black tracking-tight">Spot Markets</h2>
               <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-emerald-500/20 text-emerald-100 text-xs font-black uppercase tracking-wider">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" /> 24/7 Market Access
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" /> Live Spot Prices
               </span>
             </div>
-            <h1 className="text-4xl md:text-5xl font-black tracking-tight mb-4">Buy, Sell &amp; Hold Real Cryptocurrency</h1>
+            <h1 className="text-4xl md:text-5xl font-black tracking-tight mb-4">Trade 650+ Spot Instruments</h1>
             <p className="text-lg text-orange-100 max-w-xl">
-              Trade Bitcoin, Ethereum and 150+ cryptocurrencies directly on the spot market with the Axi Trading Platform.
-              No hidden charges, secure custody, and instant execution — all from your existing Axi account.
+              Buy and sell cryptocurrencies, forex, commodities, indices, and stocks at live market prices.
+              All quotes stream directly from Kraken, Coinbase, Yahoo Finance, and interbank FX feeds — no synthetic prices.
             </p>
             <div className="mt-8 flex flex-wrap gap-4">
               <button
@@ -100,26 +213,67 @@ export default function SpotCryptoView({ quotes, setView, user }: { quotes: Reco
                 onClick={() => setView('accounts')}
                 className="bg-white/10 border border-white/20 text-white font-black px-8 py-4 rounded-xl text-lg uppercase tracking-wider hover:bg-white/20 transition-all cursor-pointer flex items-center gap-2"
               >
-                <Wallet className="w-5 h-5" /> Open Crypto Account
+                <Wallet className="w-5 h-5" /> Open Spot Account
               </button>
             </div>
           </div>
         </div>
 
-        {/* Key Features */}
-        <div className="grid gap-4 md:grid-cols-4">
+        {/* Category Filter + Search */}
+        <div className="flex flex-col lg:flex-row lg:items-center gap-6">
+          <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
+            {[
+              { key: 'all', label: 'All Markets' },
+              { key: 'crypto', label: 'Crypto' },
+              { key: 'forex', label: 'Forex' },
+              { key: 'commodity', label: 'Commodities' },
+              { key: 'index', label: 'Indices' },
+              { key: 'stock', label: 'Stocks' },
+            ].map((c) => (
+              <button
+                key={c.key}
+                onClick={() => setCategory(c.key as any)}
+                className={`px-4 py-2 rounded-full text-sm font-bold transition-all border ${
+                  category === c.key
+                    ? 'bg-[#F7931A] text-white border-[#F7931A] shadow-md'
+                    : 'bg-white text-slate-600 border-slate-200 hover:border-slate-300 hover:bg-slate-50'
+                }`}
+              >
+                {categoryLabel(c.key)}
+              </button>
+            ))}
+          </div>
+
+          <div className="relative flex-1 lg:w-96">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search symbol or instrument…"
+              className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 pl-10 text-slate-900 focus:border-[#F7931A] focus:ring-2 focus:ring-[#F7931A]/20 outline-none text-sm"
+            />
+          </div>
+
+          <button
+            onClick={() => setView('perpetual_futures')}
+            className="bg-[#0f172a] text-white font-black px-6 py-3 rounded-xl text-sm uppercase tracking-wider shadow-lg hover:shadow-xl transition cursor-pointer flex items-center gap-2"
+          >
+            <ArrowRight className="w-4 h-4" /> Trade Perpetual Futures
+          </button>
+        </div>
+
+        {/* Market Stats Strip */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           {[
-            { label: 'Secure Custody', desc: 'Assets held in segregated cold storage', icon: ShieldCheck },
-            { label: '24/7 Trading', desc: 'Crypto markets never close', icon: Clock },
-            { label: 'Real Prices', desc: 'Live spot prices from Binance', icon: TrendingUp },
-            { label: 'Instant Execution', desc: 'Sub-second order fills', icon: Zap },
-          ].map((feature, i) => (
-            <div key={i} className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm hover:shadow-md transition">
-              <div className="w-10 h-10 rounded-xl bg-[#F7931A]/10 text-[#F7931A] flex items-center justify-center mb-4">
-                <feature.icon className="w-5 h-5" />
-              </div>
-              <h3 className="font-black text-slate-900">{feature.label}</h3>
-              <p className="text-sm text-slate-500 mt-1">{feature.desc}</p>
+            { label: 'Live Instruments', value: instruments.length.toLocaleString() },
+            { label: 'Asset Classes', value: '5' },
+            { label: 'Price Sources', value: '4' },
+            { label: 'Market Status', value: 'Open' },
+          ].map((stat, i) => (
+            <div key={i} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+              <div className="text-xs font-black text-slate-400 uppercase tracking-wider mb-1">{stat.label}</div>
+              <div className="text-2xl font-black text-slate-900">{stat.value}</div>
             </div>
           ))}
         </div>
@@ -135,38 +289,59 @@ export default function SpotCryptoView({ quotes, setView, user }: { quotes: Reco
               className="rounded-3xl border border-slate-200 bg-white p-6 sm:p-8 shadow-sm"
             >
               <div className="flex items-center justify-between mb-6">
-                <h3 className="font-black text-slate-900 text-lg">{action === 'buy' ? 'Buy Crypto' : 'Sell Crypto'}</h3>
+                <h3 className="font-black text-slate-900 text-lg">{action === 'buy' ? 'Buy' : 'Sell'} {inst.name}</h3>
                 <div className="flex gap-2">
                   <button
                     onClick={() => setAction('buy')}
-                    className={`px-4 py-2 rounded-xl text-sm font-black transition-all ${action === 'buy' ? 'bg-[#F7931A] text-white shadow-md' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
+                    className={`px-4 py-2 rounded-xl text-sm font-bold transition-all ${
+                      action === 'buy' ? 'bg-[#F7931A] text-white shadow-md' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                    }`}
                   >Buy</button>
                   <button
                     onClick={() => setAction('sell')}
-                    className={`px-4 py-2 rounded-xl text-sm font-black transition-all ${action === 'sell' ? 'bg-[#F7931A] text-white shadow-md' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
+                    className={`px-4 py-2 rounded-xl text-sm font-bold transition-all ${
+                      action === 'sell' ? 'bg-[#F7931A] text-white shadow-md' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                    }`}
                   >Sell</button>
                 </div>
               </div>
 
               <div className="space-y-5">
-                {/* Asset Selector */}
+                {/* Asset Selector - compact list */}
                 <div>
-                  <label className="text-xs font-black uppercase tracking-wider text-slate-500 mb-2 block">Cryptocurrency</label>
-                  <div className="flex gap-2">
-                    {SPOT_CRYPTO_INSTRUMENTS.map((c) => (
-                      <button
-                        key={c.symbol}
-                        onClick={() => setSelectedSymbol(c.symbol)}
-                        className={`flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-bold transition-all border ${
-                          selectedSymbol === c.symbol
-                            ? 'bg-[#F7931A]/10 text-[#F7931A] border-[#F7931A] shadow-md'
-                            : 'bg-white text-slate-600 border-slate-200 hover:border-slate-300'
-                        }`}
-                      >
-                        <span className={`w-6 h-6 rounded-full bg-slate-100 flex items-center justify-center text-[10px]`}>{c.icon}</span>
-                        {c.name}
-                      </button>
-                    ))}
+                  <label className="text-xs font-black uppercase tracking-wider text-slate-500 mb-2 block">Instrument</label>
+                  <div className="space-y-1.5 max-h-48 overflow-y-auto">
+                    {instruments.slice(0, 12).map((c) => {
+                      const q = quotes[c.symbol];
+                      const p = q?.price || 0;
+                      const change = q?.change || 0;
+                      const isPositive = change >= 0;
+                      return (
+                        <button
+                          key={c.symbol}
+                          onClick={() => { setSelectedSymbol(c.symbol); setCategory(c.category as any); }}
+                          className={`flex items-center justify-between gap-2 px-3 py-2 rounded-xl text-sm font-bold transition-all border ${
+                            selectedSymbol === c.symbol
+                              ? 'bg-[#F7931A]/10 text-[#F7931A] border-[#F7931A] shadow-md'
+                              : 'bg-white text-slate-600 border-slate-200 hover:border-slate-300 hover:bg-slate-50'
+                          }`}
+                        >
+                          <div className="flex items-center gap-2">
+                            <AssetBrandLogo symbol={c.symbol} size="sm" className="shrink-0" />
+                            <span className="truncate min-w-[60px]">{c.name}</span>
+                            <span className="text-[10px] font-mono text-slate-400">{c.symbol}</span>
+                          </div>
+                          <div className="text-right">
+                            <div className={`font-mono font-bold text-xs ${isPositive ? 'text-emerald-600' : 'text-rose-600'}`}>
+                              {p > 0 ? formatPrice(c.symbol, p) : '—'}
+                            </div>
+                            <div className={`text-[10px] ${isPositive ? 'text-emerald-600' : 'text-rose-600'}`}>
+                              {p > 0 ? (isPositive ? '+' : '') + change.toFixed(2) + '%' : '—'}
+                            </div>
+                          </div>
+                        </button>
+                      );
+                    })}
                   </div>
                 </div>
 
@@ -175,19 +350,19 @@ export default function SpotCryptoView({ quotes, setView, user }: { quotes: Reco
                   <div>
                     <span className="text-xs font-black text-slate-400 uppercase">Market Price</span>
                     <div className="flex items-baseline gap-1">
-                      <span className="text-3xl font-black text-slate-900 font-mono">{price > 0 ? price.toLocaleString(undefined, { minimumFractionDigits: selectedSymbol.includes('BTC') ? 2 : 4 }) : '...'}</span>
-                      <span className="text-[#F7931A] font-black">USD</span>
+                      <span className="text-3xl font-black text-slate-900 font-mono">{price > 0 ? formatPrice(selectedSymbol, price) : '...'}</span>
+                      <span className="text-[#F7931A] font-black text-xs">USD</span>
                     </div>
                   </div>
-                  <span className={`text-xs font-black ${price > 0 ? 'text-emerald-600' : 'text-slate-400'}`}>
-                    {price > 0 ? (quote?.change || 0) >= 0 ? '▲' : '▼' : '–'} Live
+                  <span className={`text-xs font-black ${price > 0 ? (quote?.change || 0) >= 0 ? 'text-emerald-600' : 'text-rose-600' : 'text-slate-400'}`}>
+                    {price > 0 ? ((quote?.change || 0) >= 0 ? '▲' : '▼') : '–'} Live
                   </span>
                 </div>
 
                 {/* Amount Input */}
                 <div>
                   <label className="text-xs font-black uppercase tracking-wider text-slate-500 mb-2 block">
-                    {action === 'buy' ? 'Amount to Spend (USD)' : 'Amount to Sell (Crypto)'}
+                    {action === 'buy' ? 'Amount to Spend (USD)' : 'Amount to Sell'}
                   </label>
                   <input
                     type="number"
@@ -207,7 +382,7 @@ export default function SpotCryptoView({ quotes, setView, user }: { quotes: Reco
                   <div className="flex items-end justify-between bg-[#F7931A]/10 border border-[#F7931A]/20 rounded-xl p-4">
                     <div>
                       <span className="text-xs font-black text-[#F7931A]/70 uppercase">You Will Receive</span>
-                      <div className="text-2xl font-black text-slate-900 font-mono mt-1">{cryptoAmount || 0} {selectedSymbol.replace(/USD$/, '')}</div>
+                      <div className="text-2xl font-black text-slate-900 font-mono mt-1">{cryptoAmount || 0} {inst.symbol}</div>
                     </div>
                     <div className="text-right">
                       <span className="text-xs font-black text-[#F7931A]/70 uppercase">Effective Rate</span>
@@ -220,7 +395,6 @@ export default function SpotCryptoView({ quotes, setView, user }: { quotes: Reco
                   <button
                     type="submit"
                     disabled={orderProcessing || !amount || parseFloat(amount) <= 0 || !price}
-                    onClick={handlePlaceOrder}
                     className={`w-full py-4 rounded-xl text-lg font-black uppercase tracking-wider transition-all disabled:opacity-50 ${
                       orderProcessing
                         ? 'bg-slate-400 text-white cursor-not-allowed'
@@ -250,10 +424,10 @@ export default function SpotCryptoView({ quotes, setView, user }: { quotes: Reco
                 <Globe className="w-5 h-5 text-[#F7931A]" /> How Spot Trading Works
               </h3>
               <ol className="space-y-3 text-sm text-slate-600">
-                <li className="flex items-start gap-3"><span className="text-[#F7931A] font-black">1</span> Select your cryptocurrency and choose Buy or Sell.</li>
-                <li className="flex items-start gap-3"><span className="text-[#F7931A] font-black">2</span> Enter the amount — we show you the exact crypto you'll receive.</li>
-                <li className="flex items-start gap-3"><span className="text-[#F7931A] font-black">3</span> Confirm the order and it executes instantly at live market prices.</li>
-                <li className="flex items-start gap-3"><span className="text-[#F7931A] font-black">4</span> Your assets are secured in segregated custody — viewable in your dashboard.</li>
+                <li className="flex items-start gap-3"><span className="text-[#F7931A] font-black">1</span> Select your instrument from any asset class.</li>
+                <li className="flex items-start gap-3"><span className="text-[#F7931A] font-black">2</span> Choose Buy or Sell and enter your amount.</li>
+                <li className="flex items-start gap-3"><span className="text-[#F7931A] font-black">3</span> Confirm — your order executes at live market prices.</li>
+                <li className="flex items-start gap-3"><span className="text-[#F7931A] font-black">4</span> Your position appears in the trading dashboard.</li>
               </ol>
             </div>
           </div>
@@ -261,58 +435,65 @@ export default function SpotCryptoView({ quotes, setView, user }: { quotes: Reco
           {/* RIGHT: Market List */}
           <div className="lg:col-span-8 space-y-6">
             <div className="flex items-center justify-between">
-              <h3 className="font-black text-slate-900 text-lg">Live Crypto Markets</h3>
-              <button onClick={() => setView('markets')} className="text-xs font-black text-[#F7931A] hover:text-orange-600 transition">View All Markets →</button>
+              <div>
+                <h3 className="font-black text-slate-900 text-lg">{categoryLabel(category)} — Live Spot Prices</h3>
+                <p className="text-xs text-slate-500">All prices stream from live market providers</p>
+              </div>
+              <button onClick={() => setView('markets')} className="text-xs font-black text-[#F7931A] hover:text-orange-600 transition">Full Markets Terminal →</button>
             </div>
 
             <div className="rounded-2xl border border-slate-200 bg-white overflow-hidden shadow-sm">
               <table className="w-full text-left">
                 <thead>
                   <tr className="bg-slate-50 border-b border-slate-200 text-xs font-black uppercase tracking-wider text-slate-400">
-                    <th className="px-6 py-4">Cryptocurrency</th>
+                    <th className="px-6 py-4">Instrument</th>
                     <th className="px-6 py-4 text-right">Price (USD)</th>
                     <th className="px-6 py-4 text-right">24h Change</th>
                     <th className="px-6 py-4 text-right">Action</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
-                  {SPOT_CRYPTO_INSTRUMENTS.map((c) => {
+                  {instruments.map((c) => {
                     const q = quotes[c.symbol];
                     const p = q?.price || 0;
                     const change = q?.change || 0;
                     const isPositive = change >= 0;
+                    const isStale = q?.stale !== false;
                     return (
                       <motion.tr
                         key={c.symbol}
                         initial={{ opacity: 0, y: 10 }}
                         animate={{ opacity: 1, y: 0 }}
-                        onClick={() => setSelectedSymbol(c.symbol)}
+                        onClick={() => { setSelectedSymbol(c.symbol); setCategory(c.category as any); }}
                         className={`cursor-pointer transition hover:bg-slate-50 border-b border-slate-50/50 last:border-0 ${
                           selectedSymbol === c.symbol ? 'bg-[#F7931A]/5' : ''
-                        }`}
+                        } ${isStale ? 'opacity-50' : ''}`}
                       >
                         <td className="px-6 py-4">
                           <div className="flex items-center gap-3">
-                            <div className={`w-8 h-8 rounded-full ${c.color === '#F7931A' ? 'bg-[#F7931A]/20' : 'bg-slate-100'} flex items-center justify-center text-[11px] font-black`} style={{ color: c.color }}>
-                              {c.icon}
-                            </div>
+                            <AssetBrandLogo symbol={c.symbol} size="sm" className="shrink-0" />
                             <div>
-                              <div className="font-bold text-slate-900">{c.name}</div>
-                              <div className="text-xs text-slate-500 font-mono">{c.symbol.replace(/USD$/, '')}/USD</div>
+                              <div className="font-bold text-slate-900 text-sm">{c.name}</div>
+                              <div className="text-xs text-slate-500 font-mono">{c.symbol}</div>
+                              <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-bold ${
+                                isStale ? 'bg-slate-100 text-slate-500' : 'bg-emerald-50 text-emerald-600'
+                              }`}>
+                                {isStale ? 'Stale' : 'Live'}
+                              </span>
                             </div>
                           </div>
                         </td>
                         <td className="px-6 py-4 font-mono font-bold text-slate-900">
-                          {p > 0 ? p.toLocaleString(undefined, { minimumFractionDigits: c.symbol.includes('BTC') ? 2 : 4 }) : '—'}
+                          {p > 0 ? formatPrice(c.symbol, p) : '—'}
                         </td>
                         <td className="px-6 py-4">
-                          <span className={`px-2 py-0.5 rounded text-[10px] font-black ${isPositive ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'}`}>
+                          <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${isPositive ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'}`}>
                             {isPositive ? '+' : ''}{change.toFixed(2)}%
                           </span>
                         </td>
                         <td className="px-6 py-4 text-right">
                           <button
-                            onClick={() => { setSelectedSymbol(c.symbol); setAction('buy'); }}
+                            onClick={() => { setSelectedSymbol(c.symbol); setCategory(c.category as any); setAction('buy'); }}
                             className="text-xs font-black text-[#F7931A] hover:text-orange-600 transition"
                           >Trade</button>
                         </td>
@@ -324,14 +505,14 @@ export default function SpotCryptoView({ quotes, setView, user }: { quotes: Reco
             </div>
 
             {/* Risk Disclosure */}
-            <div className="rounded-xl border border-slate-200 bg-slate-50 p-6">
+            <div className="rounded-xl border border-amber-200 bg-amber-50 p-6">
               <div className="flex items-start gap-3">
                 <AlertCircle className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />
                 <div>
-                  <h4 className="font-black text-sm text-slate-900 mb-1">Risk Warning</h4>
-                  <p className="text-xs text-slate-500 leading-relaxed">
-                    Cryptocurrency prices can be extremely volatile. You may lose some or all of your invested capital.
-                    Axi does not provide crypto wallet services — assets are held in secured custody on your behalf.
+                  <h4 className="font-black text-sm text-amber-900 mb-1">Risk Warning</h4>
+                  <p className="text-xs text-amber-800 leading-relaxed">
+                    Spot trading prices can be extremely volatile. You may lose some or all of your invested capital.
+                    All prices are sourced from live market data providers and may vary slightly from execution prices.
                     Past performance is not indicative of future results.
                   </p>
                 </div>
@@ -375,11 +556,11 @@ export default function SpotCryptoView({ quotes, setView, user }: { quotes: Reco
                   </div>
                   <div className="flex justify-between">
                     <span className="text-sm text-slate-500">Amount</span>
-                    <span className="text-sm font-bold text-slate-900">{orderConfirmed.amount.toFixed(6)} {orderConfirmed.symbol.replace(/USD$/, '')}</span>
+                    <span className="text-sm font-bold text-slate-900">{orderConfirmed.amount.toFixed(6)} {orderConfirmed.symbol}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-sm text-slate-500">Price</span>
-                    <span className="text-sm font-bold text-slate-900">${orderConfirmed.price.toLocaleString()}</span>
+                    <span className="text-sm font-bold text-slate-900">${orderConfirmed.price.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-sm text-slate-500">Total Value</span>
