@@ -3,12 +3,17 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-    <meta name="theme-color" content="#FAF6EE" />
-    <title>Axi | Trade Your Edge | Global Online CFD &amp; Forex Broker</title>
-    <meta name="description" content="Trade Forex, indices, commodities, crypto and shares with Axi. Tight spreads, fast execution, powerful tools — on a secure, multi-platform trading experience." />
+    <meta name="theme-color" content="#E3000F" />
+    <meta name="color-scheme" content="light dark" />
+    <meta name="format-detection" content="telephone=no" />
+    <title>Axi | Trade Forex, Crypto & CFDs | Global Online Broker</title>
+    <meta name="description" content="Trade Forex, crypto, commodities, indices and share CFDs with Axi. Tight spreads from 0.0 pips, fast execution, secure platform. Open an account and start trading today." />
     <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1" />
+    <meta name="googlebot" content="index, follow, max-image-preview:large, max-snippet:-1" />
+    <meta name="bingbot" content="index, follow, max-image-preview:large" />
     <meta name="author" content="Axi" />
     <meta name="application-name" content="Axi" />
+    <meta name="category" content="finance" />
     <!-- CRITICAL: tell Google/Chrome (and similar auto-translators) to leave the
          page alone. This app is a live React SPA: browser auto-translate rewrites
          React's DOM underneath it, and the next live update (market ticks,
@@ -25,15 +30,17 @@
     <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png" />
     <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16.png" />
     <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+    <link rel="apple-touch-icon" sizes="152x152" href="/icon-192.png" />
     <link rel="manifest" href="/site.webmanifest" />
+    <link rel="mask-icon" href="/favicon.svg" color="#E3000F" />
 
     <!-- Open Graph (social previews: Facebook, WhatsApp, LinkedIn, Telegram …) -->
     <meta property="og:type" content="website" />
     <meta property="og:site_name" content="Axi" />
     <meta property="og:locale" content="en_US" />
     <meta property="og:url" content="https://www.axitrades.com/" />
-    <meta property="og:title" content="Axi | Trade Your Edge | Global Online CFD &amp; Forex Broker" />
-    <meta property="og:description" content="Trade Forex, indices, commodities, crypto and shares with Axi. Tight spreads, fast execution, powerful tools — on a secure, multi-platform trading experience." />
+    <meta property="og:title" content="Axi | Trade Forex, Crypto & CFDs | Global Online Broker" />
+    <meta property="og:description" content="Trade Forex, crypto, commodities, indices and share CFDs with Axi. Tight spreads from 0.0 pips, fast execution, secure platform. Open an account and start trading today." />
     <meta property="og:image" content="https://www.axitrades.com/og-image.png" />
     <meta property="og:image:secure_url" content="https://www.axitrades.com/og-image.png" />
     <meta property="og:image:type" content="image/png" />
@@ -43,10 +50,113 @@
 
     <!-- Twitter Card -->
     <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:title" content="Axi | Trade Your Edge | Global Online CFD &amp; Forex Broker" />
-    <meta name="twitter:description" content="Trade Forex, indices, commodities, crypto and shares with Axi. Tight spreads, fast execution, powerful tools — on a secure, multi-platform trading experience." />
+    <meta name="twitter:site" content="@Axi" />
+    <meta name="twitter:title" content="Axi | Trade Forex, Crypto & CFDs | Global Online Broker" />
+    <meta name="twitter:description" content="Trade Forex, crypto, commodities, indices and share CFDs with Axi. Tight spreads from 0.0 pips, fast execution, secure platform. Open an account and start trading today." />
     <meta name="twitter:image" content="https://www.axitrades.com/og-image.png" />
     <meta name="twitter:image:alt" content="Axi — Trade Your Edge. Global online CFD &amp; Forex broker." />
+
+    <!-- Additional SEO meta -->
+    <meta name="keywords" content="Axi, forex trading, crypto trading, CFD trading, online broker, trading platform, forex broker, cryptocurrency trading, indices trading, commodities trading" />
+    <meta name="language" content="English" />
+    <meta name="revisit-after" content="7 days" />
+    <meta name="distribution" content="global" />
+
+    <script>
+      // Cream/white is the default theme. Honor an explicit dark-mode choice
+      // (set through the in-app toggle) without a dark flash on load.
+      try {
+        if (localStorage.getItem('axi_theme') === 'dark') {
+          document.documentElement.classList.add('dark');
+          document.documentElement.style.backgroundColor = '#020617';
+          var m = document.querySelector('meta[name="theme-color"]');
+          if (m) m.setAttribute('content', '#020617');
+        }
+      } catch (e) {}
+    </script>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="preconnect" href="https://api.fontshare.com" crossorigin>
+    <link rel="preconnect" href="https://cdn.fontshare.com" crossorigin>
+    <link href="https://api.fontshare.com/v2/css?f[]=general-sans@400,500,600,700&f[]=clash-display@400,500,600,700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+    <style>
+      /* (Google auto-translate styling removed — see notranslate meta above.) */
+    </style>
+    <script>
+      // EUR is the platform's default display currency for new visitors/users.
+      try {
+        if (!localStorage.getItem('axi_display_currency')) {
+          localStorage.setItem('axi_display_currency', 'EUR');
+        }
+      } catch (_) {}
+    </script>
+
+    <!-- Structured data -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@graph": [
+        {
+          "@type": "WebSite",
+          "@id": "https://www.axitrades.com/#website",
+          "url": "https://www.axitrades.com/",
+          "name": "Axi",
+          "alternateName": "Axi Trades",
+          "description": "Trade Forex, crypto, commodities, indices and share CFDs with Axi. Tight spreads from 0.0 pips, fast execution, secure platform.",
+          "inLanguage": "en",
+          "potentialAction": {
+            "@type": "SearchAction",
+            "target": "https://www.axitrades.com/search?q={search_term}",
+            "query-input": "required name=search_term"
+          },
+          "publisher": { "@id": "https://www.axitrades.com/#organization" }
+        },
+        {
+          "@type": "Organization",
+          "@id": "https://www.axitrades.com/#organization",
+          "name": "Axi Trades",
+          "alternateName": "Axi",
+          "url": "https://www.axitrades.com/",
+          "logo": {
+            "@type": "ImageObject",
+            "url": "https://www.axitrades.com/icon-512.png",
+            "width": 512,
+            "height": 512
+          },
+          "sameAs": [
+            "https://facebook.com/axi",
+            "https://instagram.com/axi",
+            "https://twitter.com/axi",
+            "https://linkedin.com/company/axi"
+          ],
+          "contactPoint": {
+            "@type": "ContactPoint",
+            "telephone": "+1-800-245-2943",
+            "contactType": "customer service",
+            "availableLanguage": "en"
+          }
+        },
+        {
+          "@type": "FinancialProduct",
+          "@id": "https://www.axitrades.com/#financialproduct",
+          "name": "CFD Trading",
+          "description": "Trade Forex, crypto, commodities, indices and share CFDs with Axi.",
+          "provider": { "@id": "https://www.axitrades.com/#organization" }
+        }
+      ]
+    }
+    </script>
+  </head>
+  <body class="h-full font-sans antialiased bg-[#FAF6EE] text-slate-900 selection:bg-[#E3000F] selection:text-white">
+    <!-- The app ships its own DOM-safe translator (text-node only). The page-level
+         "google notranslate" meta above blocks Chrome/Google from structurally
+         rewriting this live React DOM (the old crash source). -->
+    <div id="root" class="h-full"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
 
     <script>
       // Cream/white is the default theme. Honor an explicit dark-mode choice

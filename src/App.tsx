@@ -117,8 +117,43 @@ export default function App() {
   }, []);
   // AXI_MOBILE_ADMIN_ROUTE_V1
   const [currentView, setView] = useState<ViewType>(() => window.location.pathname.replace(/\/$/, '') === '/admin' ? 'admin' : 'home');
-  const [quotes, setQuotes] = useState<Record<string, MarketQuote>>(INITIAL_QUOTES);
-  
+const [quotes, setQuotes] = useState<Record<string, MarketQuote>>(INITIAL_QUOTES);
+
+  // Per-page titles for Google SEO — updates document.title on every view change
+  const VIEW_TITLES: Record<ViewType, string> = {
+    home: 'Axi | Trade Forex, Crypto & CFDs | Global Online Broker',
+    markets: 'Live Markets | Forex, Crypto, Commodities & Indices | Axi',
+    trading: 'Trading Terminal | Execute Trades | Axi',
+    login: 'Client Login | Sign In to Your Axi Account',
+    platforms: 'Trading Platforms | MT4, MT5 & WebTrader | Axi',
+    accounts: 'Open Account | Forex & CFD Account Types | Axi',
+    tools: 'Trading Tools & Calculators | Axi',
+    about: 'About Axi | Regulated Global CFD & Forex Broker',
+    funds: 'Deposit & Withdraw Funds | Axi Client Portal',
+    select: 'Axi Select | Funded Trader Program | Axi',
+    blog: 'Market Blog & Insights | Axi',
+    support: 'Client Support & Help Centre | Axi',
+    legal: 'Legal Documentation & Regulation | Axi',
+    dashboard: 'Trading Dashboard | Positions & Orders | Axi',
+    academy: 'Axi Academy | Trading Education Courses | Axi',
+    admin: 'Admin Dashboard | Axi',
+    settings: 'Account Settings | Axi',
+    quick_deposit: 'Quick Deposit | Fund Your Account | Axi',
+    partners: 'Partner Programs | Introducing Broker & CPA | Axi',
+    promotions: 'Promotions & Contests | Axi',
+    forex_vps: 'Forex VPS Hosting | Low Latency Trading | Axi',
+    economic_calendar: 'Economic Calendar | Market Events | Axi',
+    spot_crypto: 'Spot Crypto | Buy & Sell Cryptocurrency | Axi',
+    perpetual_futures: 'Perpetual Futures | Trade with Leverage | Axi',
+    pre_ipo: 'Pre-IPO Perpetuals | Coming Soon | Axi',
+    contact: 'Contact Us | Client Services | Axi',
+    not_found: 'Page Not Found | Axi',
+  };
+
+  useEffect(() => {
+    document.title = VIEW_TITLES[currentView] || VIEW_TITLES.home;
+  }, [currentView]);
+
   // Theme state: dark / light mode toggle
   // Cream/white (light) is the platform default. A stored dark preference is only
   // honored when the visitor explicitly chose it through the in-app toggle
