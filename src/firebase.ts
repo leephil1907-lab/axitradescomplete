@@ -5,7 +5,7 @@ import { getStorage } from 'firebase/storage';
 import defaultConfig from '../firebase-applet-config.json';
 
 // Firebase's generated web configuration is the canonical configuration for
-// this application. Do not allow unrelated Railway/NEXT_PUBLIC variables to
+// this application. Do not allow unrelated NEXT_PUBLIC variables to
 // silently override the Web API key and cause auth/invalid-api-key at startup.
 const config = {
   apiKey: defaultConfig.apiKey,

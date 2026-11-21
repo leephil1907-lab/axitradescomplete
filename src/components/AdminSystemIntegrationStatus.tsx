@@ -440,7 +440,7 @@ export default function AdminSystemIntegrationStatus({ onShowToast }: AdminSyste
                 {tgStatus && !tgStatus.configured && (
                   <p className="mt-2 text-[10px] text-slate-500 leading-relaxed">
                     Notifications only fire after you set <span className="font-mono text-amber-300/90">TELEGRAM_BOT_TOKEN</span> and
-                    <span className="font-mono text-amber-300/90"> TELEGRAM_CHAT_ID</span> on the server (Railway → Variables) and restart.
+                    <span className="font-mono text-amber-300/90"> TELEGRAM_CHAT_ID</span> on the server (Render → Environment Variables) and restart.
                     The chat ID is the chat that receives alerts — a private DM requires opening a chat with the bot first.
                   </p>
                 )}

@@ -283,7 +283,7 @@ app.post('/api/stripe/webhook', express.raw({ type: 'application/json' }), async
   res.json({ received: true });
 });
 
-// Production email endpoints. SMTP credentials stay on Railway/server; they are never shipped to the browser.
+// Production email endpoints. SMTP credentials stay on Render/server; they are never shipped to the browser.
 app.post('/api/email/registration', async (req, res) => {
   try {
     const { email, name } = req.body || {};
