@@ -35,7 +35,8 @@ import { motion, AnimatePresence } from 'motion/react';
 import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip } from 'recharts';
 import { MarketQuote, MasterTrader, ViewType } from '../types';
 import HeroSlideshow from './axi/HeroSlideshow';
-import { MASTER_TRADERS, ACCOUNT_TYPES, DEFAULT_MARKET_QUOTES } from '../data';
+import LiveMetrics from './LiveMetrics';
+import { MASTER_TRADERS, ACCOUNT_TYPES } from '../data';
 
 interface HomeViewProps {
   quotes: Record<string, MarketQuote>;
@@ -47,35 +48,40 @@ interface HomeViewProps {
 function MobileAppPreview({ quotes, onAddFunds }: { quotes: Record<string, MarketQuote>; onAddFunds: () => void }) {
   const [activeTab, setActiveTab] = useState<'cfds' | 'perps' | 'crypto'>('cfds');
   const [selectedAsset, setSelectedAsset] = useState<string>('BTC/USD');
-  const [equity] = useState<number>(5301.23);
-  const [pnl] = useState<number>(32.11);
+  const [equity] = useState<number | null>(null);
+  const [pnl] = useState<number | null>(null);
 
   const prices = React.useMemo(() => {
     return {
       'BTC/USD': { 
-        val: quotes['BTCUSD']?.price || 96450, 
-        chg: quotes['BTCUSD']?.change || 2.85, 
-        isUp: (quotes['BTCUSD']?.change || 0) >= 0 
+        val: quotes['BTCUSD']?.price ?? null, 
+        chg: quotes['BTCUSD']?.change ?? null, 
+        isUp: (quotes['BTCUSD']?.change || 0) >= 0,
+        live: Boolean(quotes['BTCUSD']?.price)
       },
       'SOL/USD': { 
-        val: quotes['SOLUSD']?.price || 188.40, 
-        chg: quotes['SOLUSD']?.change || 4.20, 
-        isUp: (quotes['SOLUSD']?.change || 0) >= 0 
+        val: quotes['SOLUSD']?.price ?? null, 
+        chg: quotes['SOLUSD']?.change ?? null, 
+        isUp: (quotes['SOLUSD']?.change || 0) >= 0,
+        live: Boolean(quotes['SOLUSD']?.price)
       },
       'EUR/JPY': { 
-        val: quotes['EURJPY']?.price || 162.05, 
-        chg: quotes['EURJPY']?.change || 0.45, 
-        isUp: (quotes['EURJPY']?.change || 0) >= 0 
+        val: quotes['EURJPY']?.price ?? null, 
+        chg: quotes['EURJPY']?.change ?? null, 
+        isUp: (quotes['EURJPY']?.change || 0) >= 0,
+        live: Boolean(quotes['EURJPY']?.price)
       },
       'XAU/USD': { 
-        val: quotes['XAUUSD']?.price || 2915.40, 
-        chg: quotes['XAUUSD']?.change || 0.95, 
-        isUp: (quotes['XAUUSD']?.change || 0) >= 0 
+        val: quotes['XAUUSD']?.price ?? null, 
+        chg: quotes['XAUUSD']?.change ?? null, 
+        isUp: (quotes['XAUUSD']?.change || 0) >= 0,
+        live: Boolean(quotes['XAUUSD']?.price)
       },
       'GBP/USD': { 
-        val: quotes['GBPUSD']?.price || 1.2590, 
-        chg: quotes['GBPUSD']?.change || -0.06, 
-        isUp: (quotes['GBPUSD']?.change || 0) >= 0 
+        val: quotes['GBPUSD']?.price ?? null, 
+        chg: quotes['GBPUSD']?.change ?? null, 
+        isUp: (quotes['GBPUSD']?.change || 0) >= 0,
+        live: Boolean(quotes['GBPUSD']?.price)
       },
     };
   }, [quotes]);
@@ -90,7 +96,7 @@ function MobileAppPreview({ quotes, onAddFunds }: { quotes: Record<string, Marke
     const d = points.map((p, idx) => `${idx === 0 ? 'M' : 'L'} ${p.x} ${p.y}`).join(' ');
     const fillD = `${d} L 260 100 L 0 100 Z`;
     return { stroke: d, fill: fillD };
-  }, [equity]);
+  }, []);
 
   const assetsList = [
     { name: 'SOL/USD', desc: 'Solana' },
@@ -121,9 +127,9 @@ function MobileAppPreview({ quotes, onAddFunds }: { quotes: Record<string, Marke
           <div className="bg-slate-950 border border-slate-800 p-3 rounded-2xl flex items-center justify-between shadow-md">
             <div className="flex flex-col text-left">
               <span className="text-[9px] uppercase font-black text-slate-400 tracking-wider">Total Fund Equity</span>
-              <span className="text-lg font-mono font-black text-brand-yellow mt-0.5">${equity.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-              <span className={`text-[9px] font-bold mt-0.5 ${pnl >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
-                Unrealised P&L {pnl >= 0 ? '+' : ''}${pnl.toFixed(2)}
+              <span className="text-lg font-mono font-black text-brand-yellow mt-0.5">{equity !== null ? '$' + equity.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '—'}</span>
+              <span className={`text-[9px] font-bold mt-0.5 ${pnl !== null ? (pnl >= 0 ? 'text-emerald-400' : 'text-rose-400') : 'text-slate-500'}`}>
+                Unrealised P&L {pnl !== null ? (pnl >= 0 ? '+' : '') + pnl.toFixed(2) : '—'}
               </span>
             </div>
             <motion.button
@@ -154,8 +160,8 @@ function MobileAppPreview({ quotes, onAddFunds }: { quotes: Record<string, Marke
           <div className="bg-slate-950 border border-slate-850 p-2.5 rounded-2xl flex flex-col gap-1.5 relative overflow-hidden shadow-inner">
             <div className="flex justify-between items-center text-[10px] font-bold">
               <span className="text-slate-400 uppercase tracking-wider">{selectedAsset}</span>
-              <span className={`font-mono font-black ${prices[selectedAsset]?.isUp ? 'text-emerald-400' : 'text-rose-400'}`}>
-                {prices[selectedAsset]?.chg >= 0 ? '+' : ''}{prices[selectedAsset]?.chg.toFixed(2)}%
+              <span className={`font-mono font-black ${prices[selectedAsset]?.live ? (prices[selectedAsset]?.isUp ? 'text-emerald-400' : 'text-rose-400') : 'text-slate-500'}`}>
+                {prices[selectedAsset]?.live ? (prices[selectedAsset]?.chg >= 0 ? '+' : '') + prices[selectedAsset]?.chg.toFixed(2) + '%' : '—'}
               </span>
             </div>
             <div className="h-16 w-full relative">
@@ -177,7 +183,7 @@ function MobileAppPreview({ quotes, onAddFunds }: { quotes: Record<string, Marke
             <ul className="flex flex-col gap-1">
               {assetsList.map(asset => {
                 const isSelected = selectedAsset === asset.name;
-                const p = prices[asset.name] || { val: 0, chg: 0, isUp: true };
+                const p = prices[asset.name] || { val: null, chg: null, isUp: true, live: false };
                 return (
                   <motion.li
                     whileHover={{ x: 3 }}
@@ -198,10 +204,10 @@ function MobileAppPreview({ quotes, onAddFunds }: { quotes: Record<string, Marke
                     </div>
                     <div className="text-right">
                       <div className="text-[10px] font-mono font-black text-brand-yellow">
-                        ${p.val.toLocaleString(undefined, { minimumFractionDigits: asset.name.includes('JPY') ? 3 : asset.name.includes('USD') && !asset.name.includes('XAU') ? 4 : 2 })}
+                        {p.live && p.val !== null ? '$' + p.val.toLocaleString(undefined, { minimumFractionDigits: asset.name.includes('JPY') ? 3 : asset.name.includes('USD') && !asset.name.includes('XAU') ? 4 : 2 }) : '—'}
                       </div>
-                      <span className={`text-[8px] font-bold ${p.chg >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
-                        {p.chg >= 0 ? '+' : ''}{p.chg.toFixed(2)}%
+                      <span className={`text-[8px] font-bold ${p.live && p.chg !== null ? (p.chg >= 0 ? 'text-emerald-400' : 'text-rose-400') : 'text-slate-500'}`}>
+                        {p.live && p.chg !== null ? (p.chg >= 0 ? '+' : '') + p.chg.toFixed(2) + '%' : '—'}
                       </span>
                     </div>
                   </motion.li>
@@ -487,23 +493,29 @@ export default function HomeView({ quotes, setView, openSignUp, user }: HomeView
         }} />
       </div>
 
-      {/* PERSISTENT OVERLAPPING STATS STRIP AS SEEN IN THE VIDEO */}
+      {/* PERSISTENT OVERLAPPING STATS STRIP WITH LIVE SPREAD DATA */}
       <div className="relative z-30 max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 -mt-10 mb-10">
         <div className="bg-white border border-slate-200 rounded-xl shadow-xl p-5 grid grid-cols-2 md:grid-cols-4 gap-4 divide-y divide-slate-100 md:divide-y-0 md:divide-x divide-slate-200">
           {[
-            { val: 'Gold $0.16', label: 'Avg spread' },
-            { val: 'BTC $12', label: 'Avg spread' },
-            { val: 'ETH $1.25', label: 'Avg spread' },
-            { val: 'EURUSD 0.68', label: 'Avg spread' }
-          ].map((stat, i) => (
-            <div key={i} className="flex items-center justify-between md:justify-center px-4 py-2 gap-4">
-              <div className="text-left">
-                <span className="text-2xl font-black text-slate-900 tracking-tight block">{stat.val}</span>
-                <span className="text-[10px] uppercase font-bold text-slate-400 block tracking-wide">{stat.label}</span>
+            { symbol: 'XAUUSD', label: 'Gold Spread' },
+            { symbol: 'BTCUSD', label: 'BTC Spread' },
+            { symbol: 'ETHUSD', label: 'ETH Spread' },
+            { symbol: 'EURUSD', label: 'EURUSD Spread' }
+          ].map((stat) => {
+            const q = quotes[stat.symbol];
+            const spread = q?.spread > 0 ? q.spread : null;
+            return (
+              <div key={stat.symbol} className="flex items-center justify-between md:justify-center px-4 py-2 gap-4">
+                <div className="text-left">
+                  <span className={`text-2xl font-black text-slate-900 tracking-tight block ${spread !== null ? 'text-brand-red' : 'text-slate-400'}`}>
+                    {spread !== null ? `$${spread.toFixed(4)}` : '—'}
+                  </span>
+                  <span className="text-[10px] uppercase font-bold text-slate-400 block tracking-wide">{stat.label}</span>
+                </div>
+                <span className="text-brand-red font-black text-xl italic select-none">/</span>
               </div>
-              <span className="text-brand-red font-black text-xl italic select-none">/</span>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </div>
 
@@ -512,6 +524,9 @@ export default function HomeView({ quotes, setView, openSignUp, user }: HomeView
 
 
       
+      {/* LIVE MARKET METRICS — real-time data status */}
+      <LiveMetrics quotes={quotes} setView={setView} />
+
       {/* LIVE MARKETS TICKER — real provider-sourced prices, no fake/demo values */}
       <div className="bg-[#0B0F19] border-b border-white/10 overflow-hidden py-1.5">
         <NewsTicker />
@@ -741,9 +756,8 @@ export default function HomeView({ quotes, setView, openSignUp, user }: HomeView
                 <tbody className="divide-y divide-slate-200">
                   {getFilteredInstruments().map((symbolObj) => {
                     const liveData = liveQuotesMap[symbolObj.symbol] || quotes[symbolObj.symbol];
-                    const fallbackQuote = DEFAULT_MARKET_QUOTES[symbolObj.symbol];
-                    const basePrice = liveData?.price ?? fallbackQuote?.price ?? 1.0482;
-                    const changeNum = liveData?.change ?? fallbackQuote?.change ?? 0;
+                    const basePrice = liveData?.price ?? 0;
+                    const changeNum = liveData?.change ?? 0;
                     const isPositive = changeNum >= 0;
 
                     const isTickUp = liveData?.prevPrice ? basePrice > liveData.prevPrice : isPositive;

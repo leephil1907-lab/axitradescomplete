@@ -19,7 +19,7 @@ const SLIDES = [
     image: imgSpreads,
     theme: 'dark',
     badge: 'Spreads from 0.0 pips',
-    stat: 'Gold $0.16 · BTC $12 · ETH $1.25'
+    stat: 'Live market pricing'
   },
   {
     id: 'slide-1',

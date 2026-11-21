@@ -1,8 +1,12 @@
 import React, { useState } from 'react';
 import { Calculator } from 'lucide-react';
-import { DEFAULT_MARKET_QUOTES } from '../data';
+import { MarketQuote } from '../types';
 
-export default function PositionSizeCalculator() {
+interface PositionSizeCalculatorProps {
+  quotes?: Record<string, MarketQuote>;
+}
+
+export default function PositionSizeCalculator({ quotes }: PositionSizeCalculatorProps = {}) {
   const [balance, setBalance] = useState<number>(10000);
   const [leverage, setLeverage] = useState<number>(500);
   const [riskPercent, setRiskPercent] = useState<number>(1.0);
@@ -12,7 +16,10 @@ export default function PositionSizeCalculator() {
   const getPipValue = (sym: string): number => {
     switch(sym) {
       case 'EURUSD': case 'GBPUSD': case 'AUDUSD': case 'NZDUSD': return 10;
-      case 'USDJPY': return 1000 / 154.60;
+      case 'USDJPY': {
+        const price = quotes?.[sym]?.price;
+        return price > 0 ? 1000 / price : 10;
+      }
       case 'XAUUSD': return 10;
       case 'BTCUSD': return 1;
       default: return 10;
@@ -20,7 +27,7 @@ export default function PositionSizeCalculator() {
   };
   
   const getAssetPrice = (sym: string): number => {
-    return DEFAULT_MARKET_QUOTES[sym]?.price || 1.0482;
+    return quotes?.[sym]?.price || 0;
   };
   
   const getContractMultiplier = (sym: string): number => {

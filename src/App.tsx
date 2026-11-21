@@ -45,6 +45,7 @@ import SpotCryptoView from './components/SpotCryptoView';
 import PerpetualFuturesView from './components/PerpetualFuturesView';
 import PreIPOView from './components/PreIPOView';
 import ContactView from './components/ContactView';
+import NotFoundView from './components/NotFoundView';
 import TawkToWidget from './components/TawkToWidget';
 import WhatsAppChatButton from './components/WhatsAppChatButton';
 import { ASSET_METADATA } from './data';
@@ -676,6 +677,10 @@ export default function App() {
 
           {currentView === 'contact' && (
             <ContactView setView={setView} />
+          )}
+
+          {currentView === 'not_found' && (
+            <NotFoundView setView={setView} />
           )}
 
           {currentView === 'about' && (

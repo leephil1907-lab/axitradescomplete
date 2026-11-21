@@ -31,7 +31,7 @@ import {
   Sliders
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { ACADEMY_COURSES, DEFAULT_MARKET_QUOTES } from '../data';
+import { ACADEMY_COURSES } from '../data';
 import { MarketQuote } from '../types';
 
 import PositionSizeCalculator from './PositionSizeCalculator';
@@ -139,20 +139,20 @@ export default function ToolsView({ quotes, showToast }: ToolsViewProps) {
 
   const activeCourse = ACADEMY_COURSES.find(c => c.id === selectedCourseId) || ACADEMY_COURSES[0];
 
-  // Standalone Currency Converter Calculations
+  // Standalone Currency Converter Calculations — live rates only, no hardcoded/demo fallbacks
   const CURRENCY_LIST = [
     { code: 'USD', name: 'US Dollar', flag: '🇺🇸', symbol: '$', rateInUSD: 1.0 },
-    { code: 'EUR', name: 'Euro', flag: '🇪🇺', symbol: '€', rateInUSD: quotes?.['EURUSD']?.price || DEFAULT_MARKET_QUOTES['EURUSD']?.price || 1.0482 },
-    { code: 'GBP', name: 'British Pound', flag: '🇬🇧', symbol: '£', rateInUSD: quotes?.['GBPUSD']?.price || DEFAULT_MARKET_QUOTES['GBPUSD']?.price || 1.2590 },
-    { code: 'JPY', name: 'Japanese Yen', flag: '🇯🇵', symbol: '¥', rateInUSD: quotes?.['USDJPY'] ? (1 / quotes['USDJPY'].price) : (1 / (DEFAULT_MARKET_QUOTES['USDJPY']?.price || 154.60)) },
-    { code: 'AUD', name: 'Australian Dollar', flag: '🇦🇺', symbol: 'A$', rateInUSD: quotes?.['AUDUSD']?.price || DEFAULT_MARKET_QUOTES['AUDUSD']?.price || 0.6385 },
-    { code: 'CAD', name: 'Canadian Dollar', flag: '🇨🇦', symbol: 'C$', rateInUSD: quotes?.['USDCAD'] ? (1 / quotes['USDCAD'].price) : 0.7050 },
-    { code: 'CHF', name: 'Swiss Franc', flag: '🇨🇭', symbol: 'Fr', rateInUSD: quotes?.['USDCHF'] ? (1 / quotes['USDCHF'].price) : 1.1080 },
-    { code: 'NZD', name: 'New Zealand Dollar', flag: '🇳🇿', symbol: 'NZ$', rateInUSD: quotes?.['NZDUSD']?.price || DEFAULT_MARKET_QUOTES['NZDUSD']?.price || 0.5730 },
-    { code: 'CNH', name: 'Chinese Yuan', flag: '🇨🇳', symbol: '¥', rateInUSD: 0.1380 },
-    { code: 'SGD', name: 'Singapore Dollar', flag: '🇸🇬', symbol: 'S$', rateInUSD: 0.7420 },
-    { code: 'XAU', name: 'Gold Spot (1 oz)', flag: '🥇', symbol: 'oz', rateInUSD: quotes?.['XAUUSD']?.price || DEFAULT_MARKET_QUOTES['XAUUSD']?.price || 2915.40 },
-    { code: 'BTC', name: 'Bitcoin (Spot)', flag: '₿', symbol: '₿', rateInUSD: quotes?.['BTCUSD']?.price || DEFAULT_MARKET_QUOTES['BTCUSD']?.price || 96450.00 },
+    { code: 'EUR', name: 'Euro', flag: '🇪🇺', symbol: '€', rateInUSD: quotes?.['EURUSD']?.price || 0 },
+    { code: 'GBP', name: 'British Pound', flag: '🇬🇧', symbol: '£', rateInUSD: quotes?.['GBPUSD']?.price || 0 },
+    { code: 'JPY', name: 'Japanese Yen', flag: '🇯🇵', symbol: '¥', rateInUSD: quotes?.['USDJPY'] ? (1 / quotes['USDJPY'].price) : 0 },
+    { code: 'AUD', name: 'Australian Dollar', flag: '🇦🇺', symbol: 'A$', rateInUSD: quotes?.['AUDUSD']?.price || 0 },
+    { code: 'CAD', name: 'Canadian Dollar', flag: '🇨🇦', symbol: 'C$', rateInUSD: quotes?.['USDCAD'] ? (1 / quotes['USDCAD'].price) : 0 },
+    { code: 'CHF', name: 'Swiss Franc', flag: '🇨🇭', symbol: 'Fr', rateInUSD: quotes?.['USDCHF'] ? (1 / quotes['USDCHF'].price) : 0 },
+    { code: 'NZD', name: 'New Zealand Dollar', flag: '🇳🇿', symbol: 'NZ$', rateInUSD: quotes?.['NZDUSD']?.price || 0 },
+    { code: 'CNH', name: 'Chinese Yuan', flag: '🇨🇳', symbol: '¥', rateInUSD: 0 },
+    { code: 'SGD', name: 'Singapore Dollar', flag: '🇸🇬', symbol: 'S$', rateInUSD: 0 },
+    { code: 'XAU', name: 'Gold Spot (1 oz)', flag: '🥇', symbol: 'oz', rateInUSD: quotes?.['XAUUSD']?.price || 0 },
+    { code: 'BTC', name: 'Bitcoin (Spot)', flag: '₿', symbol: '₿', rateInUSD: quotes?.['BTCUSD']?.price || 0 },
   ];
 
   const getRateInUSD = (code: string): number => {
@@ -196,9 +196,9 @@ export default function ToolsView({ quotes, showToast }: ToolsViewProps) {
     setTimeout(() => setCopiedConv(false), 2500);
   };
 
-  // Live calculator math
+  // Live calculator math — no hardcoded/demo fallback prices
   const getSymbolBasePrice = (sym: string): number => {
-    return DEFAULT_MARKET_QUOTES[sym]?.price || 1.0482;
+    return quotes?.[sym]?.price || 0;
   };
 
   const getContractMultiplier = (sym: string): number => {
@@ -294,7 +294,7 @@ export default function ToolsView({ quotes, showToast }: ToolsViewProps) {
           </div>
 
           {calcType === 'position' ? (
-            <PositionSizeCalculator />
+            <PositionSizeCalculator quotes={quotes} />
           ) : (
             <>
           <div className="flex flex-col gap-4 text-xs font-bold text-slate-600">

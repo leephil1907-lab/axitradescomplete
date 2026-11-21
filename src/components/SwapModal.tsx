@@ -1,8 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { X, RefreshCw, ArrowDown, ArrowUpDown, CheckCircle2, ShieldCheck, Zap, DollarSign, TrendingUp } from 'lucide-react';
-import { DEFAULT_MARKET_QUOTES } from '../data';
-
 interface SwapModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -53,19 +51,19 @@ export default function SwapModal({
       return quotes[item.symbol].price;
     }
 
-    // Fallbacks
+    // No hardcoded/demo fallback prices — return 0 when live data unavailable
     switch (code) {
-      case 'EUR': return quotes['EURUSD']?.price || DEFAULT_MARKET_QUOTES['EURUSD']?.price || 1.0482;
-      case 'GBP': return quotes['GBPUSD']?.price || DEFAULT_MARKET_QUOTES['GBPUSD']?.price || 1.2590;
-      case 'BTC': return quotes['BTCUSD']?.price || DEFAULT_MARKET_QUOTES['BTCUSD']?.price || 96450.00;
-      case 'ETH': return quotes['ETHUSD']?.price || DEFAULT_MARKET_QUOTES['ETHUSD']?.price || 2740.50;
-      case 'SOL': return quotes['SOLUSD']?.price || DEFAULT_MARKET_QUOTES['SOLUSD']?.price || 188.40;
-      case 'XRP': return quotes['XRPUSD']?.price || DEFAULT_MARKET_QUOTES['XRPUSD']?.price || 2.385;
-      case 'XAU': return quotes['XAUUSD']?.price || DEFAULT_MARKET_QUOTES['XAUUSD']?.price || 2915.40;
-      case 'AAPL': return quotes['AAPL']?.price || DEFAULT_MARKET_QUOTES['AAPL']?.price || 232.40;
-      case 'NVDA': return quotes['NVDA']?.price || DEFAULT_MARKET_QUOTES['NVDA']?.price || 138.85;
-      case 'TSLA': return quotes['TSLA']?.price || DEFAULT_MARKET_QUOTES['TSLA']?.price || 248.50;
-      default: return 1.0;
+      case 'EUR': return quotes['EURUSD']?.price || 0;
+      case 'GBP': return quotes['GBPUSD']?.price || 0;
+      case 'BTC': return quotes['BTCUSD']?.price || 0;
+      case 'ETH': return quotes['ETHUSD']?.price || 0;
+      case 'SOL': return quotes['SOLUSD']?.price || 0;
+      case 'XRP': return quotes['XRPUSD']?.price || 0;
+      case 'XAU': return quotes['XAUUSD']?.price || 0;
+      case 'AAPL': return quotes['AAPL']?.price || 0;
+      case 'NVDA': return quotes['NVDA']?.price || 0;
+      case 'TSLA': return quotes['TSLA']?.price || 0;
+      default: return 0;
     }
   };
 
