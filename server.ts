@@ -1714,7 +1714,6 @@ async function hydrateAppUsersStoreFromPostgres() {
   }
 }
 
-let appKycStore: any[] = readDataFile('kyc.json', []);
 let appTransactionsStore: any[] = readDataFile('transactions.json', []);
 let appPartnersStore: any[] = readDataFile('partners.json', []);
 let appVpsStore: any[] = readDataFile('vps.json', []);
