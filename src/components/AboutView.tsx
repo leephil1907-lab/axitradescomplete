@@ -19,6 +19,7 @@ import {
 } from 'lucide-react';
 import { SupportMessage } from '../types';
 import { REGULATIONS } from '../data';
+import TrustpilotWidget from './TrustpilotWidget';
 
 interface AboutViewProps {
   showToast: (msg: string, type: 'success' | 'error' | 'info') => void;
@@ -333,6 +334,9 @@ export default function AboutView({ showToast }: AboutViewProps) {
             <div className="flex items-center gap-2"><Mail className="w-4 h-4 text-brand-red shrink-0" /> Email: support@axi.com</div>
           </div>
         </div>
+
+        {/* Trustpilot Reviews */}
+        <TrustpilotWidget className="mt-8" />
 
       </section>
 

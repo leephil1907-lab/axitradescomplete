@@ -41,6 +41,10 @@ import PartnersView from './components/PartnersView';
 import PromotionsView from './components/PromotionsView';
 import ForexVpsView from './components/ForexVpsView';
 import EconomicCalendar from './components/EconomicCalendar';
+import SpotCryptoView from './components/SpotCryptoView';
+import PerpetualFuturesView from './components/PerpetualFuturesView';
+import PreIPOView from './components/PreIPOView';
+import ContactView from './components/ContactView';
 import TawkToWidget from './components/TawkToWidget';
 import WhatsAppChatButton from './components/WhatsAppChatButton';
 import { ASSET_METADATA } from './data';
@@ -656,6 +660,22 @@ export default function App() {
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
               <EconomicCalendar setView={setView} showToast={showToast} standalone={true} />
             </div>
+          )}
+
+          {currentView === 'spot_crypto' && (
+            <SpotCryptoView quotes={quotes} setView={setView} user={user} />
+          )}
+
+          {currentView === 'perpetual_futures' && (
+            <PerpetualFuturesView quotes={quotes} setView={setView} user={user} />
+          )}
+
+          {currentView === 'pre_ipo' && (
+            <PreIPOView setView={setView} user={user} />
+          )}
+
+          {currentView === 'contact' && (
+            <ContactView setView={setView} />
           )}
 
           {currentView === 'about' && (

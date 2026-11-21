@@ -4,7 +4,8 @@ import {
   X, ChevronDown, Globe, ShieldCheck, User, LayoutDashboard, Wallet, 
   LogOut, TrendingUp, ChevronRight, PhoneCall, FileText, BarChart2, Zap, 
   BookOpen, Award, Layers, Coins, Landmark, HelpCircle, ArrowRight,
-  Users, Server, Gift, Calendar, Sparkles, DollarSign, Sun, Moon
+  Users, Server, Gift, Calendar, Sparkles, DollarSign, Sun, Moon, Monitor,
+  Play, StopCircle, Mail
 } from 'lucide-react';
 import { ViewType, DisplayCurrency } from '../types';
 import CurrencySelector from './CurrencySelector';
@@ -79,6 +80,15 @@ export default function Header({
     chooseLanguage(name);
   };
   const [userDropdownOpen, setUserDropdownOpen] = useState(false);
+  const [isDemoMode, setIsDemoMode] = useState(() => {
+    try { return localStorage.getItem('axi_demo_mode') !== 'false'; } catch { return true; }
+  });
+  const toggleDemoLive = () => {
+    const next = !isDemoMode;
+    setIsDemoMode(next);
+    try { localStorage.setItem('axi_demo_mode', String(next)); } catch {}
+    showToast?.(`${next ? 'Demo' : 'Live'} mode activated`, 'info');
+  };
   // AXI_HIDDEN_ADMIN_TRIGGER_V3
   const [hiddenAdminClicks,setHiddenAdminClicks]=useState(0);
   const hiddenAdminTimerRef=React.useRef<ReturnType<typeof setTimeout>|null>(null);
@@ -97,6 +107,9 @@ export default function Header({
         { name: 'Forex Trading', desc: '70+ major, minor & exotic FX pairs', icon: TrendingUp, tag: '0.0 Pips', target: 'markets' },
         { name: 'Share CFDs', desc: 'Apple, Nvidia, Tesla & 500+ global stocks', icon: BarChart2, tag: '0% Comm', target: 'markets' },
         { name: 'Cryptocurrencies', desc: 'Bitcoin, Ethereum & top 50 coins 24/7', icon: Coins, tag: '24/7', target: 'markets' },
+        { name: 'Spot Crypto', desc: 'Buy, sell & hold Bitcoin, Ethereum and 150+ real cryptocurrencies', icon: Coins, tag: 'Spot', target: 'spot_crypto' },
+        { name: 'Perpetual Futures', desc: 'Long or short crypto, FX & indices with up to 1:125 leverage', icon: Monitor, tag: 'Perps', target: 'perpetual_futures' },
+        { name: 'Pre-IPO Perpetuals', desc: 'Speculate on private company valuations before IPO debut', icon: Landmark, tag: 'Coming Soon', target: 'pre_ipo' },
         { name: 'Commodities', desc: 'Gold, Silver, US Crude Oil & Natural Gas', icon: Landmark, tag: 'High Liquidity', target: 'markets' },
         { name: 'Global Indices', desc: 'US500, US30, UK100, GER40 & Asian indices', icon: Layers, tag: '1000:1', target: 'markets' },
       ]
@@ -172,6 +185,7 @@ export default function Header({
         { name: 'Security & Regulation', desc: 'Strict regulatory compliance & segregated Tier-1 accounts', icon: ShieldCheck, tag: 'Segregated', target: 'about' },
         { name: 'Man City Partnership', desc: 'Official Online Trading Partner of Manchester City FC', icon: Zap, tag: 'Partner', target: 'about' },
         { name: '24/7 Client Support', desc: 'Dedicated multilingual assistance around the clock', icon: PhoneCall, tag: 'Live Desk', target: 'support' },
+        { name: 'Contact Us', desc: 'Email, phone & live chat client services', icon: Mail, tag: '24/7', target: 'contact' },
       ]
     }
   ];
@@ -332,6 +346,16 @@ export default function Header({
               </div>
             ))}
           </nav>
+
+          {/* Demo / Live Mode Toggle - Prominent Axi-style switch */}
+          <div className="flex items-center gap-2 bg-[#161616] border border-white/10 px-3 py-1.5 rounded-lg text-white text-xs font-bold transition cursor-pointer group" onClick={toggleDemoLive} title="Switch between Demo and Live trading mode">
+            <span className="flex items-center gap-1">
+              {isDemoMode ? <Play className="w-3 h-3 text-[#F5CE47]" /> : <StopCircle className="w-3 h-3 text-emerald-400" />}
+            </span>
+            <span className={isDemoMode ? 'text-[#F5CE47]' : 'text-emerald-400'}>{isDemoMode ? 'DEMO' : 'LIVE'}</span>
+            <span className="w-0.5 h-3 bg-white/20"></span>
+            <span className="text-white/70 text-[10px]">{isDemoMode ? 'Practice with virtual funds' : 'Real money trading'}</span>
+          </div>
 
           {/* User Logged in quick status or Sign in link */}
           {user ? (

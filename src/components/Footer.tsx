@@ -63,6 +63,7 @@ export default function Footer({ setView }: FooterProps) {
       title: 'Client Support',
       links: [
         { label: '24/7 Client Help Desk', id: 'support' as ViewType },
+        { label: 'Contact Us', id: 'contact' as ViewType },
         { label: 'Request a Callback', id: 'support' as ViewType },
         { label: 'WhatsApp Priority Line', id: 'support' as ViewType },
         { label: 'Voice Notes Inquiry', id: 'support' as ViewType },
