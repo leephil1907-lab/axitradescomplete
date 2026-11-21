@@ -1064,7 +1064,12 @@ export default function DashboardView({
         <div className="bg-[#141B26] rounded-xl border border-slate-800/90 flex-1 flex flex-col overflow-hidden shadow-lg min-h-[340px]">
           
           {/* Terminal Tabs Bar */}
-          <div className="flex items-center justify-between border-b border-slate-800 bg-[#111722] px-3 pt-2 overflow-x-auto gap-2">
+          <motion.div
+            layout
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="flex items-center justify-between border-b border-slate-800 bg-[#111722] px-3 pt-2 overflow-x-auto gap-2"
+          >
             <div className="flex items-center gap-1">
               
               <button
@@ -1157,7 +1162,7 @@ export default function DashboardView({
                 Close All ({openPositions.length})
               </button>
             )}
-          </div>
+          </motion.div>
 
           {/* TAB 1: OPEN POSITIONS TABLE */}
           {activeTab === 'positions' && (
