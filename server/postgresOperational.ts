@@ -4,6 +4,7 @@ import path from 'node:path';
 import { getApps, initializeApp, cert } from 'firebase-admin/app';
 import { getAuth } from 'firebase-admin/auth';
 import { verifyAdminSession } from './adminAuth';
+import { sendAxiEmail } from './emailService';
 import type { Express, NextFunction, Request, Response } from 'express';
 
 const { Pool } = pg;
@@ -244,6 +245,18 @@ export function postgresOperationalRoutes(app: Express) {
         'Reference': String(payload.refCode || payload.id || id),
         'Files': String(payload.fileName || (Array.isArray(payload.documents) ? `${payload.documents.length} document(s)` : 'Attached'))
       });
+      // Confirm KYC submission to user via branded email
+      try {
+        await sendAxiEmail(
+          identity.userEmail,
+          '📄 Axi Trades — KYC Documents Received',
+          'KYC Verification Submitted',
+          `Your identity verification documents have been received and are under review.`,
+          `<p>Hello <strong>${String(payload.fullName || payload.name || identity.userEmail || 'Valued Trader')}</strong>,</p><p>Thank you for submitting your identity verification documents. Our compliance team is reviewing your submission. You will receive an email once your KYC status is updated.</p><p><strong>Reference:</strong> ${id}</p>`
+        ).catch(() => {});
+      } catch (e) {
+        console.warn('[Axi email] KYC submission confirmation failed:', e?.message || e);
+      }
       return res.status(201).json({ success: true, submission: written, status: 'Pending', source: 'file' });
     }
     try {
@@ -257,6 +270,18 @@ export function postgresOperationalRoutes(app: Express) {
         'Reference': String(payload.refCode || payload.id || id),
         'Files': String(payload.fileName || (Array.isArray(payload.documents) ? `${payload.documents.length} document(s)` : 'Attached'))
       });
+      // Confirm KYC submission to user via branded email
+      try {
+        await sendAxiEmail(
+          identity.userEmail,
+          '📄 Axi Trades — KYC Documents Received',
+          'KYC Verification Submitted',
+          `Your identity verification documents have been received and are under review.`,
+          `<p>Hello <strong>${String(payload.fullName || payload.name || identity.userEmail || 'Valued Trader')}</strong>,</p><p>Thank you for submitting your identity verification documents. Our compliance team is reviewing your submission. You will receive an email once your KYC status is updated.</p><p><strong>Reference:</strong> ${id}</p>`
+        ).catch(() => {});
+      } catch (e) {
+        console.warn('[Axi email] KYC submission confirmation failed:', e?.message || e);
+      }
       return res.status(201).json({ success: true, submission: rows[0], status: 'Pending', source: 'postgres' });
     } catch (error) {
       console.error('Postgres KYC submit failed; using file fallback:', error);
@@ -283,17 +308,50 @@ async function updateKycStatus(req: Request, res: Response, status: string) {
       'Reference': id,
       ...(status === 'Rejected' ? { 'Reason': String(req.body?.reason || 'Document illegible or expired') } : {})
     });
+    // Notify user of KYC decision via branded email
+    try {
+      const userEmail = String(existing.userEmail || existing.email || '');
+      if (userEmail) {
+        const isApproved = status === 'Approved';
+        await sendAxiEmail(
+          userEmail,
+          isApproved ? '✅ Axi Trades — KYC Verification Approved' : '⚠️ Axi Trades — KYC Additional Information Required',
+          isApproved ? 'Identity Verification Complete' : 'KYC Verification — Review Required',
+          isApproved ? 'Your identity verification documents have been approved.' : 'Your KYC documents require additional review.',
+          `<p>Hello <strong>${String(existing.fullName || existing.name || 'Valued Trader')}</strong>,</p><p>Our compliance department has reviewed your identity verification documents and the result is: <strong style="color: ${isApproved ? '#059669' : '#dc2626'}">${isApproved ? 'APPROVED' : 'REQUIRES REVIEW'}</strong>.</p>${isApproved ? `<p>Your account tier has been elevated to Tier-1 Verified Status.</p>` : `<p><strong>Reason:</strong> ${String(req.body?.reason || 'Document quality or information mismatch')}</p><p>You may upload new documents through the Axi client terminal at any time.</p>`}<p><strong>Reference:</strong> ${id}</p>`
+        ).catch(() => {});
+      }
+    } catch (e) {
+      console.warn('[Axi email] KYC decision notification failed:', e?.message || e);
+    }
     return res.json({ success: true, submission: updated, status, source: 'file' });
   }
   try {
     const { rows } = await db.query(`UPDATE axi_operational_records SET status=$2,payload=jsonb_set(payload,'{status}',to_jsonb($2::text),true),updated_at=NOW() WHERE id=$1 AND record_type='kyc' RETURNING *`, [id, status]);
     if (!rows[0]) return res.status(404).json({ success: false, error: 'KYC submission not found' });
+    const payload = rows[0].payload && typeof rows[0].payload === 'object' ? rows[0].payload : {};
     await applyUserVerification(String(rows[0].user_id || ''), String(rows[0].user_email || ''), verdict);
     await telegramNotifyOperational(status === 'Approved' ? 'KYC_APPROVED' : 'KYC_REJECTED', {
       'Trader': String(rows[0].user_email || rows[0].user_id || '—'),
       'Reference': id,
       ...(status === 'Rejected' ? { 'Reason': String(req.body?.reason || 'Document illegible or expired') } : {})
     });
+    // Notify user of KYC decision via branded email (postgres path)
+    try {
+      const userEmail = String(rows[0].user_email || '');
+      const isApproved = status === 'Approved';
+      if (userEmail) {
+        await sendAxiEmail(
+          userEmail,
+          isApproved ? '✅ Axi Trades — KYC Verification Approved' : '⚠️ Axi Trades — KYC Additional Information Required',
+          isApproved ? 'Identity Verification Complete' : 'KYC Verification — Review Required',
+          isApproved ? 'Your identity verification documents have been approved.' : 'Your KYC documents require additional review.',
+          `<p>Hello <strong>${String(payload.fullName || payload.name || 'Valued Trader')}</strong>,</p><p>Our compliance department has reviewed your identity verification documents and the result is: <strong style="color: ${isApproved ? '#059669' : '#dc2626'}\">${isApproved ? 'APPROVED' : 'REQUIRES REVIEW'}</strong>.</p>${isApproved ? `<p>Your account tier has been elevated to Tier-1 Verified Status.</p>` : `<p><strong>Reason:</strong> ${String(req.body?.reason || 'Document quality or information mismatch')}</p><p>You may upload new documents through the Axi client terminal at any time.</p>`}<p><strong>Reference:</strong> ${id}</p>`
+        ).catch(() => {});
+      }
+    } catch (e) {
+      console.warn('[Axi email] KYC decision notification failed:', e?.message || e);
+    }
     return res.json({ success: true, submission: rows[0], status, source: 'postgres' });
   } catch (error) {
     console.error('Postgres KYC status update failed; using file fallback:', error);
@@ -306,6 +364,22 @@ async function updateKycStatus(req: Request, res: Response, status: string) {
       'Reference': id,
       ...(status === 'Rejected' ? { 'Reason': String(req.body?.reason || 'Document illegible or expired') } : {})
     });
+    // Notify user of KYC decision via branded email (catch fallback path)
+    try {
+      const userEmail = String(existing.userEmail || existing.email || '');
+      const isApproved = status === 'Approved';
+      if (userEmail) {
+        await sendAxiEmail(
+          userEmail,
+          isApproved ? '✅ Axi Trades — KYC Verification Approved' : '⚠️ Axi Trades — KYC Additional Information Required',
+          isApproved ? 'Identity Verification Complete' : 'KYC Verification — Review Required',
+          isApproved ? 'Your identity verification documents have been approved.' : 'Your KYC documents require additional review.',
+          `<p>Hello <strong>${String(existing.fullName || existing.name || 'Valued Trader')}</strong>,</p><p>Our compliance department has reviewed your identity verification documents and the result is: <strong style="color: ${isApproved ? '#059669' : '#dc2626'}">${isApproved ? 'APPROVED' : 'REQUIRES REVIEW'}</strong>.</p>${isApproved ? `<p>Your account tier has been elevated to Tier-1 Verified Status.</p>` : `<p><strong>Reason:</strong> ${String(req.body?.reason || 'Document quality or information mismatch')}</p><p>You may upload new documents through the Axi client terminal at any time.</p>`}<p><strong>Reference:</strong> ${id}</p>`
+        ).catch(() => {});
+      }
+    } catch (e) {
+      console.warn('[Axi email] KYC decision notification failed:', e?.message || e);
+    }
     return res.json({ success: true, submission: updated, status, source: 'file' });
   }
 }

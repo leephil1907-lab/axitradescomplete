@@ -1466,7 +1466,7 @@ app.post('/api/stripe/verify-deposit', requireAuth,  async (req, res) => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           chat_id: chatId2,
-          text: `<b>[Axi Trading Alert - DEPOSIT_VERIFIED]</b>\n\n` + 
+          text: `<b>[Axi Trading Alert - DEPOSIT_VERIFIED]</b>\n\n` +
                 `\ud83d\udcb0 <b>STRIPE PAYMENT CONFIRMED</b>\n` +
                 `User: ${email}\nAmount: $${verifiedAmount.toFixed(2)} USD\nRef: ${refCode}\n\n` +
                 `\u2705 Funds received into Stripe balance.\n` +
@@ -1475,6 +1475,26 @@ app.post('/api/stripe/verify-deposit', requireAuth,  async (req, res) => {
           parse_mode: 'HTML'
         })
       }).catch(() => {});
+    }
+
+    // Notify user that their deposit payment was received (pending admin credit)
+    try {
+      const targetUser = appUsersStore.find(u => u.id === userId || u.email.toLowerCase() === email.toLowerCase()) || (dbUser ? { name: dbUser.name, email: dbUser.email } : null);
+      await sendAxiTransactionalEmail({
+        to: email,
+        name: targetUser?.name || email.split('@')[0],
+        type: 'DepositPending',
+        subject: `💳 Axi Trades — Deposit Payment Received ($${verifiedAmount.toFixed(2)} USD)`,
+        txId: refCode,
+        txType: 'Deposit',
+        amount: verifiedAmount,
+        status: 'Pending Admin Credit',
+        method: 'Card (Stripe)',
+        refCode,
+        accountNo: targetUser?.accountNo || 'AXI-' + Math.floor(100000 + Math.random() * 900000)
+      }).catch(() => {});
+    } catch (e) {
+      console.warn('[Axi email] Deposit confirmation notification failed:', e?.message || e);
     }
   }
 
@@ -2094,6 +2114,24 @@ app.put('/api/users/:id/balance', requireAdmin,  async (req, res) => {
     'Reason': reason || 'Admin balance adjustment'
   });
 
+  // Notify user of balance adjustment via branded email
+  try {
+    const isCredit = String(reason || '').toLowerCase().includes('credit') || String(reason || '').toLowerCase().includes('increase') || (typeof balance === 'number' && balance > 0);
+    await sendAxiTransactionalEmail({
+      to: user.email,
+      name: user.name || user.email,
+      type: 'BalanceAdjustment',
+      subject: isCredit ? '💰 Axi Trades — Balance Credited' : '💳 Axi Trades — Balance Updated',
+      amount: typeof balance === 'number' ? Math.abs(balance) : 0,
+      status: isCredit ? 'Approved' : 'Updated',
+      method: 'Admin Balance Adjustment',
+      reason: reason || 'Manual balance adjustment by Axi operations team',
+      accountNo: user.accountNo || 'AXI-' + Math.floor(100000 + Math.random() * 900000)
+    }).catch(() => {});
+  } catch (e) {
+    console.warn('[Axi email] Balance adjustment notification failed:', e?.message || e);
+  }
+
   res.json({ success: true, user });
 });
 
@@ -2115,6 +2153,22 @@ app.put('/api/users/:id/status', requireAdmin,  async (req, res) => {
   writeDataFile('users.json', appUsersStore);
   await dbUpdateUser(userId, { status: user.status, verificationStatus: user.verificationStatus, kycStatus: user.kycStatus }).catch((error) => console.error('Postgres status sync failed:', error));
   await audit('ADMIN_USER_STATUS_UPDATE', { userId: user.id, email: user.email, metadata: { status: user.status, verificationStatus: user.verificationStatus, kycStatus: user.kycStatus } }).catch(() => {});
+
+  // Notify user of account status change via branded email
+  try {
+    await sendAxiTransactionalEmail({
+      to: user.email,
+      name: user.name || user.email,
+      type: 'AccountStatus',
+      subject: `📋 Axi Trades — Account Status: ${user.status || 'Updated'}`,
+      status: user.status || 'Updated',
+      reason: kycStatus ? `KYC verification status: ${kycStatus}` : verificationStatus ? `Verification status: ${verificationStatus}` : undefined,
+      accountNo: user.accountNo || 'AXI-' + Math.floor(100000 + Math.random() * 900000)
+    }).catch(() => {});
+  } catch (e) {
+    console.warn('[Axi email] Account status notification failed:', e?.message || e);
+  }
+
   res.json({ success: true, user });
 });
 
@@ -2171,13 +2225,35 @@ app.delete('/api/users/:id', requireAdmin, (req, res) => {
 // TRANSACTIONS & DEPOSITS / WITHDRAWALS API
 // ----------------------------------------------------
 
-app.post('/api/transactions/update-status', requireAdmin, (req, res) => {
+app.post('/api/transactions/update-status', requireAdmin, async (req, res) => {
   const { id, status } = req.body;
   const tx = appTransactionsStore.find(t => t.id === id);
   if (tx) {
     tx.status = status;
     tx.updatedAt = new Date().toISOString();
     writeDataFile('transactions.json', appTransactionsStore);
+
+    // Notify user of withdrawal/deposit status change via branded email
+    try {
+      const isWithdrawal = String(tx.txType || tx.type || '').toLowerCase().includes('withdraw') || String(tx.method || '').toLowerCase().includes('withdraw');
+      if (tx.userEmail && (isWithdrawal || status === 'Approved' || status === 'Rejected' || status === 'Completed')) {
+        await sendAxiTransactionalEmail({
+          to: tx.userEmail,
+          name: tx.userName || tx.userEmail,
+          type: isWithdrawal ? 'Withdrawal' : 'DepositApproved',
+          subject: isWithdrawal ? `🏧 Axi Trades — Withdrawal ${status || 'Processed'}` : `💰 Axi Trades — Deposit ${status || 'Approved'}`,
+          txId: tx.id,
+          txType: tx.txType || tx.type,
+          amount: tx.amount,
+          status: status || 'Processed',
+          method: tx.method || (isWithdrawal ? 'Bank Wire / Crypto' : 'Card (Stripe)'),
+          reason: tx.reason || undefined,
+          accountNo: tx.accountNo || 'AXI-' + Math.floor(100000 + Math.random() * 900000)
+        }).catch(() => {});
+      }
+    } catch (e) {
+      console.warn('[Axi email] Transaction status notification failed:', e?.message || e);
+    }
   }
   res.json({ success: true, transaction: tx });
 });
@@ -2472,6 +2548,8 @@ let smtpRuntimeConfig = {
   fromEmail: process.env.SMTP_FROM_EMAIL || process.env.SMTP_USER || process.env.GMAIL_USER || 'axicustomersupport@gmail.com'
 };
 
+const esc = (v: unknown) => String(v ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' } as any)[c] || c);
+
 function createSmtpTransporter() {
   const host = smtpRuntimeConfig.host || 'smtp.gmail.com';
   const port = smtpRuntimeConfig.port || 465;
@@ -2502,6 +2580,83 @@ function createSmtpTransporter() {
     },
     tls: { rejectUnauthorized: false }
   });
+}
+
+/**
+ * Send a branded Axi transactional email via SMTP (with Resend fallback).
+ * Templates: Registration, PasswordReset, KYC, KYCRejected, DepositPending,
+ * DepositApproved, Withdrawal, BalanceAdjustment, AccountStatus, Custom, Broadcast
+ */
+async function sendAxiTransactionalEmail({
+  to,
+  name,
+  type,
+  subject,
+  code,
+  txId,
+  txType,
+  amount,
+  status,
+  method,
+  reason,
+  accountNo,
+  platform,
+  refCode,
+  customBody
+}: any): Promise<boolean> {
+  if (!to) return false;
+  const emailHtml = buildAxiEmailHtml({
+    recipientName: name || 'Valued Trader',
+    recipientEmail: to,
+    type,
+    subject,
+    code,
+    txId,
+    txType,
+    amount,
+    status,
+    method,
+    reason,
+    accountNo,
+    platform,
+    refCode,
+    customBody
+  });
+  const emailSubject = subject || 'Axi Trades Official Notification';
+
+  // 1) Try Google SMTP (primary)
+  try {
+    const transporter = createSmtpTransporter();
+    const user = smtpRuntimeConfig.user;
+    const pass = smtpRuntimeConfig.pass;
+    if (user && pass) {
+      const info = await transporter.sendMail({
+        from: `"${smtpRuntimeConfig.fromName}" <${smtpRuntimeConfig.fromEmail}>`,
+        to,
+        subject: emailSubject,
+        html: emailHtml
+      });
+      console.log(`[Axi EMAIL] SMTP delivered to ${to} (${type}): ${info.messageId}`);
+      return true;
+    }
+  } catch (err: any) {
+    console.warn(`[Axi EMAIL] SMTP failed for ${to} (${type}):`, err?.message || err);
+  }
+
+  // 2) Fallback to Resend (emailService)
+  try {
+    const { sendAxiEmail: resendSend } = await import('./emailService');
+    const result = await resendSend(to, emailSubject, emailSubject, '', emailHtml);
+    const sent = Boolean(result);
+    if (sent) {
+      console.log(`[Axi EMAIL] Resend fallback delivered to ${to} (${type})`);
+      return true;
+    }
+  } catch (err: any) {
+    console.warn(`[Axi EMAIL] Resend fallback failed for ${to} (${type}):`, err?.message || err);
+  }
+
+  return false;
 }
 
 // Helper to generate Axi Branded Responsive HTML Email Templates
@@ -2735,6 +2890,122 @@ function buildAxiEmailHtml({
             <li>Higher leverage limits up to 1:500 on major currency pairs</li>
           </ul>
         </div>
+      </div>
+    `;
+  } else if (type === 'KYCRejected' || type === 'KYC Rejected') {
+    bodyContent = `
+      <div style="margin-bottom: 24px;">
+        <div style="display: inline-block; background-color: #fee2e2; color: #991b1b; font-size: 11px; font-weight: 800; padding: 4px 10px; border-radius: 9999px; text-transform: uppercase; margin-bottom: 12px;">
+          ✗ Identity Verification Requires Review
+        </div>
+        <h2 style="font-size: 20px; font-weight: 800; color: #0f172a; margin: 0 0 12px 0;">KYC Verification — Additional Information Required</h2>
+        <p style="font-size: 14px; color: #475569; line-height: 1.6; margin: 0 0 16px 0;">
+          Hello <strong>${recipientName || 'Valued Trader'}</strong>,<br/><br/>
+          Our compliance department has reviewed your identity verification documents and they could not be approved at this time. Please review the reason below and resubmit corrected documents.
+        </p>
+
+        <div style="background-color: #fef2f2; border: 1px solid #fecaca; border-left: 4px solid #dc2626; border-radius: 8px; padding: 18px; margin: 20px 0;">
+          <div style="font-size: 11px; font-weight: 800; text-transform: uppercase; color: #dc2626; letter-spacing: 0.5px; margin-bottom: 10px;">Review Outcome</div>
+          <p style="font-size: 13px; color: #991b1b; margin: 0 0 12px 0;"><strong>Reason:</strong> ${reason || 'Document quality or information mismatch — please ensure all details are clear, valid, and match your registered account information.'}</p>
+          <p style="font-size: 13px; color: #991b1b; margin: 0;">You may upload new documents through the Axi client terminal at any time.</p>
+        </div>
+
+        <div style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 18px; margin: 20px 0;">
+          <div style="font-size: 11px; font-weight: 800; text-transform: uppercase; color: #475569; letter-spacing: 0.5px; margin-bottom: 10px;">Next Steps</div>
+          <ul style="margin: 0; padding-left: 18px; font-size: 13px; color: #334155; line-height: 1.8;">
+            <li>Log in to your Axi client portal</li>
+            <li>Navigate to KYC / Identity Verification</li>
+            <li>Upload clear, legible copies of your ID and proof of address</li>
+            <li>Resubmit for compliance review</li>
+          </ul>
+        </div>
+      </div>
+    `;
+  } else if (type === 'BalanceAdjustment' || type === 'Balance Adjustment') {
+    const isCredit = String(reason || '').toLowerCase().includes('credit') || String(reason || '').toLowerCase().includes('increase') || (amount && Number(amount) > 0);
+    const sign = isCredit ? '+' : '−';
+    const color = isCredit ? '#059669' : '#dc2626';
+    const bgColor = isCredit ? '#d1fae5' : '#fee2e2';
+    const label = isCredit ? 'Balance Credited' : 'Balance Debited';
+    bodyContent = `
+      <div style="margin-bottom: 24px;">
+        <div style="display: inline-block; background-color: ${bgColor}; color: ${color}; font-size: 11px; font-weight: 800; padding: 4px 10px; border-radius: 9999px; text-transform: uppercase; margin-bottom: 12px;">
+          ${isCredit ? '✓' : '✗'} ${label}
+        </div>
+        <h2 style="font-size: 20px; font-weight: 800; color: #0f172a; margin: 0 0 12px 0;">Live Account Balance Update</h2>
+        <p style="font-size: 14px; color: #475569; line-height: 1.6; margin: 0 0 16px 0;">
+          Hello <strong>${recipientName || 'Valued Trader'}</strong>,<br/><br/>
+          Your Axi live trading account balance has been updated by our operations team.
+        </p>
+
+        <div style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-left: 4px solid ${color}; border-radius: 8px; padding: 18px; margin: 20px 0;">
+          <div style="font-size: 11px; font-weight: 800; text-transform: uppercase; color: ${color}; letter-spacing: 0.5px; margin-bottom: 10px;">Adjustment Summary</div>
+          <table style="width: 100%; font-size: 13px; color: #334155; border-collapse: collapse;">
+            <tr>
+              <td style="padding: 4px 0; color: #64748b; width: 140px;">Reference ID:</td>
+              <td style="padding: 4px 0; font-weight: 700; font-family: monospace;">${txId || 'ADJ-' + Math.floor(100000 + Math.random() * 900000)}</td>
+            </tr>
+            <tr>
+              <td style="padding: 4px 0; color: #64748b;">Adjustment Amount:</td>
+              <td style="padding: 4px 0; font-weight: 800; color: ${color}; font-size: 15px;">${sign}$${(amount || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} USD</td>
+            </tr>
+            <tr>
+              <td style="padding: 4px 0; color: #64748b;">Reason:</td>
+              <td style="padding: 4px 0; color: #334155; font-weight: 600;">${reason || 'Manual balance adjustment by Axi operations team'}</td>
+            </tr>
+            <tr>
+              <td style="padding: 4px 0; color: #64748b;">Processed:</td>
+              <td style="padding: 4px 0; color: #64748b;">${new Date().toUTCString()}</td>
+            </tr>
+          </table>
+        </div>
+
+        ${!isCredit ? `<div style="background-color: #fef2f2; border: 1px solid #fecaca; border-radius: 8px; padding: 16px; margin: 20px 0; font-size: 13px; color: #991b1b;"><strong>⚠️ Important:</strong> If you did not expect this adjustment, please contact our 24/7 Support Desk immediately at <a href="mailto:axicustomersupport@gmail.com" style="color: #e3000f; font-weight: bold;">axicustomersupport@gmail.com</a>.</div>` : ''}
+      </div>
+    `;
+  } else if (type === 'AccountStatus' || type === 'Account Status') {
+    const isActive = String(status || '').toLowerCase() === 'active' || String(status || '').toLowerCase() === 'approved' || String(status || '').toLowerCase() === 'live';
+    const color = isActive ? '#059669' : '#dc2626';
+    const bgColor = isActive ? '#d1fae5' : '#fee2e2';
+    const label = isActive ? 'Account Activated' : 'Account Status Updated';
+    bodyContent = `
+      <div style="margin-bottom: 24px;">
+        <div style="display: inline-block; background-color: ${bgColor}; color: ${color}; font-size: 11px; font-weight: 800; padding: 4px 10px; border-radius: 9999px; text-transform: uppercase; margin-bottom: 12px;">
+          ${isActive ? '✓' : '⚠'} ${label}
+        </div>
+        <h2 style="font-size: 20px; font-weight: 800; color: #0f172a; margin: 0 0 12px 0;">Axi Account Status Change</h2>
+        <p style="font-size: 14px; color: #475569; line-height: 1.6; margin: 0 0 16px 0;">
+          Hello <strong>${recipientName || 'Valued Trader'}</strong>,<br/><br/>
+          Your Axi trading account status has been updated to: <strong style="color: ${color};">${esc(status || 'Updated')}</strong>.
+        </p>
+
+        <div style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-left: 4px solid ${color}; border-radius: 8px; padding: 18px; margin: 20px 0;">
+          <div style="font-size: 11px; font-weight: 800; text-transform: uppercase; color: #475569; letter-spacing: 0.5px; margin-bottom: 10px;">Account Summary</div>
+          <table style="width: 100%; font-size: 13px; color: #334155; border-collapse: collapse;">
+            <tr>
+              <td style="padding: 4px 0; color: #64748b; width: 140px;">Account Email:</td>
+              <td style="padding: 4px 0; font-weight: 700; font-family: monospace;">${recipientEmail}</td>
+            </tr>
+            <tr>
+              <td style="padding: 4px 0; color: #64748b;">New Status:</td>
+              <td style="padding: 4px 0; font-weight: 800; color: ${color};">${esc(status || 'Updated')}</td>
+            </tr>
+            <tr>
+              <td style="padding: 4px 0; color: #64748b;">Account Number:</td>
+              <td style="padding: 4px 0; font-weight: 700; font-family: monospace;">${accountNo || 'AXI-' + Math.floor(100000 + Math.random() * 900000)}</td>
+            </tr>
+            <tr>
+              <td style="padding: 4px 0; color: #64748b;">Updated:</td>
+              <td style="padding: 4px 0; color: #64748b;">${new Date().toUTCString()}</td>
+            </tr>
+          </table>
+        </div>
+
+        ${reason ? `<div style="background-color: #fef2f2; border: 1px solid #fecaca; border-radius: 8px; padding: 16px; margin: 20px 0; font-size: 13px; color: #991b1b;"><strong>Admin Note:</strong> ${esc(reason)}</div>` : ''}
+
+        ${isActive ? `<div style="background-color: #eff6ff; border: 1px solid #bfdbfe; border-radius: 8px; padding: 16px; margin: 20px 0;">
+          <strong>🎉 Your account is now active.</strong> You can log in to the Axi client terminal and begin trading across Forex, Crypto, Indices, Commodities, and Equities.
+        </div>` : ''}
       </div>
     `;
   } else {
