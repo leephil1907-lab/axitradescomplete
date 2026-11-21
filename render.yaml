@@ -2,10 +2,17 @@ services:
   - type: web
     name: axitrades
     runtime: docker
-    plan: free
+    plan: pro
     dockerfilePath: ./Dockerfile
     healthCheckPath: /api/markets/quotes
     autoDeploy: true
+    # Persistent disk (Render Pro): keeps the runtime data store
+    # (server-side /app/data fallback store: users.json, KYC uploads, etc.)
+    # alive across deploys and restarts.
+    disk:
+      name: axitrades-data
+      sizeInGb: 10
+      mountPath: /app/data
     envVars:
       - key: NODE_ENV
         value: production

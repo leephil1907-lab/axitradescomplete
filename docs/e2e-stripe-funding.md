@@ -15,7 +15,7 @@ No code path credits Stripe automatically; the admin manual credit in Funding Re
 
 ## Prerequisites
 
-**On the server under test** (dev `.env` or Railway variables):
+**On the server under test** (dev `.env` or Render variables):
 
 | Variable | Value |
 |---|---|
@@ -27,8 +27,8 @@ No code path credits Stripe automatically; the admin manual credit in Funding Re
 | `ADMIN_PASSWORD_HASH` + `ADMIN_PASSWORD_SALT` | scrypt password (what `ADMIN_PASSWORD` resolves to at login) |
 | `ADMIN_SESSION_SECRET` | HMAC secret for admin tokens |
 
-For the **deployed Railway app** also register a Stripe test webhook endpoint pointing at
-`https://<railway-app>.up.railway.app/api/stripe/webhook` with events
+For the **deployed Render service** also register a Stripe test webhook endpoint pointing at
+`https://<render-service>.onrender.com/api/stripe/webhook` with events
 `payment_intent.succeeded` and `checkout.session.completed`, and copy its signing secret
 (`whsec_…`) into `STRIPE_WEBHOOK_SECRET`.
 
@@ -37,7 +37,7 @@ For the **deployed Railway app** also register a Stripe test webhook endpoint po
 ## Run
 
 ```bash
-export API_BASE=http://localhost:3000        # or https://<railway-app>.up.railway.app
+export API_BASE=http://localhost:3000        # or https://<render-service>.onrender.com
 export STRIPE_SECRET_KEY=sk_test_...
 export STRIPE_WEBHOOK_SECRET=whsec_...
 export ADMIN_EMAIL=you@example.com
