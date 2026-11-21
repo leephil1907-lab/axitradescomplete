@@ -116,8 +116,38 @@ export default function App() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
   // AXI_MOBILE_ADMIN_ROUTE_V1
-  const [currentView, setView] = useState<ViewType>(() => window.location.pathname.replace(/\/$/, '') === '/admin' ? 'admin' : 'home');
+  const [currentView, setView] = useState<ViewType>(() => {
+    const path = window.location.pathname.replace(/\/$/, '').slice(1) || 'home';
+    const validViews: ViewType[] = ['home','markets','trading','login','platforms','accounts','tools','about','funds','select','blog','support','legal','dashboard','academy','admin','settings','quick_deposit','partners','promotions','forex_vps','economic_calendar','spot_crypto','perpetual_futures','pre_ipo','contact','not_found'];
+    return validViews.includes(path as ViewType) ? (path as ViewType) : 'home';
+  });
 const [quotes, setQuotes] = useState<Record<string, MarketQuote>>(INITIAL_QUOTES);
+
+  // Multi-page navigation: sync view with browser URL so back/forward and direct links work
+  const navigate = (nextView: ViewType, replace = false) => {
+    setView(nextView);
+    const url = nextView === 'home' ? '/' : '/' + nextView;
+    if (replace) {
+      window.history.replaceState({ view: nextView }, document.title, url);
+    } else {
+      window.history.pushState({ view: nextView }, document.title, url);
+    }
+  };
+
+  // Handle browser back/forward (popstate)
+  useEffect(() => {
+    const handlePopState = (e: PopStateEvent) => {
+      const path = window.location.pathname.replace(/\/$/, '').slice(1) || 'home';
+      const validViews: ViewType[] = ['home','markets','trading','login','platforms','accounts','tools','about','funds','select','blog','support','legal','dashboard','academy','admin','settings','quick_deposit','partners','promotions','forex_vps','economic_calendar','spot_crypto','perpetual_futures','pre_ipo','contact','not_found'];
+      if (validViews.includes(path as ViewType)) {
+        setView(path as ViewType);
+      } else {
+        setView('home');
+      }
+    };
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, []);
 
   // Per-page titles for Google SEO — updates document.title on every view change
   const VIEW_TITLES: Record<ViewType, string> = {
@@ -582,7 +612,7 @@ const [quotes, setQuotes] = useState<Record<string, MarketQuote>>(INITIAL_QUOTES
       {/* Universal Responsive Header */}
       {currentView !== 'login' && <Header 
         currentView={currentView} 
-        setView={setView} 
+        setView={navigate} 
         openSignUp={openSignUpWizard} 
         tickerQuoteText={buildTickerText()} 
         user={user}
@@ -601,22 +631,23 @@ const [quotes, setQuotes] = useState<Record<string, MarketQuote>>(INITIAL_QUOTES
         balance={balance}
       />}
 
-      {/* Main Render Section with transitions */}
+      {/* Main Render Section with smooth multi-page transitions */}
       <AnimatePresence mode="wait">
         <motion.main
           key={currentView}
-          className="flex-grow"
-          initial={{ opacity: 0, y: 16, scale: 0.995 }}
-          animate={{ opacity: 1, y: 0, scale: 1 }}
-          exit={{ opacity: 0, y: -12, scale: 0.995 }}
-          transition={{ duration: 0.28, ease: [0.16, 1, 0.3, 1] }}
+          className="flex-grow min-h-[calc(100vh-72px)]"
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -20 }}
+          transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
+          layout
         >
           {/* Per-view boundary: a failure in one view must never dead-end the
               whole application. Reset on every view change. */}
           <ViewErrorBoundary viewKey={currentView}>
           {currentView === 'login' && (
             <LoginView 
-              setView={setView} 
+              setView={navigate} 
               login={loginWithGoogle} 
               loginWithFacebook={loginWithFacebook}
               loginWithEmail={loginWithEmail} 
@@ -629,7 +660,7 @@ const [quotes, setQuotes] = useState<Record<string, MarketQuote>>(INITIAL_QUOTES
           {currentView === 'home' && (
             <HomeView 
               quotes={quotes} 
-              setView={setView} 
+              setView={navigate} 
               openSignUp={openSignUpWizard} 
               user={user}
             />
@@ -651,7 +682,7 @@ const [quotes, setQuotes] = useState<Record<string, MarketQuote>>(INITIAL_QUOTES
               setClosedPositions={setClosedPositions}
               priceAlerts={priceAlerts}
               setPriceAlerts={setPriceAlerts}
-              setView={setView}
+              setView={navigate}
             />
           )}
 
@@ -665,7 +696,7 @@ const [quotes, setQuotes] = useState<Record<string, MarketQuote>>(INITIAL_QUOTES
               openSignUp={openSignUpWizard}
               signUpStep={signUpStep}
               setSignUpStep={setSignUpStep}
-              setView={setView}
+              setView={navigate}
               user={user}
               balance={balance}
               liveBalance={liveBalance}
@@ -677,45 +708,45 @@ const [quotes, setQuotes] = useState<Record<string, MarketQuote>>(INITIAL_QUOTES
           )}
 
           {currentView === 'academy' && (
-            <AcademyView setView={setView} showToast={showToast} />
+            <AcademyView setView={navigate} showToast={showToast} />
           )}
 
           {currentView === 'partners' && (
-            <PartnersView setView={setView} showToast={showToast} openSignUp={openSignUpWizard} />
+            <PartnersView setView={navigate} showToast={showToast} openSignUp={openSignUpWizard} />
           )}
 
           {currentView === 'promotions' && (
-            <PromotionsView setView={setView} showToast={showToast} openSignUp={openSignUpWizard} openQuickDeposit={() => setIsQuickDepositOpen(true)} />
+            <PromotionsView setView={navigate} showToast={showToast} openSignUp={openSignUpWizard} openQuickDeposit={() => setIsQuickDepositOpen(true)} />
           )}
 
           {currentView === 'forex_vps' && (
-            <ForexVpsView setView={setView} showToast={showToast} openSignUp={openSignUpWizard} />
+            <ForexVpsView setView={navigate} showToast={showToast} openSignUp={openSignUpWizard} />
           )}
 
           {currentView === 'economic_calendar' && (
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-              <EconomicCalendar setView={setView} showToast={showToast} standalone={true} />
+              <EconomicCalendar setView={navigate} showToast={showToast} standalone={true} />
             </div>
           )}
 
           {currentView === 'spot_crypto' && (
-            <SpotCryptoView quotes={quotes} setView={setView} user={user} />
+            <SpotCryptoView quotes={quotes} setView={navigate} user={user} />
           )}
 
           {currentView === 'perpetual_futures' && (
-            <PerpetualFuturesView quotes={quotes} setView={setView} user={user} />
+            <PerpetualFuturesView quotes={quotes} setView={navigate} user={user} />
           )}
 
           {currentView === 'pre_ipo' && (
-            <PreIPOView setView={setView} user={user} />
+            <PreIPOView setView={navigate} user={user} />
           )}
 
           {currentView === 'contact' && (
-            <ContactView setView={setView} />
+            <ContactView setView={navigate} />
           )}
 
           {currentView === 'not_found' && (
-            <NotFoundView setView={setView} />
+            <NotFoundView setView={navigate} />
           )}
 
           {currentView === 'about' && (
@@ -737,7 +768,7 @@ const [quotes, setQuotes] = useState<Record<string, MarketQuote>>(INITIAL_QUOTES
               setTransactions={setTransactions}
               addTransaction={addTransaction}
               updateTransactionStatus={updateTransactionStatus}
-              setView={setView}
+              setView={navigate}
               displayCurrency={displayCurrency}
               setDisplayCurrency={handleSetDisplayCurrency}
               formatCurrency={formatCurrency}
@@ -758,9 +789,9 @@ const [quotes, setQuotes] = useState<Record<string, MarketQuote>>(INITIAL_QUOTES
           )}
 
           {currentView === 'settings' && (
-            <SettingsView user={user} showToast={showToast} setView={setView} isDarkMode={isDarkMode} toggleDarkMode={toggleDarkMode} />
+            <SettingsView user={user} showToast={showToast} setView={navigate} isDarkMode={isDarkMode} toggleDarkMode={toggleDarkMode} />
           )}
-          {currentView === 'admin' && <AdminDashboardView setView={setView} showToast={showToast} transactions={transactions} updateTransactionStatus={updateTransactionStatus} liveBalance={liveBalance} setLiveBalance={setLiveBalance} formatCurrency={formatCurrency} displayCurrency={displayCurrency} setDisplayCurrency={handleSetDisplayCurrency} />}
+          {currentView === 'admin' && <AdminDashboardView setView={navigate} showToast={showToast} transactions={transactions} updateTransactionStatus={updateTransactionStatus} liveBalance={liveBalance} setLiveBalance={setLiveBalance} formatCurrency={formatCurrency} displayCurrency={displayCurrency} setDisplayCurrency={handleSetDisplayCurrency} />}
           {currentView === 'dashboard' && (
             <DashboardView
               balance={balance}
@@ -775,7 +806,7 @@ const [quotes, setQuotes] = useState<Record<string, MarketQuote>>(INITIAL_QUOTES
               transactions={transactions}
               user={user}
               quotes={quotes}
-              setView={setView}
+              setView={navigate}
               openReferModal={() => setIsReferModalOpen(true)}
               openVoiceModal={() => setIsVoiceModalOpen(true)}
               openOnboardingTour={() => setIsOnboardingTourOpen(true)}
@@ -790,7 +821,7 @@ const [quotes, setQuotes] = useState<Record<string, MarketQuote>>(INITIAL_QUOTES
       </AnimatePresence>
 
       {/* Universal Footer Disclosures */}
-      {currentView !== 'login' && <Footer setView={setView} />}
+      {currentView !== 'login' && <Footer setView={navigate} />}
 
       {/* Tawk.to Official Live Chat Integration (Sole Live Chat Handler) */}
       <TawkToWidget 
@@ -843,7 +874,7 @@ const [quotes, setQuotes] = useState<Record<string, MarketQuote>>(INITIAL_QUOTES
           <CommandMenu 
             isOpen={isCommandMenuOpen} 
             setIsOpen={setIsCommandMenuOpen} 
-            setView={setView} 
+            setView={navigate} 
             openReferModal={() => setIsReferModalOpen(true)}
             openVoiceModal={() => setIsVoiceModalOpen(true)}
             openOnboardingTour={() => setIsOnboardingTourOpen(true)}
@@ -923,7 +954,7 @@ const [quotes, setQuotes] = useState<Record<string, MarketQuote>>(INITIAL_QUOTES
       <OnboardingTourModal
         isOpen={isOnboardingTourOpen}
         onClose={() => setIsOnboardingTourOpen(false)}
-        setView={setView}
+        setView={navigate}
         showToast={showToast}
       />
     </div>
