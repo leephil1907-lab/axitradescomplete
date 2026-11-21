@@ -6,6 +6,7 @@ import AxiIndicesSceneImg from '../assets/axi-official/axi_indices_scene.jpg';
 import AxiManCityLogo from '../assets/axi-official/axi_mancity_logo.svg';
 import React, { useState, useEffect } from 'react';
 import AssetBrandLogo from './AssetBrandLogo';
+import NewsTicker from './NewsTicker';
 import spacexHeroImg from '../assets/images/spacex_ipo_hero_1784835887334.jpg';
 import axiSelectHeroImg from '../assets/images/axi_select_hero_1786473577102.jpg';
 import spreadsHeroImg from '../assets/images/axi_spreads_hero_1786473589536.jpg';
@@ -490,10 +491,10 @@ export default function HomeView({ quotes, setView, openSignUp, user }: HomeView
       <div className="relative z-30 max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 -mt-10 mb-10">
         <div className="bg-white border border-slate-200 rounded-xl shadow-xl p-5 grid grid-cols-2 md:grid-cols-4 gap-4 divide-y divide-slate-100 md:divide-y-0 md:divide-x divide-slate-200">
           {[
-            { val: '$5', label: 'Starting deposit' },
-            { val: '1000+', label: 'Products to trade' },
-            { val: '0.7', label: 'Average spreads' },
-            { val: '1000:1', label: 'Max leverage' }
+            { val: 'Gold $0.16', label: 'Avg spread' },
+            { val: 'BTC $12', label: 'Avg spread' },
+            { val: 'ETH $1.25', label: 'Avg spread' },
+            { val: 'EURUSD 0.68', label: 'Avg spread' }
           ].map((stat, i) => (
             <div key={i} className="flex items-center justify-between md:justify-center px-4 py-2 gap-4">
               <div className="text-left">
@@ -511,55 +512,9 @@ export default function HomeView({ quotes, setView, openSignUp, user }: HomeView
 
 
       
-      {/* LIVE SPREADS TICKER */}
-      <div className="bg-white border-b border-slate-200 overflow-hidden py-2 flex items-center">
-        <div className="whitespace-nowrap animate-[marquee_20s_linear_infinite] flex items-center gap-10 px-4">
-          {[
-            { sym: 'EURUSD', pair: 'EUR/USD', spread: '0.0', trend: 'up' },
-            { sym: 'GBPUSD', pair: 'GBP/USD', spread: '0.1', trend: 'down' },
-            { sym: 'XAUUSD', pair: 'XAU/USD', spread: '0.11', trend: 'up' },
-            { sym: 'BTCUSD', pair: 'BTC/USD', spread: '15.0', trend: 'up' },
-            { sym: 'USDJPY', pair: 'USD/JPY', spread: '0.1', trend: 'down' },
-            { sym: 'AUDUSD', pair: 'AUD/USD', spread: '0.2', trend: 'up' },
-            { sym: 'US30', pair: 'US30', spread: '1.0', trend: 'down' },
-            { sym: 'UK100', pair: 'UK100', spread: '0.8', trend: 'up' },
-          ].map((item, i) => (
-            <div key={i} className="flex items-center gap-2">
-              <AssetBrandLogo symbol={item.sym} size="sm" />
-              <span className="font-bold text-slate-800 text-sm">{item.pair}</span>
-              <span className="text-slate-500 text-xs">Spread</span>
-              <span className="font-mono font-bold text-brand-red text-sm">{item.spread}</span>
-              {item.trend === 'up' ? (
-                <svg className="w-3 h-3 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 10l7-7m0 0l7 7m-7-7v18"></path></svg>
-              ) : (
-                <svg className="w-3 h-3 text-rose-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 14l-7 7m0 0l-7-7m7 7V3"></path></svg>
-              )}
-            </div>
-          ))}
-          {/* Duplicate for infinite effect */}
-          {[
-            { sym: 'EURUSD', pair: 'EUR/USD', spread: '0.0', trend: 'up' },
-            { sym: 'GBPUSD', pair: 'GBP/USD', spread: '0.1', trend: 'down' },
-            { sym: 'XAUUSD', pair: 'XAU/USD', spread: '0.11', trend: 'up' },
-            { sym: 'BTCUSD', pair: 'BTC/USD', spread: '15.0', trend: 'up' },
-            { sym: 'USDJPY', pair: 'USD/JPY', spread: '0.1', trend: 'down' },
-            { sym: 'AUDUSD', pair: 'AUD/USD', spread: '0.2', trend: 'up' },
-            { sym: 'US30', pair: 'US30', spread: '1.0', trend: 'down' },
-            { sym: 'UK100', pair: 'UK100', spread: '0.8', trend: 'up' },
-          ].map((item, i) => (
-            <div key={i + 'dup'} className="flex items-center gap-2">
-              <AssetBrandLogo symbol={item.sym} size="sm" />
-              <span className="font-bold text-slate-800 text-sm">{item.pair}</span>
-              <span className="text-slate-500 text-xs">Spread</span>
-              <span className="font-mono font-bold text-brand-red text-sm">{item.spread}</span>
-              {item.trend === 'up' ? (
-                <svg className="w-3 h-3 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 10l7-7m0 0l7 7m-7-7v18"></path></svg>
-              ) : (
-                <svg className="w-3 h-3 text-rose-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 14l-7 7m0 0l-7-7m7 7V3"></path></svg>
-              )}
-            </div>
-          ))}
-        </div>
+      {/* LIVE MARKETS TICKER — real provider-sourced prices, no fake/demo values */}
+      <div className="bg-[#0B0F19] border-b border-white/10 overflow-hidden py-1.5">
+        <NewsTicker />
       </div>
 
 
@@ -572,14 +527,14 @@ export default function HomeView({ quotes, setView, openSignUp, user }: HomeView
           
           <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-4 text-left max-w-3xl mx-auto mb-10">
             {[
-              'Ultra-competitive pricing, unbeatable value',
-              'Raw spreads, high liquidity, flexible leverage',
-              'High-performance, innovative trading technology',
-              'Lightning-fast execution, rock-solid platform',
-              'Award-winning 24/7 customer service',
-              'Free education to sharpen your skills',
-              'Self-service portal + multilingual support',
-              'An established global broker since 2007'
+              '29ms average execution speed',
+              '20+ top-tier liquidity providers',
+              '100+ countries served globally',
+              '50+ industry awards since 2021',
+              'Spreads from 0.0 pips on EURUSD',
+              'Gold from $0.16 · BTC from $12 · ETH from $1.25',
+              '650+ instruments across CFDs, crypto & indices',
+              'Regulated multi-jurisdiction broker since 2007'
             ].map((item, idx) => (
               <div key={idx} className="flex items-start gap-2 text-xs font-bold text-slate-700">
                 {/* Red slash marker as seen in the video checklist */}

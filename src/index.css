@@ -131,6 +131,10 @@ html.axi-tawk-chat-open body {
   0% { transform: translateX(0); }
   100% { transform: translateX(-50%); }
 }
+@keyframes marquee-24s {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
 
 /* ============================================================================
    AXI cream/white theme (default)

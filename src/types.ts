@@ -88,6 +88,7 @@ export interface MarketQuote {
   stale?: boolean;
   status?: 'live' | 'stale' | 'unavailable';
   lastUpdated?: number;
+  source?: string;
 }
 
 export interface MasterTrader {
