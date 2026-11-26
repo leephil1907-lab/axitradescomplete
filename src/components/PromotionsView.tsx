@@ -131,15 +131,15 @@ export default function PromotionsView({ setView, showToast, openSignUp, openQui
   };
 
   return (
-    <div className="w-full py-8 lg:py-12">
+    <div className="home-shell py-8 lg:py-12">
       {/* Hero Banner */}
-      <div className="bg-slate-900 text-white rounded-3xl p-8 sm:p-12 mb-12 relative overflow-hidden border border-slate-800 shadow-2xl">
+      <div className="site-feature-banner p-6 sm:p-12 lg:p-16 mb-12">
         <div className="absolute -right-20 -top-20 w-96 h-96 bg-brand-red/20 rounded-full blur-3xl pointer-events-none"></div>
         <div className="relative z-10 max-w-3xl">
           <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-brand-yellow/20 text-brand-yellow border border-brand-yellow/30 text-xs font-black uppercase tracking-wider mb-4">
             <Gift className="w-3.5 h-3.5" /> Official Axi Promotions & Contests
           </div>
-          <h1 className="text-3xl sm:text-5xl font-black tracking-tight text-white mb-4 leading-tight">
+          <h1 className="site-display-title text-3xl sm:text-5xl font-black tracking-tight text-white mb-4 leading-tight">
             Boost Your Trading Capital with Exclusive Axi Bonuses
           </h1>
           <p className="text-base sm:text-lg text-slate-300 mb-8 leading-relaxed">

@@ -1,3 +1,4 @@
+import PageHero from './axi/PageHero';
 import React, { useState } from 'react';
 import { 
   Calculator, 
@@ -240,20 +241,9 @@ export default function ToolsView({ quotes, showToast }: ToolsViewProps) {
   };
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 flex flex-col gap-12 bg-brand-light">
-      
-      {/* Intro Header */}
-      <div className="text-center max-w-3xl mx-auto flex flex-col items-center gap-3">
-        <span className="text-brand-red text-xs font-black tracking-widest uppercase bg-brand-red/5 border border-brand-red/10 px-3.5 py-1.5 rounded-full">
-          Smart Tools & Resources
-        </span>
-        <h1 className="text-3xl md:text-4xl font-black text-brand-dark tracking-tight animate-fade-in">
-          Axi Calculations & Learning Portals
-        </h1>
-        <p className="text-slate-500 text-xs sm:text-sm font-semibold">
-          Optimize trade allocation, compute required risk reserves, or master technical indicators with interactive certifications.
-        </p>
-      </div>
+    <div className="site-editorial-page">
+      <PageHero label="Trading tools" title="Tools to plan your trades" description="Calculate position sizes and explore resources for managing trading risk." />
+      <div className="home-shell flex flex-col gap-12 py-12 md:py-16">
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
         
@@ -1469,6 +1459,7 @@ export default function ToolsView({ quotes, showToast }: ToolsViewProps) {
 
       </div>
 
+      </div>
     </div>
   );
 }

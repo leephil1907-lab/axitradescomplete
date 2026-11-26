@@ -742,10 +742,10 @@ export default function FundsView({
   });
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900 pb-24">
+    <div className="min-h-screen bg-[#f4f3ef] text-slate-900 pb-24">
       {/* Header Banner */}
       <div className="bg-white border-b border-slate-200">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+        <div className="home-shell py-6">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div>
               <div className="flex items-center gap-2 text-xs font-bold tracking-wider uppercase text-slate-400 mb-1">
@@ -753,7 +753,7 @@ export default function FundsView({
                 <span>/</span>
                 <span className="text-brand-red font-extrabold">Funds Management</span>
               </div>
-              <h1 className="text-2xl font-black text-slate-900 tracking-tight">Funds & Payment Center</h1>
+              <h1 className="workspace-title text-slate-900">Funds & Payment Center</h1>
               <p className="text-xs text-slate-500 mt-0.5">Real-world multi-currency deposit, withdrawal, and verified ledger</p>
             </div>
 

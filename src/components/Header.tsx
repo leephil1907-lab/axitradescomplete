@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
-import { motion, AnimatePresence } from 'motion/react';
+import React, { useState, useEffect, useRef } from 'react';
+import { motion, AnimatePresence, useReducedMotion } from 'motion/react';
 import { 
-  X, ChevronDown, Globe, ShieldCheck, User, LayoutDashboard, Wallet, 
+  X, Search, ChevronDown, Globe, ShieldCheck, User, LayoutDashboard, Wallet,
   LogOut, TrendingUp, ChevronRight, PhoneCall, FileText, BarChart2, Zap, 
   BookOpen, Award, Layers, Coins, Landmark, HelpCircle, ArrowRight,
   Users, Server, Gift, Calendar, Sparkles, DollarSign, Sun, Moon
@@ -60,8 +60,19 @@ export default function Header({
   isDarkMode = false,
   toggleDarkMode,
 }: HeaderProps) {
+  const reduceMotion = useReducedMotion();
+  const menuDialog = useRef<HTMLDialogElement>(null);
+  const [menuQuery, setMenuQuery] = useState('');
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [activeDropdown, setActiveDropdown] = useState<string | null>(null);
+  useEffect(() => {
+    if (!mobileMenuOpen) return;
+    const node = menuDialog.current;
+    node?.showModal();
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => { node?.close(); document.body.style.overflow = previousOverflow; };
+  }, [mobileMenuOpen]);
   const [activeMobileDropdown, setActiveMobileDropdown] = useState<string | null>(null);
   const [showLanguageModal, setShowLanguageModal] = useState(false);
   // NOTE: The platform is served in English. Browser auto-translate is disabled
@@ -102,7 +113,7 @@ export default function Header({
       ]
     },
     {
-      label: 'Trading',
+      label: 'Trade',
       id: 'accounts',
       badge: 'PRO ECN',
       highlightText: 'Institutional execution speed with up to 1000:1 leverage',
@@ -132,7 +143,7 @@ export default function Header({
       ]
     },
     {
-      label: 'Tools & Learn',
+      label: 'Education',
       id: 'academy',
       badge: 'Live News',
       highlightText: 'Free comprehensive education and macroeconomic intelligence',
@@ -147,7 +158,7 @@ export default function Header({
       ]
     },
     {
-      label: 'Partners',
+      label: 'Partnerships',
       id: 'partners',
       badge: 'Up to $12/Lot',
       highlightText: 'Industry-leading IB rebates, CPA payouts, and institutional solutions',
@@ -161,7 +172,7 @@ export default function Header({
       ]
     },
     {
-      label: 'About',
+      label: 'Our Company',
       id: 'about',
       badge: 'Est. 2007',
       highlightText: 'Trusted by 100,000+ traders across 100+ countries since 2007',
@@ -190,7 +201,7 @@ export default function Header({
   // caption columns (child indexes per group).
   const NAV_LAYOUT: Record<string, { mode: 'tiles' | 'columns'; caption?: string; groups?: { heading: string; indices: number[] }[] }> = {
     Markets: { mode: 'tiles', caption: 'CFD Instruments' },
-    Trading: { mode: 'columns', groups: [
+    Trade: { mode: 'columns', groups: [
       { heading: 'Accounts', indices: [0, 1] },
       { heading: 'Features & Funding', indices: [2, 3, 4] },
     ] },
@@ -198,12 +209,12 @@ export default function Header({
       { heading: 'Trading Platforms', indices: [0, 1, 4] },
       { heading: 'Add-on Tools', indices: [2, 3] },
     ] },
-    'Tools & Learn': { mode: 'columns', groups: [
+    Education: { mode: 'columns', groups: [
       { heading: 'Learn & Insights', indices: [1, 3, 4] },
       { heading: 'Market Tools', indices: [0, 2] },
     ] },
-    Partners: { mode: 'tiles' },
-    About: { mode: 'tiles' },
+    Partnerships: { mode: 'tiles' },
+    'Our Company': { mode: 'tiles' },
   };
 
   // Hover handling: entering a trigger or the drop-down panel cancels the close
@@ -231,13 +242,13 @@ export default function Header({
   ];
 
   return (
-    <header className="w-full bg-[#C8102E] sticky top-0 z-50 shadow-lg select-none border-b border-red-800/40">
+    <header className="axi-design reference-nav w-full sticky top-0 z-50">
       
       {/* Top Main Navigation Container */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 h-16 sm:h-18 flex items-center justify-between gap-2 relative">
+      <div className="home-shell h-16 sm:h-18 flex items-center justify-between gap-2 relative">
         
         {/* ================= LEFT SECTION: Brand Logo & Left Primary Nav Items ================= */}
-        <div className="flex items-center gap-6 xl:gap-8 min-w-[140px]">
+        <div className="flex items-center gap-5 xl:gap-8 min-w-0">
           {/* Axi Brand Logo */}
           <button 
             type="button"
@@ -247,12 +258,12 @@ export default function Header({
             aria-label="Axi Home"
           >
             <div className="flex items-center">
-              <AxiLogo variant="white" size="md" className="drop-shadow-sm transition-transform duration-200 group-hover:scale-105" />
+              <AxiLogo variant="adaptive" size="md" className="drop-shadow-sm transition-transform duration-200 group-hover:scale-105" />
             </div>
           </button>
 
           {/* Left Desktop Nav Links: Markets, Trading, Platforms */}
-          <nav className="hidden lg:flex items-center gap-5 xl:gap-6 text-white font-medium text-sm">
+          <nav className="hidden xl:flex items-center gap-5 xl:gap-6 text-white font-medium text-sm">
             {navItems.slice(0, 3).map((item) => (
               <div 
                 key={item.label}
@@ -283,27 +294,11 @@ export default function Header({
           </nav>
         </div>
 
-        {/* ================= DEAD CENTER SECTION: 'OPEN ACCOUNT' CTA BUTTON ================= */}
-        <div className="absolute left-1/2 -translate-x-1/2 flex items-center justify-center pointer-events-auto">
-          <div className="relative group">
-            {/* Slanted subtle background glow on hover */}
-            <div className="absolute -inset-1 bg-yellow-400/30 rounded-lg blur-sm opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none" />
-            
-            <button
-              onClick={openSignUp}
-              className="relative bg-[#F5CE47] hover:bg-[#ECC94B] text-neutral-950 text-xs sm:text-[13px] md:text-sm font-black tracking-wider uppercase px-4 sm:px-6 md:px-8 py-2 sm:py-2.5 rounded-md shadow-md hover:shadow-lg transition-all active:scale-95 cursor-pointer whitespace-nowrap border border-yellow-300/40 flex items-center gap-1.5"
-              id="header-open-account-btn"
-            >
-              <span>OPEN ACCOUNT</span>
-            </button>
-          </div>
-        </div>
-
         {/* ================= RIGHT SECTION: Right Primary Nav Items, Sign In & Hamburger ================= */}
-        <div className="flex items-center gap-4 sm:gap-6 min-w-[140px] justify-end">
+        <div className="flex items-center gap-2 sm:gap-4 xl:gap-6 justify-end">
           
           {/* Right Desktop Nav Links: Tools & Learn, Partners, About */}
-          <nav className="hidden lg:flex items-center gap-5 xl:gap-6 text-white font-medium text-sm">
+          <nav className="hidden xl:flex items-center gap-5 xl:gap-6 text-white font-medium text-sm">
             {navItems.slice(3, 6).map((item) => (
               <div 
                 key={item.label}
@@ -397,9 +392,11 @@ export default function Header({
             </button>
           )}
 
+          <button type="button" onClick={openSignUp} id="header-open-account-btn" className="home-button home-button-primary whitespace-nowrap">Open Account</button>
+
           {/* Axi-Style Slanted Hamburger Menu Toggle (3 staggered diagonal lines) */}
           <button
-            onClick={() => setMobileMenuOpen(true)}
+            onClick={() => { setMenuQuery(''); setActiveMobileDropdown(null); setMobileMenuOpen(true); }}
             className="p-1.5 text-white hover:text-[#F5CE47] transition cursor-pointer flex items-center justify-center"
             aria-label="Open Navigation Menu"
           >
@@ -524,219 +521,29 @@ export default function Header({
         })()}
       </AnimatePresence>
 
-      {/* Slide-out Menu Drawer for Tablet / Mobile Navigation */}
-      <AnimatePresence>
-        {mobileMenuOpen && (
-          <div className="fixed inset-0 z-50 flex justify-end">
-            {/* Backdrop */}
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              onClick={() => setMobileMenuOpen(false)}
-              className="fixed inset-0 bg-black/75 backdrop-blur-sm"
-            />
-
-            {/* Drawer Content */}
-            <motion.div
-              initial={{ x: '100%' }}
-              animate={{ x: 0 }}
-              exit={{ x: '100%' }}
-              transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-              className="relative w-full max-w-md bg-[#141414] text-white h-full overflow-y-auto flex flex-col shadow-2xl z-10"
-            >
-              {/* Drawer Header with Slanted Brand Geometry */}
-              <div className="relative flex items-center justify-between p-5 border-b border-neutral-800 bg-[#C8102E] overflow-hidden">
-                <div 
-                  className="absolute inset-0 bg-[#9B0018] opacity-60 pointer-events-none"
-                  style={{ clipPath: 'polygon(0 0, 100% 0, 80% 100%, 0% 100%)' }}
-                />
-                <div className="relative flex items-center gap-1">
-                  <AxiLogo variant="white" size="sm" />
-                </div>
-                <button
-                  onClick={() => setMobileMenuOpen(false)}
-                  className="relative p-1 rounded-full hover:bg-black/20 text-white transition cursor-pointer"
-                >
-                  <X className="w-6 h-6" />
-                </button>
-              </div>
-
-              {/* Drawer Centered Action CTAs */}
-              <div className="p-5 flex flex-col gap-3 border-b border-neutral-800 bg-neutral-900/60">
-                <button
-                  onClick={() => { setMobileMenuOpen(false); openSignUp(); }}
-                  className="w-full py-3 bg-[#F5CE47] hover:bg-[#ECC94B] text-neutral-900 font-black text-sm uppercase tracking-wider rounded-lg shadow-md transition text-center cursor-pointer"
-                >
-                  OPEN ACCOUNT
-                </button>
-                {user ? (
-                  <button
-                    onClick={() => handleNav('dashboard')}
-                    className="w-full py-2.5 bg-neutral-800 hover:bg-neutral-700 text-white font-bold text-xs uppercase tracking-wider rounded-lg transition text-center border border-neutral-700 cursor-pointer"
-                  >
-                    GO TO DASHBOARD
-                  </button>
-                ) : (
-                  <button
-                    onClick={() => handleNav('login')}
-                    className="w-full py-2.5 bg-neutral-800 hover:bg-neutral-700 text-white font-bold text-xs uppercase tracking-wider rounded-lg transition text-center border border-neutral-700 cursor-pointer"
-                  >
-                    CLIENT SIGN IN
-                  </button>
-                )}
-              </div>
-
-              {/* Drawer Navigation Links */}
-              <div className="flex-1 p-5 flex flex-col gap-4 overflow-y-auto">
-                {/* Theme toggle inside mobile menu */}
-                {toggleDarkMode && (
-                  <button
-                    onClick={() => { toggleDarkMode(); }}
-                    className="w-full flex items-center justify-between gap-3 bg-neutral-900 border border-neutral-800 rounded-xl px-4 py-3 text-left transition cursor-pointer"
-                  >
-                    <span className="flex items-center gap-2.5 text-xs font-bold text-white">
-                      {isDarkMode ? <Sun className="w-4 h-4 text-[#F5CE47]" /> : <Moon className="w-4 h-4 text-[#F5CE47]" />}
-                      {isDarkMode ? 'Light Theme' : 'Dark Theme'}
-                    </span>
-                    <span className="text-[10px] uppercase tracking-wider font-black text-neutral-500">
-                      {isDarkMode ? 'Switch to cream' : 'Switch now'}
-                    </span>
-                  </button>
-                )}
-
-                {/* Quick shortcuts */}
-                <div>
-                  <p className="text-[10px] font-black uppercase tracking-[0.18em] text-neutral-500 mb-2">Quick Access</p>
-                  <div className="grid grid-cols-2 gap-2">
-                    {[
-                      { label: 'Live Markets', icon: TrendingUp, view: 'markets' as ViewType, active: true },
-                      { label: 'Account Types', icon: ShieldCheck, view: 'accounts' as ViewType, active: false },
-                      { label: 'Funds & Deposit', icon: Wallet, view: 'funds' as ViewType, active: false },
-                      { label: 'Client Support', icon: PhoneCall, view: 'support' as ViewType, active: false },
-                    ].map((q) => {
-                      const QIcon = q.icon;
-                      return (
-                        <button
-                          key={q.label}
-                          onClick={() => handleNav(q.view)}
-                          className={`flex items-center gap-2 rounded-xl border px-3 py-2.5 text-left text-xs font-bold transition cursor-pointer ${
-                            q.active
-                              ? 'bg-[#C8102E]/15 border-[#C8102E]/40 text-white'
-                              : 'bg-neutral-900/70 border-neutral-800 text-neutral-300 hover:bg-neutral-800 hover:text-white'
-                          }`}
-                        >
-                          <QIcon className="w-4 h-4 shrink-0 text-[#F5CE47]" />
-                          {q.label}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                {/* Groups accordion */}
-                <div>
-                  <p className="text-[10px] font-black uppercase tracking-[0.18em] text-neutral-500 mb-2">Explore</p>
-                  <div className="flex flex-col gap-2.5">
-                    {navItems.map((group, idx) => {
-                      const open = activeMobileDropdown === group.label;
-                      const accent = ['#F5CE47', '#E3000F', '#38bdf8', '#a78bfa', '#34d399', '#fb923c'][idx % 6];
-                      return (
-                        <div key={group.label} className="rounded-xl border border-neutral-800/80 bg-neutral-900/40 overflow-hidden">
-                          <button
-                            onClick={() => setActiveMobileDropdown(open ? null : group.label)}
-                            aria-expanded={open}
-                            className="w-full flex items-center justify-between text-left px-3.5 py-3 font-bold text-sm text-neutral-100 hover:text-white cursor-pointer"
-                          >
-                            <span className="flex items-center gap-2.5">
-                              <span className="w-1.5 h-4 rounded-full -skew-x-12" style={{ background: accent }} />
-                              {group.label}
-                            </span>
-                            <span className="flex items-center gap-2">
-                              {group.badge && (
-                                <span className="text-[9px] bg-neutral-800 text-[#F5CE47] px-1.5 py-0.5 rounded font-mono">{group.badge}</span>
-                              )}
-                              <ChevronDown className={`w-4 h-4 text-neutral-400 transition-transform ${open ? 'rotate-180 text-[#F5CE47]' : ''}`} />
-                            </span>
-                          </button>
-
-                          {open && (
-                            <div className="px-2.5 pb-2.5 flex flex-col gap-1">
-                              {group.children.map((child, cIdx) => {
-                                const IconComp = child.icon;
-                                return (
-                                  <button
-                                    key={cIdx}
-                                    onClick={() => handleNav(child.target)}
-                                    className="group/child flex items-center gap-3 rounded-lg px-2.5 py-2 text-left hover:bg-white/[0.06] transition cursor-pointer"
-                                  >
-                                    <span className="p-1.5 rounded-md bg-neutral-800 border border-neutral-700/70 text-[#F5CE47] group-hover/child:bg-[#C8102E] group-hover/child:border-[#C8102E] transition-colors shrink-0">
-                                      <IconComp className="w-3.5 h-3.5" />
-                                    </span>
-                                    <span className="flex-1 min-w-0">
-                                      <span className="flex items-center justify-between gap-2">
-                                        <span className="text-xs font-bold text-neutral-100 group-hover/child:text-[#F5CE47] transition-colors">
-                                          {child.name}
-                                        </span>
-                                        {child.tag && (
-                                          <span className="text-[8px] font-mono text-neutral-500 bg-neutral-800/80 px-1 py-0.5 rounded shrink-0">
-                                            {child.tag}
-                                          </span>
-                                        )}
-                                      </span>
-                                      <span className="block text-[10px] text-neutral-500 leading-snug truncate">{child.desc}</span>
-                                    </span>
-                                    <ChevronRight className="w-3.5 h-3.5 text-neutral-600 group-hover/child:text-[#F5CE47] shrink-0" />
-                                  </button>
-                                );
-                              })}
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                {/* Direct utility links */}
-                <div className="grid grid-cols-2 gap-x-4 gap-y-2 pt-1 text-xs text-neutral-400 font-semibold border-t border-neutral-800/70">
-                  <button onClick={() => handleNav('economic_calendar')} className="text-left py-1.5 hover:text-[#F5CE47] flex items-center gap-2 cursor-pointer">
-                    <Calendar className="w-3.5 h-3.5 text-[#C8102E]" /> Calendar
-                  </button>
-                  <button onClick={() => handleNav('promotions')} className="text-left py-1.5 hover:text-[#F5CE47] flex items-center gap-2 cursor-pointer">
-                    <Gift className="w-3.5 h-3.5 text-[#C8102E]" /> Promotions
-                  </button>
-                  <button onClick={() => handleNav('legal')} className="text-left py-1.5 hover:text-[#F5CE47] flex items-center gap-2 cursor-pointer">
-                    <FileText className="w-3.5 h-3.5 text-[#C8102E]" /> Legal & Regulation
-                  </button>
-                  <button onClick={() => handleNav('about')} className="text-left py-1.5 hover:text-[#F5CE47] flex items-center gap-2 cursor-pointer">
-                    <Award className="w-3.5 h-3.5 text-[#C8102E]" /> About Axi
-                  </button>
-                </div>
-              </div>
-
-              {/* Drawer Footer */}
-              <div className="p-5 border-t border-neutral-800 bg-neutral-950 text-neutral-400 text-xs flex flex-col gap-3">
-                <div className="flex items-center justify-between">
-                  <button onClick={() => setShowLanguageModal(true)} className="flex items-center gap-1.5 hover:text-white cursor-pointer">
-                    <Globe className="w-3.5 h-3.5 text-[#F5CE47]" /> {selectedLang}
-                  </button>
-                  {setDisplayCurrency && (
-                    <CurrencySelector
-                      displayCurrency={displayCurrency}
-                      setDisplayCurrency={setDisplayCurrency}
-                      variant="compact"
-                    />
-                  )}
-                </div>
-                <p className="text-[10px] text-neutral-500 text-center mt-2">
-                  &copy; {new Date().getFullYear()} Axi. Regulated CFD & Forex Broker.
-                </p>
-              </div>
-            </motion.div>
+      {mobileMenuOpen && <dialog ref={menuDialog} className="reference-mobile-menu" aria-label="Site navigation" onCancel={event => { event.preventDefault(); setMobileMenuOpen(false); }}>
+        <motion.div initial={reduceMotion ? false : { opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="reference-mobile-menu-inner">
+          <div className="mobile-menu-top"><AxiLogo variant="white" size="lg" /><button type="button" aria-label="Close menu" onClick={() => setMobileMenuOpen(false)}><X size={27} /></button></div>
+          <nav aria-label="Main menu">
+            {[{ ...navItems[2], label: 'Your Edge' }, navItems[0], navItems[1], ...navItems.slice(3)].map(group => {
+              const open = activeMobileDropdown === group.label;
+              const matches = group.children.filter(child => `${child.name} ${group.label}`.toLowerCase().includes(menuQuery.trim().toLowerCase()));
+              if (menuQuery.trim() && !matches.length) return null;
+              return <div key={group.label} className="mobile-menu-group">
+                <button type="button" aria-expanded={open || Boolean(menuQuery.trim())} onClick={() => setActiveMobileDropdown(open ? null : group.label)}>{group.label}<ChevronRight size={19} className={open ? 'rotate-90' : ''} /></button>
+                {(open || menuQuery.trim()) && <div className="mobile-menu-links">{matches.map(child => <button type="button" key={child.name} onClick={() => handleNav(child.target)}>{child.name}</button>)}</div>}
+              </div>;
+            })}
+            {menuQuery.trim() && !navItems.some(group => group.children.some(child => `${child.name} ${group.label === 'Platforms' ? 'Your Edge' : group.label}`.toLowerCase().includes(menuQuery.trim().toLowerCase()))) && <p className="py-5">No matching pages.</p>}
+          </nav>
+          <div className="mobile-menu-search"><label><Search size={20} /><input aria-label="Search navigation" placeholder="Search categories, markets, assets" value={menuQuery} onChange={e => setMenuQuery(e.target.value)} /></label><button type="button" aria-label="Select language" onClick={() => { setMobileMenuOpen(false); setShowLanguageModal(true); }}><Globe size={23} /></button></div>
+          <div className="mobile-menu-actions"><button type="button" onClick={() => handleNav(user ? 'dashboard' : 'login')}>{user ? 'Dashboard' : 'Login'}</button><button type="button" onClick={() => { setMobileMenuOpen(false); openSignUp(); }}>Open Account</button></div>
+          <div className="mobile-menu-utilities">
+            {toggleDarkMode && <button type="button" onClick={toggleDarkMode}>{isDarkMode ? 'Light theme' : 'Dark theme'}</button>}
+            {setDisplayCurrency && <CurrencySelector displayCurrency={displayCurrency} setDisplayCurrency={setDisplayCurrency} variant="compact" />}
           </div>
-        )}
-      </AnimatePresence>
+        </motion.div>
+      </dialog>}
 
       {/* Language Selector Modal */}
       {showLanguageModal && (

@@ -1,3 +1,4 @@
+import PageHero from './axi/PageHero';
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Search, Mail, BookOpen, Clock, Calendar, ArrowRight, Rss, ArrowUpRight } from 'lucide-react';
@@ -110,20 +111,9 @@ export default function BlogView({ showToast }: BlogViewProps) {
   const regularPosts = filteredPosts.filter(post => !post.featured || selectedCategory !== 'All');
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 flex flex-col gap-12 bg-brand-light">
-      
-      {/* Blog Intro Header */}
-      <div className="text-center max-w-3xl mx-auto flex flex-col items-center gap-3">
-        <span className="text-brand-red text-xs font-black tracking-widest uppercase bg-brand-red/5 border border-brand-red/10 px-3.5 py-1.5 rounded-full flex items-center gap-2">
-          <Rss className="w-3.5 h-3.5 text-brand-yellow fill-brand-yellow/10" /> MARKET RADAR ENGINE
-        </span>
-        <h1 className="text-3xl md:text-5xl font-black text-brand-dark tracking-tight uppercase">
-          Axi Live Intelligence Blog
-        </h1>
-        <p className="text-slate-500 text-xs sm:text-sm font-semibold">
-          Daily technical blueprints, institutional reports, digital asset research, and professional psychology guides compiled by Axi’s global intelligence desk.
-        </p>
-      </div>
+    <div className="site-editorial-page">
+      <PageHero label="Market insights" title="Axi Live Intelligence Blog" description="Read market analysis, digital asset research and trading guides." />
+      <div className="home-shell flex flex-col gap-12 py-12 md:py-16">
 
       {/* Interactive Controls Panel */}
       <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm flex flex-col md:flex-row items-center justify-between gap-4">
@@ -293,6 +283,7 @@ export default function BlogView({ showToast }: BlogViewProps) {
         </form>
       </div>
 
+      </div>
     </div>
   );
 }

@@ -1106,7 +1106,7 @@ export default function MarketsView({
     <div className="bg-white min-h-screen pb-20 md:pb-10 font-sans text-slate-900 w-full">
       
       {/* Trading Session Navigation - Mobile & Desktop */}
-      <div className="flex flex-col md:flex-row border-b border-slate-200 px-4 py-3 justify-between items-center bg-white sticky top-0 z-20 shadow-sm gap-3">
+      <div className="flex flex-col md:flex-row border-b border-neutral-300 px-4 py-3 justify-between items-center bg-[#f4f3ef] sticky top-0 z-20 gap-3">
         <div className="flex items-center gap-3 w-full md:w-auto justify-between md:justify-start">
           <div className="relative">
             <button 

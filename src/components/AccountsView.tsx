@@ -1,3 +1,5 @@
+import { COUNTRIES } from '../data';
+import AxiLogo from './AxiLogo';
 import React, { useState } from 'react';
 import { 
   Users, 
@@ -41,6 +43,7 @@ interface AccountsViewProps {
   showToast: (msg: string, type: 'success' | 'error' | 'info') => void;
   openSignUp: () => void;
   signUpStep: number;
+  signupCountry?: string;
   setSignUpStep: React.Dispatch<React.SetStateAction<number>>;
   setView?: (view: any) => void;
   user?: any;
@@ -51,7 +54,8 @@ interface AccountsViewProps {
 export default function AccountsView({ 
   showToast, 
   openSignUp, 
-  signUpStep, 
+  signUpStep,
+  signupCountry,
   setSignUpStep, 
   setView,
   user,
@@ -480,14 +484,15 @@ export default function AccountsView({
   // Synchronize master application triggers (e.g. Header Open Account click)
   React.useEffect(() => {
     if (signUpStep === 1) {
-      setWizardStep(1); // Jump to interest checklist step immediately
+      if (signupCountry) setFormData(previous => ({ ...previous, country: signupCountry }));
+      setWizardStep(1);
       setSignUpStep(0); // Reset master trigger so it can fire again
     }
-  }, [signUpStep, setSignUpStep]);
+  }, [signUpStep, setSignUpStep, signupCountry]);
   
   // Registration and wizard state
   const [formData, setFormData] = useState({
-    country: '',
+    country: signupCountry || '',
     email: '',
     password: '',
     consentPrivacy: false,
@@ -852,8 +857,22 @@ export default function AccountsView({
     return Math.floor((wizardStep / 15) * 100);
   };
 
+  if (wizardStep === 2) return <section className="reference-country-page">
+    <div className="reference-country-banner"><AxiLogo variant="white" size="md" /></div>
+    <form onSubmit={event => { event.preventDefault(); validateAndNext(); }}>
+      <h1>Sign up</h1>
+      <p>Already an Axi trader? <button type="button" onClick={() => setView?.('login')}>Log in here</button></p>
+      <label htmlFor="signup-country-page">Country of Residence</label>
+      <select id="signup-country-page" required value={formData.country} onChange={event => setFormData(previous => ({ ...previous, country: event.target.value }))}>
+        <option value="" disabled>Please select</option>
+        {COUNTRIES.map(country => <option key={country} value={country}>{country}</option>)}
+      </select>
+      <button type="submit" className="reference-country-continue">Continue</button>
+    </form>
+  </section>;
+
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-850 flex flex-col items-center justify-start py-8 px-4 relative overflow-hidden">
+    <div className="min-h-screen bg-[#f4f3ef] dark:bg-[#171717] flex flex-col items-center justify-start py-8 px-4 relative overflow-hidden">
       
       {/* Absolute floating background shapes matching brand red/yellow/white colors */}
       <div className="absolute top-[-20%] left-[-10%] w-[500px] h-[500px] bg-brand-red/5 rounded-full blur-3xl pointer-events-none"></div>
@@ -872,7 +891,7 @@ export default function AccountsView({
       )}
 
       {/* Main interactive Wizard Card Container */}
-      <div className="w-full max-w-xl bg-white rounded-2xl border border-slate-200/80 shadow-xl relative overflow-hidden flex flex-col">
+      <div className="w-full max-w-xl bg-white rounded-sm border border-neutral-200 shadow-sm relative overflow-hidden flex flex-col">
         
         {/* Onboarding top branding banner */}
         <div className="bg-white border-b border-slate-100 py-5 px-6 flex items-center justify-between">
@@ -909,7 +928,7 @@ export default function AccountsView({
                   <span className="absolute bottom-0 right-1 w-5 h-5 rounded-full bg-brand-yellow flex items-center justify-center text-[10px] text-brand-dark font-black shadow border border-white">★</span>
                 </div>
 
-                <h1 className="text-3xl font-black text-slate-900 tracking-tight leading-none uppercase mb-3">
+                <h1 className="workspace-title text-slate-900 mb-3">
                   Welcome to Axi!
                 </h1>
                 
@@ -1000,52 +1019,6 @@ export default function AccountsView({
                   >
                     Continue <ArrowRight className="w-4 h-4 stroke-[3]" />
                   </button>
-                </div>
-              </motion.div>
-            )}
-
-            {/* STEP 2: COUNTRY SELECTION MODAL */}
-            {wizardStep === 2 && (
-              <motion.div
-                key="step-2"
-                initial={{ opacity: 0, x: 20 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: -20 }}
-                className="flex flex-col gap-6 text-left"
-              >
-                <div className="text-center py-2 flex flex-col items-center">
-                  <Globe className="w-10 h-10 text-[#E61C3F] mb-2" />
-                  <h2 className="text-xl font-black text-slate-900 uppercase tracking-tight">
-                    Create your account in minutes
-                  </h2>
-                  <p className="text-slate-400 text-xs font-semibold">Verify compliance guidelines based on residency parameters.</p>
-                </div>
-
-                <div className="flex flex-col gap-2 font-bold text-xs relative z-20">
-                  <label className="text-[11px] font-black uppercase text-slate-400 tracking-wider">Country of Residence</label>
-                  <CountrySelect
-                    value={formData.country}
-                    onChange={(val) => setFormData(prev => ({...prev, country: val}))}
-                  />
-                </div>
-
-                <div className="flex flex-col gap-4 pt-2">
-                  <button
-                    onClick={validateAndNext}
-                    className="w-full bg-[#FFD250] hover:bg-[#FFC518] text-slate-950 font-black text-xs py-4 rounded-xl uppercase tracking-wider shadow-md cursor-pointer flex items-center justify-center gap-1"
-                  >
-                    Continue <ChevronRight className="w-4 h-4 stroke-[3.5]" />
-                  </button>
-
-                  <p className="text-[10px] text-slate-400 font-semibold leading-relaxed text-center">
-                    By creating an account, you agree to the <span className="text-[#E61C3F] underline cursor-pointer hover:text-red-700">Privacy Policy</span> and to receive economic and marketing communications from Axi. You can remove yourself from the mailing list at any time.
-                  </p>
-
-                  <div className="text-center border-t border-slate-100 pt-4">
-                    <span className="text-xs text-slate-500 font-bold">
-                      Already an Axi client? <span onClick={() => setView && setView('login')} className="text-[#E61C3F] font-black underline cursor-pointer hover:text-red-700">Log in here</span>
-                    </span>
-                  </div>
                 </div>
               </motion.div>
             )}

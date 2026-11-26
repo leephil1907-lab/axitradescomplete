@@ -94,7 +94,7 @@ export default function AxiSelectView({ setView, openSignUp, showToast }: AxiSel
             <span>Official Axi Capital Allocation Program</span>
           </div>
 
-          <h1 className="text-3xl sm:text-5xl lg:text-6xl font-black tracking-tight text-white uppercase max-w-4xl leading-tight">
+          <h1 className="site-display-title text-3xl sm:text-5xl lg:text-6xl font-black tracking-tight text-white uppercase max-w-4xl leading-tight">
             Get Funded Up To <span className="text-[#F5CE47]">$1,000,000 USD</span>
           </h1>
 

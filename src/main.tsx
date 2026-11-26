@@ -2,6 +2,8 @@ import React from 'react';
 import { createRoot } from 'react-dom/client';
 import App from './App';
 import AppErrorBoundary from './AppErrorBoundary';
+import '@fontsource-variable/inter';
+import '@fontsource-variable/manrope';
 import './index.css';
 
 const root = document.getElementById('root');

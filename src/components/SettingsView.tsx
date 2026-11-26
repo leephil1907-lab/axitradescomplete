@@ -736,14 +736,14 @@ export default function SettingsView({ user, showToast, setView, isDarkMode = fa
   };
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 flex flex-col gap-8 animate-fade-in min-h-[calc(100vh-80px)]">
+    <div className="home-shell py-10 flex flex-col gap-8 animate-fade-in min-h-[calc(100vh-80px)]">
       
       <div className="flex items-center gap-3 border-b border-slate-200 pb-6">
         <div className="w-12 h-12 rounded-xl bg-slate-900 text-white flex items-center justify-center">
           <Settings className="w-6 h-6 text-brand-yellow" />
         </div>
         <div>
-          <h1 className="text-3xl font-black text-slate-900 uppercase tracking-tight">Account Settings</h1>
+          <h1 className="workspace-title text-slate-900 dark:text-white">Account Settings</h1>
           <p className="text-slate-500 text-sm font-semibold">Manage your platform preferences and security parameters.</p>
         </div>
       </div>

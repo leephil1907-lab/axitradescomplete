@@ -81,19 +81,18 @@ export default function AcademyView({ setView, showToast }: AcademyViewProps) {
   return (
     <div className="bg-[#f8f7f5] min-h-screen font-sans">
       {/* Hero Section */}
-      <div className="bg-slate-900 text-white pt-24 pb-16 px-4 relative overflow-hidden">
-        <div className="absolute top-0 right-0 w-1/2 h-full opacity-20 bg-[url('https://aximedia.s3.amazonaws.com/rebrand-prod/jnnpaysd/mobile-13.png')] bg-cover bg-center mix-blend-overlay"></div>
+      <div className="site-feature-banner pt-16 pb-16 px-5 md:pt-24">
         <div className="max-w-7xl mx-auto relative z-10 flex flex-col md:flex-row items-center gap-10">
           <div className="flex-1 text-center md:text-left">
-            <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold tracking-tight mb-4">
+            <h1 className="site-display-title text-4xl md:text-5xl lg:text-6xl font-bold tracking-tight mb-4">
               Axi <span className="text-[#E3000F]">Academy</span>
             </h1>
             <p className="text-slate-300 text-lg max-w-xl mx-auto md:mx-0 mb-8">
               Master the markets with free educational resources, interactive courses, and trading guides designed for all experience levels.
             </p>
-            <button className="bg-[#FFD250] hover:bg-[#FFC518] text-slate-900 font-bold px-8 py-3.5 rounded-sm inline-flex items-center gap-2 transition shadow-lg">
+            <a href="#academy-courses" className="bg-[#FFD250] hover:bg-[#FFC518] text-slate-900 font-bold px-8 py-3.5 rounded-sm inline-flex items-center gap-2 transition shadow-lg">
               <GraduationCap className="w-5 h-5" /> Start Learning
-            </button>
+            </a>
           </div>
           <div className="hidden md:flex flex-1 justify-end">
              <div className="bg-slate-800 p-6 rounded-2xl border border-slate-700 shadow-2xl relative">
@@ -115,7 +114,7 @@ export default function AcademyView({ setView, showToast }: AcademyViewProps) {
         </div>
       </div>
 
-      <div className="max-w-7xl mx-auto px-4 py-12">
+      <div id="academy-courses" tabIndex={-1} className="home-shell scroll-mt-24 py-12">
         <h2 className="text-3xl font-bold text-slate-900 mb-8 flex items-center gap-3">
           <BookOpen className="w-8 h-8 text-[#E3000F]" /> Featured Courses
         </h2>
