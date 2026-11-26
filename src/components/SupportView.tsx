@@ -1,16 +1,14 @@
+import PageHero from './axi/PageHero';
 import { useSiteCMS } from '../hooks/useSiteCMS';
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { openTawkToChat } from '../utils/tawkto';
 import { 
   HelpCircle, 
   Search, 
   ChevronDown, 
-  MessageSquare, 
   PhoneCall, 
   Mail, 
   ShieldAlert, 
-  ArrowRight, 
   CheckCircle2, 
   Ticket,
   LifeBuoy,
@@ -223,20 +221,9 @@ export default function SupportView({ showToast, openVoiceModal }: SupportProps)
   };
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 flex flex-col gap-12 bg-brand-light">
-      
-      {/* Intro Header */}
-      <div className="text-center max-w-3xl mx-auto flex flex-col items-center gap-3">
-        <span className="text-brand-red text-xs font-black tracking-widest uppercase bg-brand-red/5 border border-brand-red/10 px-3.5 py-1.5 rounded-full flex items-center gap-2">
-          <LifeBuoy className="w-3.5 h-3.5 text-brand-yellow fill-brand-yellow/10" /> HELP DESK CENTER
-        </span>
-        <h1 className="text-3xl md:text-5xl font-black text-brand-dark dark:text-white tracking-tight uppercase">
-          Axi Client Support
-        </h1>
-        <p className="text-slate-500 dark:text-slate-400 text-xs sm:text-sm font-semibold">
-          Get institutional grade support. Access our database of 15 regulatory FAQs, submit secure service tickets, or launch live chat 24 hours a day, 7 days a week.
-        </p>
-      </div>
+    <div className="site-editorial-page">
+      <PageHero label="Help centre" title="Axi client support" description="Find answers to common questions, submit a support ticket or reach us using the WhatsApp icon." />
+      <div className="home-shell flex flex-col gap-12 py-12 md:py-16">
 
       {/* Digital Support Information Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-4xl mx-auto w-full">
@@ -253,31 +240,7 @@ export default function SupportView({ showToast, openVoiceModal }: SupportProps)
           </div>
         </div>
 
-        <div 
-          className="bg-slate-900 dark:bg-slate-950 border border-slate-800 text-white rounded-2xl p-6 shadow-lg flex items-start gap-4 cursor-pointer hover:border-brand-red transition duration-200" 
-          onClick={() => {
-            const opened = openTawkToChat();
-            if (opened) {
-              showToast('💬 Opening live Tawk.to support agent desk...', 'info');
-            } else {
-              showToast('Initializing secure Live Chat channel... Agent connection ready.', 'info');
-            }
-          }}
-        >
-          <div className="w-12 h-12 rounded-xl bg-white/10 flex items-center justify-center shrink-0">
-            <MessageSquare className="w-5 h-5 text-brand-yellow" />
-          </div>
-          <div className="flex-grow">
-            <span className="text-[10px] uppercase font-bold text-brand-yellow tracking-widest flex items-center gap-1.5">
-              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-              Axi Live Support (Tawk.to)
-            </span>
-            <h4 className="text-sm font-black text-white mt-1">Launch Live Agent Chat</h4>
-            <p className="text-[10px] text-slate-400 font-semibold leading-normal mt-1 flex items-center gap-1">
-              Chat in real-time with an Axi compliance & trading officer <ArrowRight className="w-3 h-3 text-brand-yellow" />
-            </p>
-          </div>
-        </div>
+
       </div>
 
       {/* Main FAQs & Search Layout */}
@@ -362,7 +325,7 @@ export default function SupportView({ showToast, openVoiceModal }: SupportProps)
                 <div className="text-center py-12 flex flex-col items-center gap-2">
                   <ShieldAlert className="w-8 h-8 text-slate-300 animate-pulse" />
                   <span className="text-slate-600 font-black uppercase text-xs">No matching queries found</span>
-                  <p className="text-[10px] text-slate-400 font-semibold">Try submitting a support ticket or launching live chat.</p>
+                  <p className="text-[10px] text-slate-400 font-semibold">Try submitting a support ticket or using the WhatsApp icon.</p>
                 </div>
               )}
             </div>
@@ -524,6 +487,7 @@ export default function SupportView({ showToast, openVoiceModal }: SupportProps)
         </div>
       </div>
 
+      </div>
     </div>
   );
 }

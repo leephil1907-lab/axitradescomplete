@@ -1,6 +1,8 @@
+import OpenAccountDialog from './components/axi/OpenAccountDialog';
+import PageHero from './components/axi/PageHero';
 import SettingsView from "./components/SettingsView";
 import React, { useState, useEffect, useMemo } from 'react';
-import { motion, AnimatePresence } from 'motion/react';
+import { motion, AnimatePresence, useReducedMotion } from 'motion/react';
 import { CheckCircle, AlertTriangle, Info, Sparkles, X } from 'lucide-react';
 import { ViewType, DisplayCurrency, MarketQuote, TradeOrder, ClosedPosition, PriceAlert, ReferralInvite } from './types';
 import { useFirebaseData } from './hooks/useFirebaseData';
@@ -41,7 +43,6 @@ import PartnersView from './components/PartnersView';
 import PromotionsView from './components/PromotionsView';
 import ForexVpsView from './components/ForexVpsView';
 import EconomicCalendar from './components/EconomicCalendar';
-import TawkToWidget from './components/TawkToWidget';
 import WhatsAppChatButton from './components/WhatsAppChatButton';
 import { ASSET_METADATA } from './data';
 import { liveMarketFeed } from './services/liveMarketFeed';
@@ -111,6 +112,10 @@ export default function App() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
   // AXI_MOBILE_ADMIN_ROUTE_V1
+  const reduceMotion = useReducedMotion();
+  const [accountDialogOpen, setAccountDialogOpen] = useState(false);
+  const [signupCountry, setSignupCountry] = useState('');
+  const [showRiskNotice, setShowRiskNotice] = useState(true);
   const [currentView, setView] = useState<ViewType>(() => window.location.pathname.replace(/\/$/, '') === '/admin' ? 'admin' : 'home');
   const [quotes, setQuotes] = useState<Record<string, MarketQuote>>(INITIAL_QUOTES);
   
@@ -507,14 +512,15 @@ export default function App() {
       showToast('You are already registered and logged in. Redirecting to your Axi Trading Terminal.', 'info');
       return;
     }
-    setView('accounts');
+    setAccountDialogOpen(true);
+  };
+
+  const continueSignup = (country: string) => {
+    setSignupCountry(country);
+    setAccountDialogOpen(false);
     setSignUpStep(1);
-    const elem = document.getElementById('account-creation-section');
-    if (elem) {
-      elem.scrollIntoView({ behavior: 'smooth' });
-    } else {
-      window.scrollTo({ top: 400, behavior: 'smooth' });
-    }
+    setView('accounts');
+    window.scrollTo(0, 0);
   };
 
   // Automatically redirect logged-in user if they land on login screen
@@ -535,6 +541,8 @@ export default function App() {
   };
 
   if (shouldRenderEmailAction) return <EmailActionPage />;
+
+  const isWorkspace = ['login', 'markets', 'funds', 'dashboard', 'settings', 'admin', 'accounts'].includes(currentView);
 
   return (
     <div className={`min-h-screen w-full overflow-x-hidden transition-colors duration-700 ease-in-out ${isDarkMode ? 'dark bg-slate-950 text-slate-100' : 'bg-[#FAF6EE] text-slate-900'} flex flex-col font-sans selection:bg-brand-red selection:text-white`}>
@@ -565,11 +573,11 @@ export default function App() {
       <AnimatePresence mode="wait">
         <motion.main
           key={currentView}
-          className="flex-grow"
-          initial={{ opacity: 0, y: 16, scale: 0.995 }}
-          animate={{ opacity: 1, y: 0, scale: 1 }}
-          exit={{ opacity: 0, y: -12, scale: 0.995 }}
-          transition={{ duration: 0.28, ease: [0.16, 1, 0.3, 1] }}
+          className={`flex-grow axi-design ${isWorkspace ? 'site-workspace' : 'site-public'}`}
+          initial={reduceMotion ? false : { opacity: 0, y: 14 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={reduceMotion ? undefined : { opacity: 0, y: -6 }}
+          transition={{ duration: reduceMotion ? 0 : 0.28, ease: [0.16, 1, 0.3, 1] }}
         >
           {/* Per-view boundary: a failure in one view must never dead-end the
               whole application. Reset on every view change. */}
@@ -591,7 +599,6 @@ export default function App() {
               quotes={quotes} 
               setView={setView} 
               openSignUp={openSignUpWizard} 
-              user={user}
             />
           )}
 
@@ -624,6 +631,7 @@ export default function App() {
               showToast={showToast}
               openSignUp={openSignUpWizard}
               signUpStep={signUpStep}
+              signupCountry={signupCountry}
               setSignUpStep={setSignUpStep}
               setView={setView}
               user={user}
@@ -653,8 +661,11 @@ export default function App() {
           )}
 
           {currentView === 'economic_calendar' && (
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-              <EconomicCalendar setView={setView} showToast={showToast} standalone={true} />
+            <div className="site-editorial-page">
+              <PageHero label="Market research" title="Economic calendar" description="Browse scheduled economic releases and market events." />
+              <div className="home-shell py-10 md:py-16">
+                <EconomicCalendar setView={setView} showToast={showToast} standalone={true} />
+              </div>
             </div>
           )}
 
@@ -663,7 +674,7 @@ export default function App() {
           )}
 
           {currentView === 'select' && (
-            <AxiSelectView showToast={showToast} />
+            <AxiSelectView showToast={showToast} setView={setView} openSignUp={openSignUpWizard} />
           )}
 
           {currentView === 'funds' && (
@@ -730,23 +741,15 @@ export default function App() {
       </AnimatePresence>
 
       {/* Universal Footer Disclosures */}
-      {currentView !== 'login' && <Footer setView={setView} />}
-
-      {/* Tawk.to Official Live Chat Integration (Sole Live Chat Handler) */}
-      <TawkToWidget 
-        currentUser={user ? {
-          name: user.displayName || user.name || (user.email ? user.email.split('@')[0] : 'Trader'),
-          email: user.email || '',
-          accountNo: user.accountNo || '',
-          balance: liveBalance,
-          accountType: user.accountType || '',
-          status: user.status || user.verificationStatus || 'Pending'
-        } : null}
-      />
-
+      {currentView !== 'login' && <Footer setView={setView} openSignUp={openSignUpWizard} showCallout={!isWorkspace && currentView !== 'home'} />}
 
       {/* WhatsApp chat launcher (number never shown, deep-links to wa.me) */}
-      <WhatsAppChatButton />
+      <WhatsAppChatButton compactOffset={!isWorkspace && !showRiskNotice} />
+      {!isWorkspace && showRiskNotice && <aside aria-label="Trading risk warning" className="reference-risk-bar">
+        <p>Over-the-counter derivatives are leveraged products and carry a high risk to your capital. Trading is not suitable for everyone and losses may exceed your initial investment. Only trade with money you can afford to lose.</p>
+        <button type="button" onClick={() => setShowRiskNotice(false)} aria-label="Dismiss trading risk warning">×</button>
+      </aside>}
+      {accountDialogOpen && <OpenAccountDialog onClose={() => setAccountDialogOpen(false)} onContinue={continueSignup} onLogin={() => { setAccountDialogOpen(false); setView('login'); window.scrollTo(0, 0); }} />}
       {/* Floating Toast Notification Box */}
       <AnimatePresence>
         {toast && (

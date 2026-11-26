@@ -1,3 +1,4 @@
+import PageHero from './axi/PageHero';
 import React, { useState } from 'react';
 import { motion } from 'motion/react';
 import { FileText, ShieldAlert, CheckCircle2, Search, ArrowRight, Award, Lock, Scale } from 'lucide-react';
@@ -216,20 +217,9 @@ export default function LegalView({ showToast }: LegalProps) {
   };
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 flex flex-col gap-10 bg-brand-light">
-      
-      {/* Intro Heading */}
-      <div className="text-center max-w-3xl mx-auto flex flex-col items-center gap-3">
-        <span className="text-brand-red text-xs font-black tracking-widest uppercase bg-brand-red/5 border border-brand-red/10 px-3.5 py-1.5 rounded-full flex items-center gap-2">
-          <Scale className="w-3.5 h-3.5 text-brand-yellow fill-brand-yellow/10" /> REGULATORY TRANSPARENCY
-        </span>
-        <h1 className="text-3xl md:text-5xl font-black text-brand-dark tracking-tight uppercase">
-          Axi Legal & Disclosure Library
-        </h1>
-        <p className="text-slate-500 text-xs sm:text-sm font-semibold">
-          Review our 20 corporate legal policies. We operate under rigorous global supervision to safeguard client money, maintain execution transparency, and provide secure trading parameters.
-        </p>
-      </div>
+    <div className="site-editorial-page">
+      <PageHero label="Legal & compliance" title="Legal documents and disclosures" description="Find policies and disclosures about trading risks, account terms and privacy." />
+      <div className="home-shell flex flex-col gap-12 py-12 md:py-16">
 
       {/* Main Split Layout */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
@@ -344,6 +334,7 @@ export default function LegalView({ showToast }: LegalProps) {
         </div>
       </div>
 
+      </div>
     </div>
   );
 }

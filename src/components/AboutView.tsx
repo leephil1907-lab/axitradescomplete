@@ -1,3 +1,4 @@
+import PageHero from './axi/PageHero';
 import { useSiteCMS } from '../hooks/useSiteCMS';
 import React, { useState } from 'react';
 import { motion } from 'motion/react';
@@ -119,20 +120,9 @@ export default function AboutView({ showToast }: AboutViewProps) {
   };
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 flex flex-col gap-12 bg-brand-light">
-      
-      {/* Intro Header */}
-      <div className="text-center max-w-3xl mx-auto flex flex-col items-center gap-3">
-        <span className="text-brand-red text-xs font-black tracking-widest uppercase bg-brand-red/5 border border-brand-red/10 px-3.5 py-1.5 rounded-full">
-          Corporate Identity & Compliance
-        </span>
-        <h1 className="text-3xl md:text-4xl font-black text-brand-dark tracking-tight animate-fade-in">
-          {cmsContent.about?.title || 'About Axi Group'}
-        </h1>
-        <p className="text-slate-500 text-xs sm:text-sm font-semibold">
-          {cmsContent.about?.subtitle || 'Axi is a leading global broker authorized in multiple tier-1 jurisdictions.'}
-        </p>
-      </div>
+    <div className="site-editorial-page">
+      <PageHero label="About Axi" title={cmsContent.about?.title || 'About Axi Group'} description={cmsContent.about?.subtitle || 'Learn about Axi and its corporate and regulatory information.'} />
+      <div className="home-shell flex flex-col gap-12 py-12 md:py-16">
 
       {/* Global Regulation Grid - Redesigned cleanly */}
       <section className="flex flex-col gap-6">
@@ -336,6 +326,7 @@ export default function AboutView({ showToast }: AboutViewProps) {
 
       </section>
 
+      </div>
     </div>
   );
 }

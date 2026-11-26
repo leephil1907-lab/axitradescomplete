@@ -105,32 +105,25 @@ export default function LoginView({
   };
 
   return (
-    <div className="min-h-[90vh] bg-slate-100 dark:bg-slate-950 flex items-center justify-center p-4 font-sans">
-      <div className="w-full max-w-md overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl dark:border-slate-800 dark:bg-slate-900">
-        <div className="px-7 pt-7">
-          <div className="mb-6 flex items-center justify-between gap-4">
-            <AxiLogo size="lg" variant="red" aria-label="Axi" />
-            <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-[10px] font-black uppercase tracking-wider text-slate-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-400">Secure access</span>
-          </div>
-          <div className="mb-6">
-            <h1 className="text-2xl font-black tracking-tight text-slate-900 dark:text-white">Sign in to Axi Trades</h1>
-            <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Use your registered account credentials.</p>
-          </div>
+    <div className="reference-login">
+      <div className="reference-login-inner">
+        <div className="reference-login-heading">
+          <button type="button" aria-label="Axi home" onClick={() => setView('home')}><AxiLogo size="xl" variant="red" /></button>
+          <h1>Log in</h1>
         </div>
-
-        <div className="px-7 pb-7">
+        <div>
           {error && <div className="mb-4 flex gap-2 rounded-xl border border-rose-200 bg-rose-50 p-3 text-xs text-rose-800"><AlertCircle className="h-4 w-4 shrink-0" />{error}</div>}
           {success && <div className="mb-4 flex gap-2 rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-xs text-emerald-800"><CheckCircle2 className="h-4 w-4 shrink-0" />{success}</div>}
 
-          <form onSubmit={handleEmailLogin} className="space-y-4">
+          <form onSubmit={handleEmailLogin} className="reference-login-form">
             <div>
-              <label className="mb-1.5 block text-xs font-bold text-slate-700 dark:text-slate-300">Email address</label>
-              <input value={email} onChange={e => setEmail(e.target.value)} type="email" autoComplete="email" required className="w-full rounded-xl border border-slate-300 bg-white px-3.5 py-3.5 text-sm text-slate-900 outline-none transition focus:border-[#E3000F] focus:ring-2 focus:ring-[#E3000F]/10 dark:border-slate-700 dark:bg-slate-950 dark:text-white" />
+              <label className="sr-only" htmlFor="login-email">Email address</label>
+              <input id="login-email" placeholder="Email address *" value={email} onChange={e => setEmail(e.target.value)} type="email" autoComplete="email" required className="w-full rounded-xl border border-slate-300 bg-white px-3.5 py-3.5 text-sm text-slate-900 outline-none transition focus:border-[#E3000F] focus:ring-2 focus:ring-[#E3000F]/10 dark:border-slate-700 dark:bg-slate-950 dark:text-white" />
             </div>
             <div>
-              <label className="mb-1.5 block text-xs font-bold text-slate-700 dark:text-slate-300">Password</label>
+              <label className="sr-only" htmlFor="login-password">Password</label>
               <div className="relative">
-                <input value={password} onChange={e => setPassword(e.target.value)} type={showPassword ? 'text' : 'password'} autoComplete="current-password" required className="w-full rounded-xl border border-slate-300 bg-white px-3.5 py-3.5 pr-11 text-sm text-slate-900 outline-none transition focus:border-[#E3000F] focus:ring-2 focus:ring-[#E3000F]/10 dark:border-slate-700 dark:bg-slate-950 dark:text-white" />
+                <input id="login-password" placeholder="Password *" value={password} onChange={e => setPassword(e.target.value)} type={showPassword ? 'text' : 'password'} autoComplete="current-password" required className="w-full rounded-xl border border-slate-300 bg-white px-3.5 py-3.5 pr-11 text-sm text-slate-900 outline-none transition focus:border-[#E3000F] focus:ring-2 focus:ring-[#E3000F]/10 dark:border-slate-700 dark:bg-slate-950 dark:text-white" />
                 <button type="button" onClick={() => setShowPassword(v => !v)} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 transition hover:text-slate-800 dark:hover:text-white" aria-label={showPassword ? 'Hide password' : 'Show password'}>{showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}</button>
               </div>
             </div>
@@ -140,17 +133,18 @@ export default function LoginView({
               {openForgotPassword && <button type="button" onClick={openForgotPassword} className="font-black text-[#E3000F] hover:underline">Forgot password?</button>}
             </div>
 
-            <button type="submit" disabled={busy} className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#E3000F] py-3.5 text-sm font-black text-white shadow-lg shadow-red-500/10 transition hover:bg-[#c9000d] disabled:cursor-not-allowed disabled:opacity-60"><Lock className="h-4 w-4" />{busy ? 'Authenticating…' : 'Sign in securely'}</button>
+            <button type="submit" disabled={busy} className="reference-login-submit">{busy ? 'Authenticating…' : 'Login'}</button>
           </form>
 
+          <div className="mt-6 text-center text-xs text-slate-500 dark:text-slate-400">No Axi account yet? <button type="button" onClick={openSignUp} className="font-black text-[#E3000F] hover:underline">Sign up</button></div>
           <div className="my-6 flex items-center gap-3 text-[10px] font-black uppercase tracking-wider text-slate-400"><span className="h-px flex-1 bg-slate-200 dark:bg-slate-800" />or<span className="h-px flex-1 bg-slate-200 dark:bg-slate-800" /></div>
 
-          <div className="grid grid-cols-2 gap-3">
-            <button type="button" disabled={busy} onClick={() => void handleProviderLogin('google')} className="flex min-h-[48px] items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-3 text-xs font-black text-slate-800 shadow-sm transition hover:border-slate-400 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-700 dark:bg-slate-800 dark:text-white dark:hover:bg-slate-750"><GoogleIcon /><span>Google</span></button>
-            <button type="button" disabled={busy} onClick={() => void handleProviderLogin('facebook')} className="flex min-h-[48px] items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-3 text-xs font-black text-slate-800 shadow-sm transition hover:border-slate-400 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-700 dark:bg-slate-800 dark:text-white dark:hover:bg-slate-750"><FacebookIcon /><span>Facebook</span></button>
+          <div className="reference-login-providers">
+            <button type="button" disabled={busy} onClick={() => void handleProviderLogin('google')} className="flex min-h-[48px] items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-3 text-xs font-black text-slate-800 shadow-sm transition hover:border-slate-400 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-700 dark:bg-slate-800 dark:text-white dark:hover:bg-slate-750"><GoogleIcon /><span>Log in with Google</span></button>
+            <button type="button" disabled={busy} onClick={() => void handleProviderLogin('facebook')} className="flex min-h-[48px] items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-3 text-xs font-black text-slate-800 shadow-sm transition hover:border-slate-400 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-700 dark:bg-slate-800 dark:text-white dark:hover:bg-slate-750"><FacebookIcon /><span>Log in with Facebook</span></button>
           </div>
 
-          <div className="mt-6 text-center text-xs text-slate-500 dark:text-slate-400">New to the platform? <button type="button" onClick={openSignUp} className="font-black text-[#E3000F] hover:underline">Create an account</button></div>
+
           <button type="button" onClick={() => setView('home')} className="mt-4 flex w-full items-center justify-center text-xs font-bold text-slate-500 transition hover:text-slate-800 dark:hover:text-white">Back to public site</button>
         </div>
       </div>

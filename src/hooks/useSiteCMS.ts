@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { safeStorage } from '../utils/storage';
 
-const DEFAULT_CMS = {
+export const DEFAULT_CMS = {
   home: {
     heroTitle: "Trade Your Edge",
     heroSubtitle: "Global Online CFD & Forex Broker. Experience high-speed execution and precision.",

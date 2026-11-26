@@ -469,7 +469,7 @@ export default function DashboardView({
     <div className="min-h-screen bg-[#0E131B] text-slate-100 flex flex-col font-sans select-none">
       
       {/* 1. TOP INSTITUTIONAL RIBBON / SERVER HEADER */}
-      <header className="bg-[#141B26] border-b border-slate-800 px-4 py-2.5 shrink-0">
+      <header className="bg-[#171717] border-b border-white/15 px-4 py-2.5 shrink-0">
         <div className="max-w-[1920px] mx-auto flex flex-col lg:flex-row lg:items-center justify-between gap-3">
           
           {/* Left: Server Connection & Account Selector */}
