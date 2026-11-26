@@ -2,7 +2,7 @@ services:
   - type: web
     name: axitrades
     runtime: docker
-    plan: free
+    plan: starter
     dockerfilePath: ./Dockerfile
     healthCheckPath: /api/markets/quotes
     autoDeploy: true
