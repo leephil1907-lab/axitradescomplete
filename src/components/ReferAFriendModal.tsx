@@ -68,8 +68,8 @@ export default function ReferAFriendModal({
   }, [user]);
 
   const referralUrl = typeof window !== 'undefined' 
-    ? `${window.location.origin}/login?ref=${referralCode}`
-    : `https://axi.com/register?ref=${referralCode}`;
+    ? `${window.location.origin}/?ref=${referralCode}`
+    : `/?ref=${referralCode}`;
 
   const handleCopyLink = () => {
     navigator.clipboard.writeText(referralUrl);

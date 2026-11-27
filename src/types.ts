@@ -1,4 +1,4 @@
-export type ViewType = 'home' | 'markets' | 'trading' | 'login' | 'platforms' | 'accounts' | 'tools' | 'about' | 'funds' | 'select' | 'blog' | 'support' | 'legal' | 'dashboard' | 'academy' | 'admin' | 'settings' | 'quick_deposit' | 'partners' | 'promotions' | 'forex_vps' | 'economic_calendar';
+export type ViewType = 'cfds' | 'perpetuals' | 'spot' | 'home' | 'markets' | 'trading' | 'login' | 'platforms' | 'accounts' | 'tools' | 'about' | 'funds' | 'select' | 'blog' | 'support' | 'legal' | 'dashboard' | 'academy' | 'admin' | 'settings' | 'quick_deposit' | 'partners' | 'promotions' | 'forex_vps' | 'economic_calendar';
 
 export type DisplayCurrency = 'USD' | 'EUR' | 'GBP';
 

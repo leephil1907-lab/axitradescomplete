@@ -3084,7 +3084,7 @@ app.get('/api/news', async (req, res) => {
               impact: 'High',
               publishedAt: item.datetime ? new Date(item.datetime * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Live',
               relatedSymbol: item.related || 'EURUSD',
-              url: item.url || 'https://www.axi.com/int/blog',
+              url: item.url || '',
               author: item.source || 'Finnhub Financial Desk'
             }));
             return res.json({ success: true, provider: 'Finnhub API', articles });
@@ -3112,7 +3112,7 @@ app.get('/api/news', async (req, res) => {
               impact: 'High',
               publishedAt: item.time_published ? `${item.time_published.slice(9,11)}:${item.time_published.slice(11,13)} UTC` : 'Live',
               relatedSymbol: item.ticker_sentiment?.[0]?.ticker || 'XAUUSD',
-              url: item.url || 'https://www.axi.com/int/blog',
+              url: item.url || '',
               author: item.authors?.[0] || item.source || 'Alpha Vantage'
             }));
             return res.json({ success: true, provider: 'Alpha Vantage API', articles });
@@ -3174,7 +3174,7 @@ app.get('/api/news', async (req, res) => {
           impact: idx % 2 === 0 ? 'High' : 'Medium',
           publishedAt: pubDate,
           relatedSymbol: symbol,
-          url: item.link || item.guid || 'https://www.axi.com/int/blog',
+          url: item.link || item.guid || '',
           author: item.author || 'Market Intelligence Desk'
         };
       });

@@ -590,3 +590,54 @@ html.dark textarea {
 }
 @keyframes quote-rise { from { background-color: #14a87542; transform: translateY(2px); } to { background-color: transparent; transform: none; } }
 @keyframes quote-fall { from { background-color: #ef416742; transform: translateY(-2px); } to { background-color: transparent; transform: none; } }
+
+.product-landing { background: #fff; color: #17191b; }
+.product-hero { color: #fff; background: linear-gradient(115deg, #2c3c4c, #798b99); }
+.product-hero-grid { display: grid; grid-template-columns: 1.05fr .95fr; align-items: center; gap: clamp(1.5rem, 5vw, 5rem); padding-block: clamp(2.5rem, 8vw, 7rem); }
+.product-hero-grid > img { width: 100%; aspect-ratio: 1.2; object-fit: cover; background: #8799a8; }
+.product-hero h1 { font-size: clamp(2.8rem, 6.5vw, 6rem); font-weight: 460; line-height: .98; letter-spacing: -.063em; margin-top: 1rem; }
+.product-crumb { display: flex; align-items: center; flex-wrap: wrap; gap: .4rem; margin-bottom: 1.75rem; }
+.product-crumb button { cursor: pointer; text-decoration: underline; }
+.product-symbol-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr)); gap: .7rem; }
+.product-symbol-grid li { display: flex; align-items: center; gap: .6rem; min-height: 68px; padding: .75rem; border-radius: 8px; background: #f0f1f3; }
+.product-info-band { background: #f3f3f4; }
+.product-info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: .8rem; margin-top: 1.5rem; }
+.product-info-grid article { padding: 1.5rem; background: #e0e6eb; }
+.product-faq details { border-bottom: 1px solid #d9dce0; padding: .95rem 0; }
+.product-faq details:first-of-type { margin-top: 1.5rem; }
+.product-faq summary { cursor: pointer; font-weight: 600; }
+.product-faq details p { margin-top: .65rem; }
+@media (max-width: 46rem) { .product-hero-grid, .product-info-grid { grid-template-columns: 1fr; } .product-hero-grid > img { max-height: 20rem; } }
+
+/* Keep the trading workspace legible and avoid overlapping controls on phones. */
+.terminal-ticket-heading { flex-wrap: wrap; gap: .5rem; }
+.terminal-ticket button:disabled { cursor: not-allowed; opacity: .52; }
+.terminal-ticket input:focus-visible { outline: 2px solid #b5122d; outline-offset: 2px; }
+@media (max-width: 47.99rem) {
+ .markets-terminal .terminal-actions { justify-content: flex-start; }
+ .markets-terminal .terminal-actions button { min-height: 44px; flex-shrink: 0; }
+ .terminal-chart-heading > :first-child { flex-basis: 100%; }
+ .terminal-chart-heading > button { margin-left: 0; min-height: 40px; }
+ .terminal-ticket input { min-width: 0; min-height: 27px; font-size: 16px; }
+ .terminal-ticket button[aria-pressed] { min-height: 44px; }
+}
+
+/* Public typography and campaign motion should be consistent at every breakpoint. */
+.site-public { font-size: 1rem; line-height: 1.55; }
+.site-public :is(h1,h2,h3), .reference-signup h2 { font-optical-sizing: auto; }
+.site-public .home-heading { font-weight: 520; line-height: 1.05; letter-spacing: -.049em; text-wrap: balance; }
+.site-public .reference-lede { line-height: 1.55; text-wrap: pretty; }
+.reference-campaign h1 { font-weight: 500; letter-spacing: -.057em; }
+.reference-campaign .home-kicker { color: #f4f5f6; }
+.reference-campaign[data-campaign='intro']::after { background: linear-gradient(90deg,#101d2bcb, #101d2b40 75%), linear-gradient(0deg,#101d2b65,transparent 35%); }
+.reference-campaign-copy { min-width: 0; }
+.reference-campaign .home-button { font-size: .9rem; }
+.home-insight-note { margin-top: 1rem; border-left: 3px solid #df0030; background: #f3f4f5; color: #17191b; padding: 1rem 1.25rem; }
+.home-insight-note h3 { font-size: 1.2rem; font-weight: 650; margin-bottom: .4rem; }
+.reference-blog-rail button[aria-pressed='true'] { box-shadow: inset 0 -4px #df0030; }
+.reference-blog-rail button:focus-visible { outline-offset: -5px; }
+@media (max-width: 47.99rem) {
+  .reference-campaign h1 { font-size: clamp(2.35rem, 10.3vw, 4.5rem); }
+  .reference-campaign .reference-lede { font-size: .98rem; }
+  .reference-campaign .home-button { font-size: .82rem; }
+}

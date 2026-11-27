@@ -109,7 +109,7 @@ export default function PromotionsView({ setView, showToast, openSignUp, openQui
           recipientName: clientName,
           type: 'Custom',
           subject: `🎁 Axi Promotional Credit Activated [Ref: ${claimRef}]`,
-          customBody: `Dear ${clientName},\n\nYour enrollment for the "${selectedPromo}" has been successfully logged for Axi Trading Account #${accountNumber}.\n\nClaim Reference: ${claimRef}\nProjected Trading Credit: $${calculatedBonus.toLocaleString()} USD\n\nYour bonus credit will be credited to your trading equity balance immediately upon deposit clearance.\n\nBest regards,\nAxi Promotions & Client Rewards Team\nwww.axi.com`
+          customBody: `Dear ${clientName},\n\nYour enrollment for the "${selectedPromo}" has been successfully logged for Axi Trading Account #${accountNumber}.\n\nClaim Reference: ${claimRef}\nProjected Trading Credit: $${calculatedBonus.toLocaleString()} USD\n\nYour bonus credit will be credited to your trading equity balance immediately upon deposit clearance.\n\nBest regards,\nAxi Promotions & Client Rewards Team\naxitrades.com`
         })
       }).catch(e => console.warn('Email notice:', e));
     } catch (e) {}

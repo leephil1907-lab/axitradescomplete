@@ -1,7 +1,9 @@
+import ProductLanding from './components/axi/ProductLanding';
+import { isProductView, productFromPath, productRoutes } from './config/publicRoutes';
 import OpenAccountDialog from './components/axi/OpenAccountDialog';
 import PageHero from './components/axi/PageHero';
 import SettingsView from "./components/SettingsView";
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { motion, AnimatePresence, useReducedMotion } from 'motion/react';
 import { CheckCircle, AlertTriangle, Info, Sparkles, X } from 'lucide-react';
 import { ViewType, DisplayCurrency, MarketQuote, TradeOrder, ClosedPosition, PriceAlert, ReferralInvite } from './types';
@@ -116,7 +118,18 @@ export default function App() {
   const [accountDialogOpen, setAccountDialogOpen] = useState(false);
   const [signupCountry, setSignupCountry] = useState('');
   const [showRiskNotice, setShowRiskNotice] = useState(true);
-  const [currentView, setView] = useState<ViewType>(() => window.location.pathname.replace(/\/$/, '') === '/admin' ? 'admin' : 'home');
+  const [currentView, updateView] = useState<ViewType>(() => productFromPath(window.location.pathname) ?? (window.location.pathname.replace(/\/$/, '') === '/admin' ? 'admin' : 'home'));
+  const setView = useCallback((view: ViewType) => {
+    const path = isProductView(view) ? productRoutes[view] : productFromPath(window.location.pathname) ? '/' : undefined;
+    if (path && window.location.pathname !== path) window.history.pushState(null, '', path);
+    updateView(view);
+    if (path) window.scrollTo(0, 0);
+  }, []);
+  useEffect(() => {
+    const sync = () => updateView(productFromPath(window.location.pathname) ?? (window.location.pathname === '/admin' ? 'admin' : 'home'));
+    window.addEventListener('popstate', sync);
+    return () => window.removeEventListener('popstate', sync);
+  }, []);
   const [quotes, setQuotes] = useState<Record<string, MarketQuote>>(INITIAL_QUOTES);
   
   // Theme state: dark / light mode toggle
@@ -602,6 +615,8 @@ export default function App() {
             />
           )}
 
+          {isProductView(currentView) && <ProductLanding product={currentView} quotes={quotes} setView={setView} openSignUp={openSignUpWizard} />}
+
           {currentView === 'markets' && (
             <MarketsView 
               quotes={quotes} 
@@ -623,7 +638,7 @@ export default function App() {
           )}
 
           {currentView === 'platforms' && (
-            <PlatformsView />
+            <PlatformsView onViewMarkets={() => { setView('markets'); window.scrollTo(0, 0); }} />
           )}
 
           {currentView === 'accounts' && (
@@ -741,10 +756,10 @@ export default function App() {
       </AnimatePresence>
 
       {/* Universal Footer Disclosures */}
-      {currentView !== 'login' && <Footer setView={setView} openSignUp={openSignUpWizard} showCallout={!isWorkspace && currentView !== 'home'} />}
+      {currentView !== 'login' && <Footer setView={setView} openSignUp={openSignUpWizard} showCallout={!isWorkspace && currentView !== 'home' && currentView !== 'spot' && currentView !== 'perpetuals'} />}
 
       {/* WhatsApp chat launcher (number never shown, deep-links to wa.me) */}
-      <WhatsAppChatButton compactOffset={!isWorkspace && !showRiskNotice} />
+      {currentView !== 'markets' && <WhatsAppChatButton compactOffset={!isWorkspace && !showRiskNotice} />}
       {!isWorkspace && showRiskNotice && <aside aria-label="Trading risk warning" className="reference-risk-bar">
         <p>Over-the-counter derivatives are leveraged products and carry a high risk to your capital. Trading is not suitable for everyone and losses may exceed your initial investment. Only trade with money you can afford to lose.</p>
         <button type="button" onClick={() => setShowRiskNotice(false)} aria-label="Dismiss trading risk warning">×</button>

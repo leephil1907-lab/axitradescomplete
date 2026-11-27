@@ -1,3 +1,4 @@
+import { productRoutes } from '../../config/publicRoutes';
 import { useState } from 'react';
 import { ArrowUpRight, Smartphone, ChartCandlestick, ChartNoAxesCombined, Copy } from 'lucide-react';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
@@ -11,9 +12,9 @@ import ai from '../../assets/images/axi_ai_signals_1784835914680.jpg';
 import type { ViewType } from '../../types';
 
 const products = [
-  { label: 'CFDs', title: 'FX. Indices. Shares.', body: 'Explore price movements across currencies, indices, shares and commodities.', art: 'element_3_8a05f7dba7.webp', fallback: indices, button: 'Explore CFDs', href: 'https://www.axi.com/int/trade/cfds' },
-  { label: 'Crypto perpetuals', title: 'Crypto futures that never expire.', body: 'Discover perpetual futures and how they differ from spot markets.', art: 'element_4_9f6eba74a7.webp', fallback: perps, button: 'Explore perpetuals', href: '#home-perpetuals' },
-  { label: 'Spot crypto', title: 'Spot it. Buy it. Own it.', body: 'Learn how spot crypto differs from derivatives and compare major digital assets.', art: 'element_5_a097bc1fa7.webp', fallback: watchlist, button: 'Explore crypto', href: 'https://www.axi.com/int/trade/cryptocurrencies/spot' },
+  { label: 'CFDs', title: 'FX. Indices. Shares.', body: 'Explore price movements across currencies, indices, shares and commodities.', art: 'element_3_8a05f7dba7.webp', fallback: indices, button: 'Explore CFDs', view: 'cfds' as const },
+  { label: 'Crypto perpetuals', title: 'Crypto futures that never expire.', body: 'Discover perpetual futures and how they differ from spot markets.', art: 'element_4_9f6eba74a7.webp', fallback: perps, button: 'Explore perpetuals', view: 'perpetuals' as const },
+  { label: 'Spot crypto', title: 'Spot it. Buy it. Own it.', body: 'Learn how spot crypto differs from derivatives and compare major digital assets.', art: 'element_5_a097bc1fa7.webp', fallback: watchlist, button: 'Explore crypto', view: 'spot' as const },
 ];
 
 const platforms = [
@@ -40,7 +41,7 @@ export function ReferenceHomeSections({ setView, openSignUp }: { setView: (view:
           <p className="home-kicker">/// Trade your edge</p>
           <h2 className="home-heading">Trade <em>CFDs, Crypto and Forex</em> with a Global Online Broker</h2>
           <p className="reference-lede">AxiTrader LLC is part of Axi Group, which operates globally.</p>
-          <a className="reference-link" href="https://www.trustpilot.com/review/axi.com" target="_blank" rel="noreferrer">Read Axi reviews on Trustpilot <ArrowUpRight size={17} aria-hidden="true" /></a>
+          <button type="button" className="reference-link" onClick={() => setView('about')}>About AxiTrades <ArrowUpRight size={17} aria-hidden="true" /></button>
         </div>
         <div className="reference-intro-art"><ReferenceArt fallback={watchlist} alt="Axi trading app showing a CFD watchlist and account overview" /></div>
       </div>
@@ -53,15 +54,15 @@ export function ReferenceHomeSections({ setView, openSignUp }: { setView: (view:
     <section className="reference-band reference-products" aria-labelledby="products-title">
       <div className="home-shell">
         <p className="home-kicker">/// Trading products</p>
-        <h2 id="products-title" className="home-heading">CFDs, Crypto Perpetuals and Spot Trading. All <em>in one account.</em></h2>
-        <p className="reference-lede">Compare CFDs and two ways to trade crypto before choosing a market.</p>
+        <h2 id="products-title" className="home-heading">CFDs, Crypto Perpetuals and <em>Spot Trading.</em></h2>
+        <p className="reference-lede">Explore CFDs and compare two ways to trade crypto. Spot and perpetual execution are not enabled in this preview.</p>
         <button type="button" className="home-button home-button-primary" onClick={openSignUp}>Open account <ArrowUpRight size={17} aria-hidden="true" /></button>
         <div className="reference-product-grid" data-active={product}>
           {products.map((item, i) => <article key={item.label} className={i === product ? 'is-active' : undefined}>
             <button type="button" className="home-kicker" aria-pressed={i === product} onClick={() => setProduct(i)}>/// {item.label}</button>
             <h3>{item.title}</h3><p>{item.body}</p>
             <ReferenceArt asset={item.art} fallback={item.fallback} />
-            <a className="reference-link" href={item.href} target={item.href.startsWith('https:') ? '_blank' : undefined} rel="noreferrer">{item.button} <ArrowUpRight size={17} aria-hidden="true" /></a>
+            <a className="reference-link" href={productRoutes[item.view]} onClick={event => { if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return; event.preventDefault(); setView(item.view); }}>{item.button} <ArrowUpRight size={17} aria-hidden="true" /></a>
           </article>)}
         </div>
       </div>
@@ -91,7 +92,7 @@ export function ReferenceHomeSections({ setView, openSignUp }: { setView: (view:
         <div className="reference-perps-grid">{[
           ['Pre-IPO', 'Coming soon', 'PO_CF_Ds_2089d7d97b.webp'], ['Shares', 'Global companies', 'shares_trade_Fi_3840527f38.webp'], ['Commodities', 'Metals and energy', 'Commodity_CF_Ds_d5aea0bd23.webp'], ['ETFs', 'Market benchmarks', 'ETF_CF_Ds_1cfee956be.webp'], ['Crypto', 'Digital assets', 'Cryptocurrency_CF_Ds_b16241d89b.webp'],
         ].map(([name, text, image]) => <article key={name}><ReferenceArt asset={image} fallback={perps} /><h3>{name}</h3><p>{text}</p></article>)}</div>
-        <a className="reference-link" href="https://www.axi.com/int/trade/perpetual-futures" target="_blank" rel="noreferrer">Explore perps <ArrowUpRight size={17} aria-hidden="true" /></a>
+        <button type="button" className="reference-link" onClick={() => setView('perpetuals')}>Explore perps <ArrowUpRight size={17} aria-hidden="true" /></button>
       </div>
     </section>
 
@@ -105,7 +106,7 @@ export function ReferenceHomeSections({ setView, openSignUp }: { setView: (view:
     </div></section>
 
     <section className="reference-band reference-ai"><div className="home-shell reference-split">
-      <div><p className="home-kicker">/// MCP</p><h2 className="home-heading">Your MT5 account, connected to Claude</h2><p className="reference-lede">Learn how Axi’s MCP integration connects eligible MT5 accounts to Claude for market data and account tools.</p><a href="https://www.axi.com/int/trading-platforms/mcp" target="_blank" rel="noreferrer" className="home-button home-button-primary">Learn more <ArrowUpRight size={17} aria-hidden="true" /></a></div>
+      <div><p className="home-kicker">/// MCP</p><h2 className="home-heading">Explore market research tools</h2><p className="reference-lede">Use the research tools available on AxiTrades. An MT5–Claude connection is not enabled here.</p><button type="button" onClick={() => setView('tools')} className="home-button home-button-primary">Explore tools <ArrowUpRight size={17} aria-hidden="true" /></button></div>
       <ReferenceArt asset="IMG_Slot_79934c186e.webp" fallback={ai} />
     </div></section>
   </>;

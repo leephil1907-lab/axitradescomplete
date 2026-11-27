@@ -120,6 +120,9 @@ export default function Header({
       ctaText: 'Compare Account Tiers',
       ctaTarget: 'accounts',
       children: [
+        { name: 'CFDs', desc: 'Explore CFD markets', icon: Layers, target: 'cfds' },
+        { name: 'Perpetual Futures', desc: 'Learn about perpetual contracts', icon: TrendingUp, target: 'perpetuals' },
+        { name: 'Spot Crypto', desc: 'Read-only crypto market preview', icon: Coins, target: 'spot' },
         { name: 'Account Types', desc: 'Standard, Pro ECN and Elite trading accounts', icon: ShieldCheck, tag: 'Tiered', target: 'accounts' },
         { name: 'Axi Select', desc: 'Get funded up to $1,000,000 USD with 0 entry fees', icon: Award, tag: '$1M Allocation', target: 'select' },
         { name: 'Promotions & Contests', desc: '50% Welcome Bonus & $100K Championship', icon: Gift, tag: '$100K Pool', target: 'promotions' },
@@ -202,8 +205,9 @@ export default function Header({
   const NAV_LAYOUT: Record<string, { mode: 'tiles' | 'columns'; caption?: string; groups?: { heading: string; indices: number[] }[] }> = {
     Markets: { mode: 'tiles', caption: 'CFD Instruments' },
     Trade: { mode: 'columns', groups: [
-      { heading: 'Accounts', indices: [0, 1] },
-      { heading: 'Features & Funding', indices: [2, 3, 4] },
+      { heading: 'Trading products', indices: [0, 1, 2] },
+      { heading: 'Accounts', indices: [3, 4] },
+      { heading: 'Features', indices: [5, 6, 7] },
     ] },
     Platforms: { mode: 'columns', groups: [
       { heading: 'Trading Platforms', indices: [0, 1, 4] },

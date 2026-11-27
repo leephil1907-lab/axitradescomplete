@@ -101,7 +101,7 @@ export default function PartnersView({ setView, showToast, openSignUp }: Partner
           recipientName: fullName,
           type: 'Custom',
           subject: `🤝 Axi Partner Application Received [Ref: ${appId}]`,
-          customBody: `Dear ${fullName},\n\nThank you for applying to the official Axi Partner Program as an ${partnerType === 'IB' ? 'Introducing Broker (IB)' : partnerType === 'CPA' ? 'CPA Affiliate' : partnerType === 'Hybrid' ? 'Hybrid Partner' : 'White Label Institution'}.\n\nYour application reference is: ${appId}\n\nOur Institutional Institutional Partnerships Desk has received your profile. Your dedicated Institutional Account Manager will contact you within 24 hours via email (${email}) or Telegram (${telegramHandle || 'phone'}) to finalize your custom rebate schedule and launch your tracking links.\n\nBest regards,\nAxi Institutional Partnerships Team\nwww.axi.com`
+          customBody: `Dear ${fullName},\n\nThank you for applying to the official Axi Partner Program as an ${partnerType === 'IB' ? 'Introducing Broker (IB)' : partnerType === 'CPA' ? 'CPA Affiliate' : partnerType === 'Hybrid' ? 'Hybrid Partner' : 'White Label Institution'}.\n\nYour application reference is: ${appId}\n\nOur Institutional Institutional Partnerships Desk has received your profile. Your dedicated Institutional Account Manager will contact you within 24 hours via email (${email}) or Telegram (${telegramHandle || 'phone'}) to finalize your custom rebate schedule and launch your tracking links.\n\nBest regards,\nAxi Institutional Partnerships Team\naxitrades.com`
         })
       }).catch(err => console.warn('Email dispatch warning:', err));
     } catch (e) {

@@ -6,12 +6,12 @@ import { ArrowUpRight, BarChart3, Check, Globe2, Laptop, Monitor, Smartphone } f
 import { TRADING_PLATFORMS } from '../config/tradingPlatforms';
 
 const platformCards = [
-  { key: 'mt4' as const, eyebrow: 'CLASSIC FOREX PLATFORM', title: 'MetaTrader 4', description: 'A familiar multi-device trading terminal with charting, Expert Advisors and browser access through WebTrader.', features: ['Desktop trading terminal', 'Expert Advisors & custom indicators', 'MT4 WebTrader access'], icon: Monitor, image: TRADING_PLATFORMS.mt4.logoUrl, href: TRADING_PLATFORMS.mt4.officialUrl, accent: 'from-[#15191f] to-[#05070a]' },
-  { key: 'mt5' as const, eyebrow: 'MULTI-ASSET PLATFORM', title: 'MetaTrader 5', description: 'Advanced multi-asset trading with deeper market tools, automation and professional charting.', features: ['Multi-asset trading', 'Advanced technical tools', 'Expert Advisors & automation'], icon: BarChart3, image: TRADING_PLATFORMS.mt5.logoUrl, href: TRADING_PLATFORMS.mt5.officialUrl, accent: 'from-[#101820] to-[#05070a]' },
-  { key: 'webTrader' as const, eyebrow: 'BROWSER TRADING', title: 'Axi Web Trading Platform', description: 'Trade from your browser with a modern web experience designed to keep analysis, positions and account management close at hand.', features: ['No desktop installation', 'Browser-based access', 'TradingView-powered charting on Axi platform'], icon: Globe2, image: TRADING_PLATFORMS.webTrader.logoUrl, href: TRADING_PLATFORMS.webTrader.webTraderUrl, accent: 'from-[#1a1113] to-[#05070a]' }
+  { key: 'mt4' as const, eyebrow: 'CLASSIC FOREX PLATFORM', title: 'MetaTrader 4', description: 'A familiar multi-device trading terminal with charting, Expert Advisors and browser access through WebTrader.', features: ['Desktop trading terminal', 'Expert Advisors & custom indicators', 'MT4 WebTrader access'], icon: Monitor, image: TRADING_PLATFORMS.mt4.logoUrl, accent: 'from-[#15191f] to-[#05070a]' },
+  { key: 'mt5' as const, eyebrow: 'MULTI-ASSET PLATFORM', title: 'MetaTrader 5', description: 'Advanced multi-asset trading with deeper market tools, automation and professional charting.', features: ['Multi-asset trading', 'Advanced technical tools', 'Expert Advisors & automation'], icon: BarChart3, image: TRADING_PLATFORMS.mt5.logoUrl, accent: 'from-[#101820] to-[#05070a]' },
+  { key: 'webTrader' as const, eyebrow: 'BROWSER TRADING', title: 'Axi Web Trading Platform', description: 'Trade from your browser with a modern web experience designed to keep analysis, positions and account management close at hand.', features: ['No desktop installation', 'Browser-based access', 'TradingView-powered charting on Axi platform'], icon: Globe2, image: TRADING_PLATFORMS.webTrader.logoUrl, accent: 'from-[#1a1113] to-[#05070a]' }
 ];
 
-export default function PlatformsView() {
+export default function PlatformsView({ onViewMarkets }: { onViewMarkets: () => void }) {
   return (
     <div className="site-editorial-page min-h-screen">
       <PageHero label="Trading platforms" title="Choose your platform." description="Explore MetaTrader 4, MetaTrader 5 and the Axi web trading experience. Availability depends on your account permissions." image={platformArt}>
@@ -34,7 +34,7 @@ export default function PlatformsView() {
                   <h2 className="mt-2 text-2xl font-black tracking-tight">{platform.title}</h2>
                   <p className="mt-3 min-h-[72px] text-sm leading-6 text-slate-600 dark:text-slate-400">{platform.description}</p>
                   <ul className="mt-6 space-y-3 border-t border-slate-100 pt-5 text-sm dark:border-white/10">{platform.features.map(feature => <li key={feature} className="flex gap-3"><Check className="mt-0.5 h-4 w-4 shrink-0 text-brand-red" />{feature}</li>)}</ul>
-                  <a href={platform.href} target="_blank" rel="noopener noreferrer" className="mt-7 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-slate-950 px-5 py-3.5 text-sm font-extrabold text-white transition hover:bg-brand-red dark:bg-white dark:text-slate-950 dark:hover:bg-brand-red dark:hover:text-white">Open official platform page <ArrowUpRight className="h-4 w-4" /></a>
+                  {platform.key === 'webTrader' ? <button type="button" onClick={onViewMarkets} className="home-button home-button-primary mt-7">Open Markets <ArrowUpRight size={17} aria-hidden="true" /></button> : <p className="mt-7 text-sm text-slate-600 dark:text-slate-300">An MT4/MT5 connection is not available from this page.</p>}
                 </div>
               </motion.article>
             );
