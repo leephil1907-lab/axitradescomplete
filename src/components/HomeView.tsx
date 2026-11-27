@@ -19,7 +19,7 @@ export default function HomeView({ quotes, setView, openSignUp }: HomeViewProps)
     <div className="axi-home flex flex-col bg-white">
       <HeroSlideshow onAction={(action) => {
         if (action === 'open-account') openSignUp();
-        else if (action === 'copy') window.open('https://www.axi.com/int/copy-trading-app', '_blank', 'noopener,noreferrer');
+        else if (action === 'copy') navigate('tools');
         else if (action === 'perpetuals') document.getElementById('home-perpetuals')?.focus();
         else if (action === 'markets' || action === 'platforms' || action === 'tools') navigate(action);
       }} />
@@ -47,11 +47,9 @@ export default function HomeView({ quotes, setView, openSignUp }: HomeViewProps)
             ['What is MCP in trading?', 'mcp_trading_preview_ae7b6361dc.webp', 'education/mcp-trading'],
             ['Axi launches its MT5 and Claude integration', 'mobile_trading_chart_claude_a3f29e234b.webp', 'company-news/axi-launches-mcp-integration-mt5-claude'],
             ['What is trading and how does it work?', 'axi_trading_platform_user_interface_f61b709232.webp', 'education/what-is-trading'],
-          ].map(([title, image, path]) => <a className="reference-cut" key={title} href={`https://www.axi.com/int/blog/${path}`} target="_blank" rel="noreferrer"><img src={`https://media.axiglobal.net/media/${image}`} alt="" loading="lazy" onError={event => { event.currentTarget.hidden = true; }} /><span>{title}</span></a>)}
+          ].map(([title, image, path]) => <button type="button" className="reference-cut" key={title} onClick={() => { setView("blog"); window.scrollTo(0, 0); }}><img src={`https://media.axiglobal.net/media/${image}`} alt="" loading="lazy" onError={event => { event.currentTarget.hidden = true; }} /><span>{title}</span></button>)}
           </div>
-          <div className="reference-summary"><span>Ask AI to summarize</span>{[
-            ['ChatGPT', 'https://chatgpt.com/?prompt='], ['Gemini', 'https://www.google.com/search?udm=50&q='], ['Perplexity', 'https://www.perplexity.ai/search?q='], ['Claude', 'https://claude.ai/new?q='],
-          ].map(([name, url]) => <a key={name} href={url + encodeURIComponent('Read https://www.axi.com/int and summarize its trading products, platforms and key risks. If you cannot access the page, say so.')} target="_blank" rel="noreferrer">{name}</a>)}</div>
+          <div className="reference-summary"><span>Explore trading insights</span><button type="button" onClick={() => { setView("blog"); window.scrollTo(0, 0); }}>Visit our insights <ArrowRight size={16} /></button></div>
         </div>
       </section>
 
