@@ -83,7 +83,7 @@ export default function ForexVpsView({ setView, showToast, openSignUp }: ForexVp
           recipientName: clientName,
           type: 'Custom',
           subject: `⚡ Axi Forex VPS Provisioning Request Logged [Ref: ${vpsRef}]`,
-          customBody: `Dear ${clientName},\n\nWe have received your request for an Axi ${selectedTier} Forex VPS hosted at ${serverLocation}.\n\nYour request reference ID is: ${vpsRef}\n\nOur Systems Engineering Desk is preparing your virtual server instance with pre-configured ${platform} and optical cross-connects (<1ms latency to Axi liquidity bridges). RDP login credentials and IP allocation will be dispatched to this email address within 2-4 business hours.\n\nBest regards,\nAxi Server Engineering Team\nwww.axi.com`
+          customBody: `Dear ${clientName},\n\nWe have received your request for an Axi ${selectedTier} Forex VPS hosted at ${serverLocation}.\n\nYour request reference ID is: ${vpsRef}\n\nOur Systems Engineering Desk is preparing your virtual server instance with pre-configured ${platform} and optical cross-connects (<1ms latency to Axi liquidity bridges). RDP login credentials and IP allocation will be dispatched to this email address within 2-4 business hours.\n\nBest regards,\nAxi Server Engineering Team\naxitrades.com`
         })
       }).catch(e => console.warn('Email notice:', e));
     } catch (e) {}

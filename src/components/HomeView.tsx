@@ -1,3 +1,5 @@
+import { useState } from 'react';
+import { motion, useReducedMotion } from 'motion/react';
 import { ArrowRight } from 'lucide-react';
 import { useSiteCMS } from '../hooks/useSiteCMS';
 import type { MarketQuote, ViewType } from '../types';
@@ -6,6 +8,14 @@ import HeroSlideshow from './axi/HeroSlideshow';
 import MarketRibbon from './axi/MarketRibbon';
 import { ReferenceHomeSections } from './axi/ReferenceHomeSections';
 
+const insights = [
+  ['What is agentic trading?', 'agentic_trading_preview_b7b317bd52.webp', 'Agentic systems can plan and carry out multi-step tasks. Trading teams should set explicit permissions, verify inputs and keep human oversight over execution.'],
+  ['Perpetual futures in traditional markets', 'clock_24_7_trading_pr_7b743b9d90.webp', 'Perpetual contracts track an underlying market without a fixed expiry. Funding payments and leverage can materially change the cost and risk of holding a position.'],
+  ['AI trading: What you need to know', 'what_is_ai_trading_preview_8f44b88979.webp', 'AI can help organize market information, but outputs can be inaccurate or outdated. Independently verify prices and research before making a decision.'],
+  ['What is MCP in trading?', 'mcp_trading_preview_ae7b6361dc.webp', 'Model Context Protocol lets compatible AI clients access tools and data. Read-only access and order execution are different permissions. This site does not offer an MCP connection.'],
+  ['What is trading and how does it work?', 'axi_trading_platform_user_interface_f61b709232.webp', 'Trading involves taking exposure to changing market prices. Understand the instrument, transaction costs and maximum possible loss before entering a trade.'],
+];
+
 interface HomeViewProps {
   quotes: Record<string, MarketQuote>;
   setView: (view: ViewType) => void;
@@ -13,14 +23,16 @@ interface HomeViewProps {
 }
 
 export default function HomeView({ quotes, setView, openSignUp }: HomeViewProps) {
+  const [selectedInsight, setSelectedInsight] = useState<number | null>(null);
+  const reducedMotion = useReducedMotion();
   const { cmsContent } = useSiteCMS();
   const navigate = (view: ViewType) => { setView(view); window.scrollTo(0, 0); };
   return (
     <div className="axi-home flex flex-col bg-white">
       <HeroSlideshow onAction={(action) => {
         if (action === 'open-account') openSignUp();
-        else if (action === 'copy') navigate('tools');
-        else if (action === 'perpetuals') document.getElementById('home-perpetuals')?.focus();
+        else if (action === 'copy') navigate('platforms');
+        else if (action === 'perpetuals') navigate('perpetuals');
         else if (action === 'markets' || action === 'platforms' || action === 'tools') navigate(action);
       }} />
       <MarketRibbon quotes={quotes} onViewMarkets={() => navigate('markets')} />
@@ -40,16 +52,10 @@ export default function HomeView({ quotes, setView, openSignUp }: HomeViewProps)
         <div className="home-shell">
           <p className="home-kicker">/// Axi blog</p><h2 className="home-heading">Insights to <em>sharpen your edge</em></h2>
           <div className="reference-blog-rail" aria-label="Featured insights" tabIndex={0}>
-          {[
-            ['What is agentic trading?', 'agentic_trading_preview_b7b317bd52.webp', 'education/agentic-trading'],
-            ['Perpetual futures in traditional markets', 'clock_24_7_trading_pr_7b743b9d90.webp', 'company-news/axi-expands-perpetual-futures-traditional-markets'],
-            ['AI trading: What you need to know', 'what_is_ai_trading_preview_8f44b88979.webp', 'education/ai-trading'],
-            ['What is MCP in trading?', 'mcp_trading_preview_ae7b6361dc.webp', 'education/mcp-trading'],
-            ['Axi launches its MT5 and Claude integration', 'mobile_trading_chart_claude_a3f29e234b.webp', 'company-news/axi-launches-mcp-integration-mt5-claude'],
-            ['What is trading and how does it work?', 'axi_trading_platform_user_interface_f61b709232.webp', 'education/what-is-trading'],
-          ].map(([title, image, path]) => <button type="button" className="reference-cut" key={title} onClick={() => { setView("blog"); window.scrollTo(0, 0); }}><img src={`https://media.axiglobal.net/media/${image}`} alt="" loading="lazy" onError={event => { event.currentTarget.hidden = true; }} /><span>{title}</span></button>)}
+          {insights.map(([title, image], i) => <button type="button" className="reference-cut" key={title} aria-pressed={selectedInsight === i} onClick={() => setSelectedInsight(i)}><img src={`https://media.axiglobal.net/media/${image}`} alt="" loading="lazy" onError={event => { event.currentTarget.hidden = true; }} /><span>{title}</span></button>)}
           </div>
-          <div className="reference-summary"><span>Explore trading insights</span><button type="button" onClick={() => { setView("blog"); window.scrollTo(0, 0); }}>Visit our insights <ArrowRight size={16} /></button></div>
+          {selectedInsight !== null && <motion.article key={selectedInsight} className="home-insight-note" initial={reducedMotion ? false : { opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} aria-live="polite"><h3>{insights[selectedInsight][0]}</h3><p>{insights[selectedInsight][2]}</p></motion.article>}
+          <button type="button" className="reference-link mt-5" onClick={() => navigate('blog')}>Explore the blog <ArrowRight size={17} aria-hidden="true" /></button>
         </div>
       </section>
 

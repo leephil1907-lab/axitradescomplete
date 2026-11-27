@@ -1,4 +1,13 @@
 import React, { useState, useEffect } from 'react';
+
+function publicNewsUrl(value?: string): string | undefined {
+  if (!value) return;
+  try {
+    const url = new URL(value);
+    const host = url.hostname.toLowerCase().replace(/\.$/, '');
+    if (url.protocol === 'https:' && host !== 'axi.com' && !host.endsWith('.axi.com')) return url.href;
+  } catch { /* Ignore malformed source URLs. */ }
+}
 import { motion, AnimatePresence } from 'motion/react';
 import { Newspaper, TrendingUp, TrendingDown, Clock, RefreshCw, Filter, ExternalLink, Flame, ShieldAlert, Sparkles, X } from 'lucide-react';
 
@@ -214,9 +223,9 @@ export default function FinancialNewsTicker({ accountMode = 'live', onSymbolSele
                 </button>
               )}
 
-              {article.url ? (
+              {publicNewsUrl(article.url) ? (
                 <a
-                  href={article.url}
+                  href={publicNewsUrl(article.url)}
                   target="_blank"
                   rel="noopener noreferrer"
                   onClick={(e) => e.stopPropagation()}

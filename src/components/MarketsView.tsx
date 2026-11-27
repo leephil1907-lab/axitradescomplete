@@ -51,7 +51,7 @@ const SentimentGauge = ({ symbol, longPercent }: { symbol: string, longPercent: 
 
   return (
     <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm w-full">
-      <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-4 w-full text-left">Market Sentiment</div>
+      <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-4 w-full text-left">Indicative sentiment · model estimate</div>
       <div className="flex flex-col items-center">
         <div className="relative w-40 h-20 overflow-hidden mb-2">
           <svg className="w-full h-full" viewBox="0 0 140 70">
@@ -804,7 +804,7 @@ export default function MarketsView({
   // Order entry state & Account Type toggle (Defaults to 'live')
   const [accountType, setAccountType] = useState<'live' | 'demo'>('live');
   const [riskAlertData, setRiskAlertData] = useState<PreTradeRiskAlertData | null>(null);
-  const [orderTab, setOrderTab] = useState<'Market' | 'Limit' | 'Stop'>('Market');
+  const [chartInterval, setChartInterval] = useState<'60' | '240' | 'D' | 'W'>('60');
   const [lotSize, setLotSize] = useState<number>(0.1);
   const [leverage, setLeverage] = useState<number>(100);
   const [stopLoss, setStopLoss] = useState<string>('');
@@ -1093,7 +1093,7 @@ export default function MarketsView({
             </div>
           </div>
 
-          <div className="lg:col-span-8 flex flex-col gap-4">
+          <div className="lg:col-span-8 min-w-0 flex flex-col gap-4">
             <motion.div animate={{ opacity: [0.4, 0.8, 0.4] }} transition={{ repeat: Infinity, duration: 1.2 }} className="h-[380px] bg-slate-200 rounded-xl w-full" />
             <motion.div animate={{ opacity: [0.4, 0.8, 0.4] }} transition={{ repeat: Infinity, duration: 1.2 }} className="h-44 bg-slate-200 rounded-xl w-full" />
           </div>
@@ -1103,7 +1103,7 @@ export default function MarketsView({
   }
 
   return (
-    <div className="bg-white min-h-screen pb-20 md:pb-10 font-sans text-slate-900 w-full">
+    <div className="markets-terminal bg-white min-h-screen pb-20 md:pb-10 font-sans text-slate-900 w-full">
       
       {/* Trading Session Navigation - Mobile & Desktop */}
       <div className="flex flex-col md:flex-row border-b border-neutral-300 px-4 py-3 justify-between items-center bg-[#f4f3ef] sticky top-0 z-20 gap-3">
@@ -1151,14 +1151,14 @@ export default function MarketsView({
             <div className="flex bg-slate-100 p-1 rounded-xl border border-slate-200">
               <div className="flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-black transition bg-red-600 text-white shadow-md">
                 <span className="w-2 h-2 rounded-full bg-red-400 animate-pulse"></span>
-                Live (${liveBalance.toFixed(2)})
+                Account (${liveBalance.toFixed(2)})
               </div>
             </div>
           </div>
         </div>
 
         {/* Action Buttons Bar: Deposit, Sell, Send, Swap */}
-        <div className="flex items-center gap-2 w-full md:w-auto justify-end overflow-x-auto pb-1 md:pb-0">
+        <div className="terminal-actions flex items-center gap-2 w-full md:w-auto justify-end overflow-x-auto pb-1 md:pb-0">
           <button
             onClick={() => setView('funds')}
             className="flex items-center gap-1.5 bg-[#E3000F] hover:bg-red-700 text-white px-3.5 py-2 rounded-xl text-xs font-extrabold shadow-md transition cursor-pointer whitespace-nowrap"
@@ -1231,7 +1231,7 @@ export default function MarketsView({
           </div>
 
           {/* Markets List */}
-          <div className="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden flex flex-col h-[400px] lg:h-[calc(100vh-200px)]">
+          <div className="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden flex flex-col h-[320px] lg:h-[calc(100vh-200px)]">
             <div className="flex flex-col gap-2 px-4 py-3 border-b border-slate-100">
               <div className="flex items-center justify-between">
                 <h3 className="font-bold text-slate-900">Markets ({filteredMarkets.length})</h3>
@@ -1305,6 +1305,8 @@ export default function MarketsView({
               })}
             </div>
           
+          </div>
+
           {/* Market Sentiment Gauge for Selected Asset */}
           {currentQuote && (
             <SentimentGauge 
@@ -1313,16 +1315,15 @@ export default function MarketsView({
             />
           )}
         </div>
-        </div>
 
         {/* RIGHT COLUMN: Chart & Order Entry */}
         <div className="lg:col-span-8 flex flex-col gap-4">
           
           {/* Chart Section */}
           <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
-            <div className="flex items-end justify-between mb-4">
+            <div className="terminal-chart-heading flex flex-wrap items-end justify-between gap-2 mb-4">
               <div>
-                <div className="flex items-baseline gap-3">
+                <div className="flex flex-wrap items-baseline gap-x-3">
                   <h2 className="text-xl font-black text-slate-900">{selectedSymbol.replace(/([A-Z]{3})([A-Z]{3})/, '$1/$2')}</h2>
                   <span className="text-2xl font-black text-slate-900">
                     {currentQuote ? (currentQuote.price > 1000 ? '$' : '') + currentQuote.price.toLocaleString(undefined, { minimumFractionDigits: currentQuote.symbol.includes('JPY') ? 2 : (currentQuote.price > 1000 ? 2 : 5) }) : '...'}
@@ -1335,8 +1336,8 @@ export default function MarketsView({
                 )}
               </div>
               <div className="flex gap-1 bg-slate-100 p-1 rounded-lg">
-                {['1H', '4H', '1D', '1W'].map(tf => (
-                  <button key={tf} className={`px-2 py-1 text-xs font-bold rounded-md cursor-pointer ${tf === '1H' ? 'bg-white shadow-sm text-slate-900' : 'text-slate-500 hover:text-slate-900'}`}>
+                {([['1H', '60'], ['4H', '240'], ['1D', 'D'], ['1W', 'W']] as const).map(([tf, interval]) => (
+                  <button type="button" key={tf} aria-pressed={chartInterval === interval} onClick={() => setChartInterval(interval)} className={`px-2 py-1 text-xs font-bold rounded-md cursor-pointer ${chartInterval === interval ? 'bg-white shadow-sm text-slate-900' : 'text-slate-500 hover:text-slate-900'}`}>
                     {tf}
                   </button>
                 ))}
@@ -1348,13 +1349,13 @@ export default function MarketsView({
             </div>
 
             <div className="w-full">
-              <TradingViewWidget symbol={selectedSymbol} theme="light" height={420} />
+              <TradingViewWidget symbol={selectedSymbol} theme="light" height={420} interval={chartInterval} />
             </div>
           </div>
 
           {/* Order Entry */}
-          <div className="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">
-            <div className="px-4 py-3 border-b border-slate-100 font-bold text-slate-900 flex items-center justify-between">
+          <div id="terminal-order-ticket" className="terminal-ticket bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">
+            <div className="terminal-ticket-heading px-4 py-3 border-b border-slate-100 font-bold text-slate-900 flex items-center justify-between">
               <span className="flex items-center gap-2 text-sm">
                 <ShieldCheck className="w-4 h-4 text-emerald-600" />
                 Trading Terminal Order Ticket
@@ -1368,16 +1369,20 @@ export default function MarketsView({
               {['Market', 'Limit', 'Stop'].map(tab => (
                 <button 
                   key={tab}
-                  onClick={() => setOrderTab(tab as any)}
-                  className={`flex-1 py-3 text-sm font-bold transition cursor-pointer relative ${orderTab === tab ? 'text-brand-red' : 'text-slate-500 hover:text-slate-900'}`}
+                  type="button"
+                  disabled={tab !== 'Market'}
+                  title={tab === 'Market' ? undefined : 'Not supported by this ticket'}
+                  aria-pressed={tab === 'Market'}
+                  className={`flex-1 py-3 text-sm font-bold transition cursor-pointer relative ${tab === 'Market' ? 'text-brand-red' : 'text-slate-500 hover:text-slate-900'}`}
                 >
                   {tab}
-                  {orderTab === tab && <div className="absolute bottom-0 left-0 w-full h-0.5 bg-brand-red" />}
+                  {tab === 'Market' && <div className="absolute bottom-0 left-0 w-full h-0.5 bg-brand-red" />}
                 </button>
               ))}
             </div>
 
             <div className="p-4 space-y-4">
+              <p className="text-xs text-slate-600">Market orders only. Limit and stop entry orders are not available here.</p>
               <div>
                 <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1 flex items-center justify-between">
                   <span>Symbol</span>
@@ -1400,25 +1405,25 @@ export default function MarketsView({
               <div>
                 <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Lot Size</label>
                 <div className="flex items-center bg-slate-50 border border-slate-200 rounded-lg p-1">
-                  <button onClick={() => setLotSize(prev => Math.max(0.01, Number((prev - 0.01).toFixed(2))))} className="w-10 h-10 flex items-center justify-center bg-white rounded shadow-sm text-slate-600 font-bold cursor-pointer hover:bg-slate-100">-</button>
+                  <button type="button" aria-label="Decrease lot size" onClick={() => setLotSize(prev => Math.max(0.01, Number((prev - 0.01).toFixed(2))))} className="w-10 h-10 flex items-center justify-center bg-white rounded shadow-sm text-slate-600 font-bold cursor-pointer hover:bg-slate-100">-</button>
                   <div className="flex-1 text-center font-black text-slate-900">{lotSize.toFixed(2)}</div>
-                  <button onClick={() => setLotSize(prev => Number((prev + 0.01).toFixed(2)))} className="w-10 h-10 flex items-center justify-center bg-white rounded shadow-sm text-slate-600 font-bold cursor-pointer hover:bg-slate-100">+</button>
+                  <button type="button" aria-label="Increase lot size" onClick={() => setLotSize(prev => Number((prev + 0.01).toFixed(2)))} className="w-10 h-10 flex items-center justify-center bg-white rounded shadow-sm text-slate-600 font-bold cursor-pointer hover:bg-slate-100">+</button>
                   <div className="pr-3 text-xs font-bold text-slate-400">lots</div>
                 </div>
               </div>
 
               <div>
-                <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Stop Loss</label>
+                <label htmlFor="terminal-stop-loss" className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Stop Loss</label>
                 <div className="flex items-center bg-white border border-slate-200 rounded-lg px-3 py-2">
-                  <input type="text" value={stopLoss} onChange={(e) => setStopLoss(e.target.value)} className="w-full outline-none font-bold text-slate-900" />
+                  <input id="terminal-stop-loss" type="text" inputMode="decimal" value={stopLoss} onChange={(e) => setStopLoss(e.target.value)} className="w-full outline-none font-bold text-slate-900" />
                   <span className="text-xs font-bold text-slate-400">USD</span>
                 </div>
               </div>
 
               <div>
-                <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Take Profit</label>
+                <label htmlFor="terminal-take-profit" className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Take Profit</label>
                 <div className="flex items-center bg-white border border-slate-200 rounded-lg px-3 py-2">
-                  <input type="text" value={takeProfit} onChange={(e) => setTakeProfit(e.target.value)} className="w-full outline-none font-bold text-slate-900" />
+                  <input id="terminal-take-profit" type="text" inputMode="decimal" value={takeProfit} onChange={(e) => setTakeProfit(e.target.value)} className="w-full outline-none font-bold text-slate-900" />
                   <span className="text-xs font-bold text-slate-400">USD</span>
                 </div>
               </div>
@@ -1429,6 +1434,7 @@ export default function MarketsView({
                   {[1, 5, 10, 100, 500].map(lev => (
                     <button 
                       key={lev}
+                      aria-pressed={leverage === lev}
                       onClick={() => setLeverage(lev)}
                       className={`flex-1 py-2 rounded-lg text-xs font-bold transition cursor-pointer ${leverage === lev ? 'bg-brand-red text-white' : 'bg-slate-50 border border-slate-200 text-slate-600 hover:bg-slate-100'}`}
                     >
@@ -1533,7 +1539,7 @@ export default function MarketsView({
                     <strong className="text-slate-900">$0.00</strong>
                   </div>
                   <div className="flex justify-between text-slate-500 pt-2 border-t border-slate-50">
-                    <span>Total Cost</span>
+                    <span>Estimated margin</span>
                     <strong className="text-slate-900">${((currentQuote.price * lotSize * (currentQuote.symbol === 'BTCUSD' ? 1 : (currentQuote.symbol === 'XAUUSD' ? 100 : 100000))) / leverage).toFixed(2)}</strong>
                   </div>
                 </div>

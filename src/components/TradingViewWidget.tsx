@@ -6,6 +6,7 @@ interface TradingViewWidgetProps {
   theme?: 'light' | 'dark';
   height?: number | string;
   autosize?: boolean;
+  interval?: '60' | '240' | 'D' | 'W';
 }
 
 // Map application symbols to TradingView standardized symbols
@@ -52,7 +53,8 @@ export function getTradingViewSymbol(symbol: string): string {
 export default function TradingViewWidget({
   symbol = 'EURUSD',
   theme = 'dark',
-  height = 420
+  height = 420,
+  interval = 'D'
 }: TradingViewWidgetProps) {
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [chartTheme, setChartTheme] = useState<'light' | 'dark'>(theme);
@@ -65,7 +67,7 @@ export default function TradingViewWidget({
   const embedConfig = {
     autosize: true,
     symbol: tvSymbol,
-    interval: 'D',
+    interval,
     timezone: 'Etc/UTC',
     theme: chartTheme,
     style: '1',
@@ -79,7 +81,7 @@ export default function TradingViewWidget({
     studies: ['STD;SMA', 'STD;RSI']
   };
 
-  const iframeSrc = `https://s.tradingview.com/widgetembed/?frameElementId=tradingview_widget&symbol=${encodeURIComponent(tvSymbol)}&interval=D&symboledit=1&saveimage=1&toolbarbg=${chartTheme === 'dark' ? '131722' : 'f1f3f6'}&theme=${chartTheme}&style=1&timezone=Etc%2FUTC&locale=en&utm_source=tradingview.com#${encodeURIComponent(JSON.stringify(embedConfig))}`;
+  const iframeSrc = `https://s.tradingview.com/widgetembed/?frameElementId=tradingview_widget&symbol=${encodeURIComponent(tvSymbol)}&interval=${interval}&symboledit=1&saveimage=1&toolbarbg=${chartTheme === 'dark' ? '131722' : 'f1f3f6'}&theme=${chartTheme}&style=1&timezone=Etc%2FUTC&locale=en&utm_source=tradingview.com#${encodeURIComponent(JSON.stringify(embedConfig))}`;
 
   return (
     <div className={`relative w-full rounded-2xl overflow-hidden border border-slate-800 bg-[#0E131B] shadow-sm flex flex-col ${

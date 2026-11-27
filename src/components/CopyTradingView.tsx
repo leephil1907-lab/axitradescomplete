@@ -43,7 +43,6 @@ export default function CopyTradingView() {
               <p className="text-sm font-medium text-white">{platform.name} selected</p>
               <p className="mt-1 text-xs text-white/50">The account must be connected to a real supported provider before copying can be activated.</p>
             </div>
-            <a className="rounded-lg border border-white/15 px-4 py-2 text-xs font-semibold text-white" href={platform.webTraderUrl} target="_blank" rel="noreferrer">Open official platform</a>
           </div>
         </div>
       )}
