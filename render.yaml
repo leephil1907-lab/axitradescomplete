@@ -4,7 +4,7 @@ services:
     runtime: docker
     plan: starter
     dockerfilePath: ./Dockerfile
-    healthCheckPath: /api/markets/quotes
+    healthCheckPath: /api/health
     autoDeploy: true
     envVars:
       - key: NODE_ENV

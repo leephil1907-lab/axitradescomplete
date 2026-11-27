@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { ArrowUpRight } from 'lucide-react';
+import { ArrowUpRight, Smartphone, ChartCandlestick, ChartNoAxesCombined, Copy } from 'lucide-react';
+import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import app from '../../assets/axi-reference/platform-app.webp';
 import watchlist from '../../assets/axi-reference/watchlist.webp';
 import copy from '../../assets/axi-reference/copy-app.webp';
@@ -16,10 +17,10 @@ const products = [
 ];
 
 const platforms = [
-  { name: 'The Axi trading app', text: 'Monitor your positions, explore market analysis and manage your trades in one place.', image: app, features: ['Live analysis', 'Portfolio view', 'Mobile'] },
-  { name: 'MetaTrader 4', text: 'Explore the classic platform with charting, indicators and automated trading tools.', image: desktop, art: 'Desktop_3_adb20e26be.webp', features: ['Expert Advisors', 'Charting'] },
-  { name: 'MetaTrader 5', text: 'Explore multi-asset charting and a broader range of analytical tools.', image: desktop, art: 'meta_trader_5_Desktop_8f3e32d1fc.webp', features: ['Multi-asset', 'Custom indicators'] },
-  { name: 'Axi Copy Trading', text: 'Learn how to follow trading strategies and review the risks before you start.', image: copy, features: ['MT4', 'MT5'] },
+  { icon: Smartphone, name: 'The Axi trading app', text: 'Monitor your positions, explore market analysis and manage your trades in one place.', image: app, features: ['Live analysis', 'Portfolio view', 'Mobile'] },
+  { icon: ChartCandlestick, name: 'MetaTrader 4', text: 'Explore the classic platform with charting, indicators and automated trading tools.', image: desktop, art: 'Desktop_3_adb20e26be.webp', features: ['Expert Advisors', 'Charting'] },
+  { icon: ChartNoAxesCombined, name: 'MetaTrader 5', text: 'Explore multi-asset charting and a broader range of analytical tools.', image: desktop, art: 'meta_trader_5_Desktop_8f3e32d1fc.webp', features: ['Multi-asset', 'Custom indicators'] },
+  { icon: Copy, name: 'Axi Copy Trading', text: 'Learn how to follow trading strategies and review the risks before you start.', image: copy, features: ['MT4', 'MT5'] },
 ];
 
 function ReferenceArt({ asset, fallback, alt = '' }: { asset?: string; fallback: string; alt?: string }) {
@@ -31,6 +32,7 @@ export function ReferenceHomeSections({ setView, openSignUp }: { setView: (view:
   const [platform, setPlatform] = useState(0);
   const [product, setProduct] = useState(0);
   const active = platforms[platform];
+  const reducedMotion = useReducedMotion();
   return <>
     <section className="reference-band reference-intro">
       <div className="home-shell reference-split">
@@ -70,14 +72,16 @@ export function ReferenceHomeSections({ setView, openSignUp }: { setView: (view:
         <p className="home-kicker">/// Axi trading platforms</p>
         <h2 className="home-heading">Choose your platform. The Axi app, MT4, MT5 or Copy Trading.</h2>
         <div className="reference-platform-switch" role="group" aria-label="Choose a platform">
-          {platforms.map((item, i) => <button type="button" key={item.name} aria-pressed={platform === i} onClick={() => setPlatform(i)}><span>0{i + 1}</span>{item.name}</button>)}
+          {platforms.map((item, i) => <button type="button" key={item.name} aria-pressed={platform === i} onClick={() => setPlatform(i)}><item.icon size={16} aria-hidden="true" />{item.name}</button>)}
         </div>
-        <div className="reference-platform-panel" aria-live="polite">
+        <div aria-live="polite"><AnimatePresence initial={false} mode="popLayout">
+        <motion.div key={active.name} className="reference-platform-panel" initial={reducedMotion ? false : { opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={reducedMotion ? undefined : { opacity: 0 }} transition={{ duration: reducedMotion ? 0 : .24 }}>
           <ReferenceArt asset={active.art} fallback={active.image} alt={`${active.name} preview`} />
           <div><h3 key={active.name} className="campaign-enter">{active.name}</h3><p>{active.text}</p><ul>{active.features.map(item => <li key={item}>{item}</li>)}</ul>
             <button type="button" onClick={() => setView('platforms')} className="home-button home-button-primary">Explore platforms <ArrowUpRight size={17} aria-hidden="true" /></button>
           </div>
-        </div>
+        </motion.div>
+        </AnimatePresence></div>
       </div>
     </section>
 
