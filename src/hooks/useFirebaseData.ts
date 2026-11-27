@@ -84,49 +84,6 @@ export function useFirebaseData() {
             }
           }
 
-          // Update record on Admin Dashboard with real KYC status and live balances
-          try {
-            const savedStr = null; // Server/Postgres is authoritative; browser storage is never an admin ledger.
-            let userList: any[] = [];
-            if (savedStr) {
-              try { userList = JSON.parse(savedStr); } catch (e) {}
-            }
-
-            const email = currentUser.email || '';
-            const name = currentUser.displayName || (email ? email.split('@')[0].toUpperCase() : 'Trader');
-            const existingIndex = userList.findIndex(item => item.id === currentUser.uid || (email && item.email === email));
-
-            const updatedUserObj = {
-              id: currentUser.uid,
-              name: name,
-              email: email,
-              status: currKyc === 'VERIFIED' ? 'Verified' : currKyc === 'PENDING' ? 'Under Review' : 'Unverified',
-              kycStatus: currKyc,
-              balance: currLiveBal,
-              demoBalance: 0,
-              registeredAt: existingIndex >= 0 && userList[existingIndex].registeredAt ? userList[existingIndex].registeredAt : new Date().toISOString().replace('T', ' ').substring(0, 16),
-              lastActive: 'Active Now (' + new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) + ' UTC)',
-              provider: currentUser.providerData[0]?.providerId || 'Email/Password',
-              accountNo: existingIndex >= 0 ? (userList[existingIndex].accountNo || '') : '',
-              accountType: existingIndex >= 0 ? (userList[existingIndex].accountType || '') : '',
-              leverage: existingIndex >= 0 ? (userList[existingIndex].leverage || '') : '',
-              country: 'International'
-            };
-
-            if (existingIndex >= 0) {
-              userList[existingIndex] = { ...userList[existingIndex], ...updatedUserObj };
-            } else {
-              userList.unshift(updatedUserObj);
-              fetch('/api/email/registration', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email, name }) })
-                .then(async (r) => { if (!r.ok) console.warn('Welcome email was not sent:', await r.text()); })
-                .catch((err) => console.warn('Welcome email request failed:', err));
-            }
-
-            // Registration records are persisted server-side; do not mirror them into browser storage.
-            window.dispatchEvent(new Event('axi_registered_user_event'));
-          } catch (e) {
-            console.error("Error recording user on admin dashboard:", e);
-          }
         }, onFsError('user profile', () => { setBalance(0); setLiveBalance(0); setKycStatus('NOT_STARTED'); }));
 
         // Listen to collections

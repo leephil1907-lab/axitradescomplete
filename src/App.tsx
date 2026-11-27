@@ -1,5 +1,5 @@
 import ProductLanding from './components/axi/ProductLanding';
-import { isProductView, productFromPath, productRoutes } from './config/publicRoutes';
+import { isProductView, pathForView, viewFromPath } from './config/publicRoutes';
 import OpenAccountDialog from './components/axi/OpenAccountDialog';
 import PageHero from './components/axi/PageHero';
 import SettingsView from "./components/SettingsView";
@@ -62,8 +62,7 @@ const DEFAULT_REFERRAL_INVITES: ReferralInvite[] = [];
 
 export default function App() {
   // AXI_EMAIL_ACTION_ROUTING_V1
-  const ep=new URLSearchParams(window.location.search); const em=ep.get('mode'); const ec=ep.get('oobCode');
-  const shouldRenderEmailAction=((window.location.pathname==='/reset-password'||window.location.pathname==='/verify-email')&&Boolean(em&&ec));
+  const shouldRenderEmailAction=(window.location.pathname==='/reset-password'||window.location.pathname==='/verify-email');
   const [isCommandMenuOpen, setIsCommandMenuOpen] = useState(false);
   const [isQuickDepositOpen, setIsQuickDepositOpen] = useState(false);
 
@@ -126,15 +125,15 @@ export default function App() {
   const [accountDialogOpen, setAccountDialogOpen] = useState(false);
   const [signupCountry, setSignupCountry] = useState('');
   const [showRiskNotice, setShowRiskNotice] = useState(true);
-  const [currentView, updateView] = useState<ViewType>(() => productFromPath(window.location.pathname) ?? (window.location.pathname.replace(/\/$/, '') === '/admin' ? 'admin' : 'home'));
+  const [currentView, updateView] = useState<ViewType>(() => viewFromPath(window.location.pathname));
   const setView = useCallback((view: ViewType) => {
-    const path = isProductView(view) ? productRoutes[view] : productFromPath(window.location.pathname) ? '/' : undefined;
+    const path = pathForView(view) ?? (viewFromPath(window.location.pathname) !== 'home' ? '/' : undefined);
     if (path && window.location.pathname !== path) window.history.pushState(null, '', path);
     updateView(view);
     if (path) window.scrollTo(0, 0);
   }, []);
   useEffect(() => {
-    const sync = () => updateView(productFromPath(window.location.pathname) ?? (window.location.pathname === '/admin' ? 'admin' : 'home'));
+    const sync = () => updateView(viewFromPath(window.location.pathname));
     window.addEventListener('popstate', sync);
     return () => window.removeEventListener('popstate', sync);
   }, []);
@@ -566,7 +565,7 @@ export default function App() {
   const isWorkspace = ['login', 'markets', 'funds', 'dashboard', 'settings', 'admin', 'accounts'].includes(currentView);
 
   return (
-    <div className={`min-h-screen w-full overflow-x-hidden transition-colors duration-700 ease-in-out ${isDarkMode ? 'dark bg-slate-950 text-slate-100' : 'bg-[#FAF6EE] text-slate-900'} flex flex-col font-sans selection:bg-brand-red selection:text-white`}>
+    <div className={`min-h-screen w-full overflow-x-hidden transition-colors duration-700 ease-in-out site-theme ${isDarkMode ? 'dark' : ''} flex flex-col font-sans selection:bg-brand-red selection:text-white`}>
       
       {/* Universal Responsive Header */}
       {currentView !== 'login' && <Header 

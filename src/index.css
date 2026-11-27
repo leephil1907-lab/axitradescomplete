@@ -74,20 +74,32 @@ h1, h2, h3, h4, h5, h6 {
    Light cream surfaces are the platform default. Adding `.dark` on <html>
    switches to the classic dark navy scheme via the in-app theme toggle.
    ========================================================================== */
-:root { color-scheme: light; }
-html { background-color: #FAF6EE; }
-html.dark { background-color: #020617; color-scheme: dark; }
-body { background-color: #FAF6EE; }
-html.dark body { background-color: #020617; }
-
-/* Warm cream recolor of the common light neutral surfaces (light mode only).
-   Luminance is preserved so existing text/border contrast is unchanged. */
-html:not(.dark) .bg-white { background-color: #FFFEF9; }
-html:not(.dark) .bg-slate-50 { background-color: #FAF6EC; }
-html:not(.dark) .bg-slate-100 { background-color: #F5EFDF; }
-html:not(.dark) .bg-slate-200 { background-color: #ECE2CC; }
-html:not(.dark) .border-slate-100 { border-color: #F0E9DA; }
-html:not(.dark) .border-slate-200 { border-color: #E6DCC6; }
+:root {
+  color-scheme: light;
+  --site-canvas: #f3f4f5;
+  --site-surface: #fff;
+  --site-panel: #ebedf0;
+  --site-border: #d9dee3;
+  --site-ink: #182129;
+  --site-dark: #131a21;
+  --site-slate: #384957;
+  --site-accent: #d9002b;
+  --site-accent-hover: #bb0025;
+  --site-radius: .55rem;
+}
+html.dark {
+  color-scheme: dark;
+  --site-canvas: #131a21;
+  --site-surface: #1c2730;
+  --site-panel: #23313e;
+  --site-border: #394b5a;
+  --site-ink: #f4f6f7;
+}
+html, body { background-color: var(--site-canvas); }
+html:not(.dark) .bg-white { background-color: var(--site-surface); }
+html:not(.dark) .bg-slate-50 { background-color: var(--site-canvas); }
+html:not(.dark) :is(.bg-slate-100,.bg-slate-200) { background-color: var(--site-panel); }
+html:not(.dark) :is(.border-slate-100,.border-slate-200) { border-color: var(--site-border); }
 
 /* Light-mode form controls stay crisp and accessible. */
 html:not(.dark) input:not([type="checkbox"]):not([type="radio"]),
@@ -653,4 +665,61 @@ html.dark textarea {
   .reference-nav > .home-shell { padding-inline: .8rem; }
   .reference-nav #header-open-account-btn { padding-inline: .65rem; }
   .reference-campaign h1 { overflow-wrap: anywhere; }
+}
+
+/* Moving campaign artwork, independent of slide crossfades. */
+.campaign-scene { position: absolute; inset: 0; overflow: hidden; }
+.campaign-scene img { transform: scale(1.045); }
+.campaign-scene[data-active='true'] img { animation: campaign-drift 7s ease-in-out infinite alternate; }
+.campaign-light { position: absolute; inset: -28%; background: radial-gradient(ellipse at 70% 55%, #ff253b38, transparent 48%); mix-blend-mode: screen; }
+.campaign-scene[data-active='true'] .campaign-light { animation: campaign-light-drift 6.5s ease-in-out infinite alternate; }
+.campaign-layers[data-playing='false'] .campaign-scene :is(img,.campaign-light) { animation-play-state: paused; }
+@keyframes campaign-drift { from { transform: translate3d(0,0,0) scale(1.045); } to { transform: translate3d(-1.5%,.7%,0) scale(1.12); } }
+@keyframes campaign-light-drift { from { transform: translateX(7%); opacity: .2; } to { transform: translateX(-6%); opacity: .95; } }
+@media (prefers-reduced-motion: reduce) { .campaign-scene[data-active='true'] :is(img,.campaign-light) { animation: none; } .campaign-scene img { transform: none; } }
+.auth-field-label { display: block; margin-bottom: .3rem; font-weight: 650; font-size: .82rem; }
+.reference-login { background: #f5f3ef; }
+.reference-login-inner { max-width: 28rem; border: 1px solid #e4e0dc; border-radius: 1.25rem; background: #fff; padding: clamp(1rem, 5vw, 2.25rem); }
+.dark .reference-login { background: #101115; color: #eee; }
+.dark .reference-login-inner { background: #16181d; border-color: #32343b; }
+
+/* Shared slate, white and crimson system across public and account surfaces. */
+.site-theme, .site-public, .site-editorial-page, .site-workspace, .account-application, .reference-login,
+.dark :is(.site-public,.site-editorial-page,.site-workspace,.reference-login) { background-color: var(--site-canvas); color: var(--site-ink); }
+.reference-login-inner, .dark .reference-login-inner { background-color: var(--site-surface); border-color: var(--site-border); }
+.site-footer, .reference-platforms { background-color: var(--site-dark); }
+.site-page-hero, .site-feature-banner { background: linear-gradient(115deg, #18232d 25%, #425766); }
+.reference-intro, .reference-perps, .reference-ai, .reference-product-grid article { background-color: var(--site-canvas); color: var(--site-ink); }
+.reference-products { background-color: var(--site-surface); color: var(--site-ink); }
+.reference-product-grid article { border-color: var(--site-border); }
+.axi-design .home-button, .reference-login-submit { border-radius: var(--site-radius); }
+.axi-design .home-button-primary, .reference-login-submit, .auth-primary, .reference-signup-submit,
+.reference-nav #header-open-account-btn, .mobile-menu-actions button:last-child { background: var(--site-accent); color: #fff; }
+.axi-design .home-button-primary:hover, .reference-login-submit:hover:not(:disabled), .auth-primary:hover:not(:disabled),
+.reference-signup-submit:hover, .reference-nav #header-open-account-btn:hover, .mobile-menu-actions button:last-child:hover { background: var(--site-accent-hover); color: #fff; }
+.reference-login-form button:not([type=submit]) { color: inherit; }
+.campaign-mark { display: inline-block; vertical-align: top; width: .24em; height: .24em; margin: .12em .2em 0 0; background: var(--site-accent); clip-path: polygon(0 0,100% 0,0 100%); }
+.reference-carousel-controls { display: grid; grid-template-columns: repeat(6,minmax(0,1fr)); width: min(100%, 19rem); align-self: start; gap: .28rem; }
+.reference-carousel-controls button { min-width: 0; min-height: 44px; border: 0; border-radius: .35rem; color: white; background: #0e172250; }
+.reference-carousel-controls button[aria-pressed='true'] { border: 0; color: white; background: var(--site-accent); }
+.reference-campaign .reference-outline { background: #f3f4f5; color: #17212a; border-color: #d9dee3; }
+.reference-campaign .reference-outline:hover { background: white; }
+@media (max-width: 47.99rem) {
+  .reference-nav { background: var(--site-slate); }
+  .reference-campaign-shell { display: grid; grid-template-rows: auto 1fr auto; min-height: max(40rem, calc(100svh - 4rem)); padding-block: clamp(2.6rem,13vw,4.8rem) 2.05rem; }
+  .reference-carousel-controls { grid-row: 3; margin: 0; }
+  .reference-campaign-copy { padding-bottom: clamp(6rem,29vw,13rem); }
+  .reference-campaign, .campaign-scene { background: linear-gradient(#3c4f60 0%, #6f8392 55%, #a4b1b9 100%); }
+  .campaign-scene img { inset: auto 0 0; height: 58%; object-position: center bottom; mask-image: linear-gradient(transparent, #000 45%); }
+  .campaign-scene img[data-art='runner'] { height: 48%; object-position: 76% bottom; mask-image: linear-gradient(transparent, #000 38%); }
+  .campaign-scene img[data-art='intro'] { height: 65%; object-position: 69% 42%; }
+  .reference-campaign::after, .reference-campaign[data-campaign]::after { background: linear-gradient(180deg,#182a3840,transparent 78%,#13222f40); }
+  .reference-campaign .reference-actions { gap: .45rem; }
+  .reference-campaign .home-button { min-width: 0; white-space: normal; }
+}
+@media (min-width: 48rem) {
+  .reference-campaign h1 { font-size: clamp(2.7rem, 5.65vw, 5.25rem); }
+}
+@media (min-width: 64rem) {
+  .reference-campaign-shell { min-height: clamp(40rem, 55vw, 49rem); }
 }
