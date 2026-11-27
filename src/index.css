@@ -576,3 +576,17 @@ html.dark textarea {
 .reference-summary { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: .65rem; margin-top: 3rem; }
 .reference-summary a { display: inline-flex; align-items: center; min-height: 44px; padding-inline: .85rem; border-radius: 2rem; background: #fff0f3; color: #9b0025; }
 .market-ribbon-heading { text-align: left; cursor: pointer; }
+
+.market-ribbon-cell { display: grid; grid-template-columns: 28px minmax(0, 1fr); align-items: center; gap: .55rem; }
+.market-instrument-icon { width: 28px; height: 28px; object-fit: contain; }
+.market-instrument-data { display: grid; gap: .2rem; min-width: 0; }
+.market-instrument-data strong { width: fit-content; border-radius: .25rem; font-variant-numeric: tabular-nums; animation: none; }
+.market-instrument-change { display: flex; align-items: center; gap: .2rem; }
+.reference-platform-switch button svg { flex-shrink: 0; align-self: center; }
+.reference-platform-switch + div { position: relative; }
+@media (prefers-reduced-motion: no-preference) {
+  .market-instrument-data strong[data-tick='up'] { animation: quote-rise .7s ease-out; }
+  .market-instrument-data strong[data-tick='down'] { animation: quote-fall .7s ease-out; }
+}
+@keyframes quote-rise { from { background-color: #14a87542; transform: translateY(2px); } to { background-color: transparent; transform: none; } }
+@keyframes quote-fall { from { background-color: #ef416742; transform: translateY(-2px); } to { background-color: transparent; transform: none; } }
