@@ -3,10 +3,10 @@ import { motion, useInView, useReducedMotion } from 'motion/react';
 import { Pause, Play } from 'lucide-react';
 import { useSiteCMS, DEFAULT_CMS } from '../../hooks/useSiteCMS';
 import runner from '../../assets/axi-official/campaign-runner.jpg';
-import portrait from '../../assets/axi-official/campaign-portrait.jpg';
-import copy from '../../assets/axi-official/campaign-copy.jpg';
-import clock from '../../assets/axi-official/campaign-clock.jpg';
-import ai from '../../assets/axi-official/campaign-ai.jpg';
+import portrait from '../../assets/campaign-posters/intro.webp';
+import copy from '../../assets/campaign-posters/copy.webp';
+import clock from '../../assets/campaign-posters/clock.webp';
+import ai from '../../assets/campaign-posters/ai.webp';
 
 const interval = 6500;
 const slides = [

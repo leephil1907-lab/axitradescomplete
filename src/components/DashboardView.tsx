@@ -466,22 +466,18 @@ export default function DashboardView({
   const historyTrades: ClosedPosition[] = [...localClosed, ...(closedPositions || [])];
 
   return (
-    <div className="min-h-screen bg-[#0E131B] text-slate-100 flex flex-col font-sans select-none">
+    <div className="client-terminal min-h-screen text-slate-100 flex flex-col font-sans">
       
       {/* 1. TOP INSTITUTIONAL RIBBON / SERVER HEADER */}
-      <header className="bg-[#171717] border-b border-white/15 px-4 py-2.5 shrink-0">
+      <header className="client-terminal-masthead border-b border-white/15 px-4 py-3 shrink-0">
         <div className="max-w-[1920px] mx-auto flex flex-col lg:flex-row lg:items-center justify-between gap-3">
           
           {/* Left: Server Connection & Account Selector */}
           <div className="flex items-center gap-3.5 flex-wrap">
             <div className="flex items-center gap-2 pr-3.5 border-r border-slate-700/60">
-              <span className="relative flex h-2.5 w-2.5">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
-              </span>
-              <div className="text-[11px] font-mono">
-                <span className="text-slate-300 font-bold">Broker execution connection</span>
-                <span className="text-slate-500 ml-1.5">(status provider-controlled)</span>
+              <div>
+                <h1 className="text-base font-semibold">Trading workspace</h1>
+                <p className="text-xs text-slate-300">Simulated order execution</p>
               </div>
             </div>
 

@@ -11,16 +11,18 @@ export function productFromPath(path: string): ProductView | undefined {
   return (Object.keys(productRoutes) as ProductView[]).find(view => productRoutes[view] === path.replace(/\/$/, ''));
 }
 
-const accountRoutes = { login: '/login', accounts: '/signup' } as const;
+const pageRoutes: Partial<Record<ViewType, string>> = {
+  home: '/', login: '/login', accounts: '/signup', admin: '/admin',
+  markets: '/markets', platforms: '/platforms', tools: '/tools', about: '/about',
+  select: '/select', blog: '/insights', support: '/support', legal: '/legal',
+  academy: '/academy', partners: '/partners', promotions: '/promotions',
+  forex_vps: '/forex-vps', economic_calendar: '/economic-calendar',
+  dashboard: '/dashboard', funds: '/funds', settings: '/settings',
+};
 export function viewFromPath(path: string): ViewType {
-  const clean = path.replace(/\/$/, '');
-  if (clean === '/admin') return 'admin';
-  if (clean === accountRoutes.login) return 'login';
-  if (clean === accountRoutes.accounts) return 'accounts';
-  return productFromPath(clean) ?? 'home';
+  const clean = path.replace(/\/$/, '') || '/';
+  return productFromPath(clean) ?? (Object.keys(pageRoutes) as ViewType[]).find(view => pageRoutes[view] === clean) ?? 'home';
 }
 export function pathForView(view: ViewType): string | undefined {
-  if (view === 'login' || view === 'accounts') return accountRoutes[view];
-  if (view === 'admin') return '/admin';
-  if (isProductView(view)) return productRoutes[view];
+  return isProductView(view) ? productRoutes[view] : pageRoutes[view];
 }

@@ -9,8 +9,8 @@ interface FooterProps {
 }
 
 const groups: { title: string; links: [string, ViewType][] }[] = [
-  { title: 'Essentials', links: [['Account options', 'accounts'], ['Payment methods', 'funds'], ['Axi Select', 'select']] },
-  { title: 'Trading', links: [['Markets', 'markets'], ['Trading platforms', 'platforms'], ['Trading tools', 'tools']] },
+  { title: 'Essentials', links: [['Payment methods', 'funds'], ['Axi Select', 'select']] },
+  { title: 'Trading', links: [['Markets', 'markets'], ['Account options', 'accounts'], ['Trading platforms', 'platforms'], ['Trading tools', 'tools']] },
   { title: 'Education', links: [['Axi Academy', 'academy'], ['Market insights', 'blog'], ['Economic calendar', 'economic_calendar']] },
   { title: 'Partnerships', links: [['Partner programs', 'partners'], ['About Axi', 'about'], ['Promotions', 'promotions']] },
   { title: 'Legal', links: [['Legal documents', 'legal'], ['Privacy and terms', 'legal']] },
@@ -41,9 +41,9 @@ export default function Footer({ setView, openSignUp, showCallout }: FooterProps
             </div>
           </div>
           <nav className="site-footer-nav" aria-label="Footer">
-            {groups.map((group, index) => <div key={group.title}>
-              <h3><span aria-hidden="true">/0{index + 1}</span>{group.title}</h3>
-              <ul>{group.links.map(([label, view]) => <li key={label}><button type="button" onClick={() => handleNav(view)}>{label}</button></li>)}</ul>
+            {groups.map(group => <div key={group.title}>
+              <h3>{group.title}</h3>
+              <ul>{group.title === 'Essentials' && <li><button type="button" onClick={openSignUp}>Open account</button></li>}{group.links.map(([label, view]) => <li key={label}><button type="button" onClick={() => handleNav(view)}>{label}</button></li>)}</ul>
             </div>)}
           </nav>
         </div>

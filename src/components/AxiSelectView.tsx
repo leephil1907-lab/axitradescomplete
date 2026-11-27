@@ -1,3 +1,4 @@
+import PageHero from './axi/PageHero';
 import React, { useState } from 'react';
 import { motion } from 'motion/react';
 import { Award, CheckCircle, TrendingUp, ShieldCheck, Trophy, Sparkles, ArrowRight, Zap, CheckCircle2, ChevronRight, DollarSign, Target, BarChart2, Users } from 'lucide-react';
@@ -76,79 +77,11 @@ export default function AxiSelectView({ setView, openSignUp, showToast }: AxiSel
   ];
 
   return (
-    <div className="min-h-screen bg-[#0D0D0D] text-white">
-      
-      {/* Hero Section with Slanted Axi Geometry */}
-      <div className="relative bg-gradient-to-b from-[#1C1C1C] to-[#0D0D0D] border-b border-neutral-800/80 pt-12 pb-16 px-4 sm:px-6 lg:px-8 overflow-hidden">
-        {/* Angled background banner */}
-        <div 
-          className="absolute -right-20 -top-20 w-96 h-96 bg-[#C8102E]/10 rounded-full blur-3xl pointer-events-none"
-        />
-        <div 
-          className="absolute -left-20 bottom-0 w-80 h-80 bg-[#F5CE47]/5 rounded-full blur-3xl pointer-events-none"
-        />
-
-        <div className="max-w-6xl mx-auto flex flex-col items-center text-center relative z-10">
-          <div className="inline-flex items-center gap-2 bg-[#C8102E]/15 border border-[#C8102E]/30 text-[#F5CE47] text-xs font-black uppercase tracking-widest px-4 py-1.5 rounded-full mb-5">
-            <Trophy className="w-4 h-4 text-[#F5CE47]" />
-            <span>Official Axi Capital Allocation Program</span>
-          </div>
-
-          <h1 className="site-display-title text-3xl sm:text-5xl lg:text-6xl font-black tracking-tight text-white uppercase max-w-4xl leading-tight">
-            Get Funded Up To <span className="text-[#F5CE47]">$1,000,000 USD</span>
-          </h1>
-
-          <p className="text-neutral-300 text-sm sm:text-base max-w-2xl mt-4 font-normal leading-relaxed">
-            Trade client capital. Keep up to <strong className="text-white">90% of the profits</strong>. No registration fees, no monthly evaluations, and transparent performance criteria powered by the Axi Edge Score.
-          </p>
-
-          <div className="flex flex-wrap items-center justify-center gap-4 mt-8">
-            <button
-              onClick={() => {
-                if (openSignUp) openSignUp();
-                else if (setView) setView('dashboard');
-              }}
-              className="bg-[#F5CE47] hover:bg-[#ECC94B] text-neutral-950 font-black text-xs sm:text-sm uppercase tracking-wider px-8 py-3.5 rounded-md shadow-xl transition transform hover:scale-105 active:scale-95 cursor-pointer"
-            >
-              Join Axi Select For Free
-            </button>
-            <button
-              onClick={() => {
-                const el = document.getElementById('edge-calculator');
-                if (el) el.scrollIntoView({ behavior: 'smooth' });
-              }}
-              className="bg-neutral-900 hover:bg-neutral-800 text-white font-bold text-xs sm:text-sm border border-neutral-700 px-6 py-3.5 rounded-md transition cursor-pointer"
-            >
-              Calculate My Edge Score
-            </button>
-          </div>
-
-          {/* 4 Value Pillars */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 w-full max-w-4xl mt-12 text-left">
-            <div className="p-4 rounded-xl bg-neutral-900/80 border border-neutral-800">
-              <div className="text-xs text-neutral-400 font-semibold uppercase">Registration Fee</div>
-              <div className="text-xl sm:text-2xl font-black text-[#F5CE47] mt-1">$0.00 Free</div>
-              <div className="text-[11px] text-neutral-400 mt-1">No monthly subscription</div>
-            </div>
-            <div className="p-4 rounded-xl bg-neutral-900/80 border border-neutral-800">
-              <div className="text-xs text-neutral-400 font-semibold uppercase">Profit Split</div>
-              <div className="text-xl sm:text-2xl font-black text-[#F5CE47] mt-1">Up to 90%</div>
-              <div className="text-[11px] text-neutral-400 mt-1">Direct monthly withdrawals</div>
-            </div>
-            <div className="p-4 rounded-xl bg-neutral-900/80 border border-neutral-800">
-              <div className="text-xs text-neutral-400 font-semibold uppercase">Max Allocation</div>
-              <div className="text-xl sm:text-2xl font-black text-[#F5CE47] mt-1">$1,000,000</div>
-              <div className="text-[11px] text-neutral-400 mt-1">Across 6 scaling tiers</div>
-            </div>
-            <div className="p-4 rounded-xl bg-neutral-900/80 border border-neutral-800">
-              <div className="text-xs text-neutral-400 font-semibold uppercase">Loss Liability</div>
-              <div className="text-xl sm:text-2xl font-black text-[#F5CE47] mt-1">0% Liability</div>
-              <div className="text-[11px] text-neutral-400 mt-1">Axi absorbs trading losses</div>
-            </div>
-          </div>
-        </div>
-      </div>
-
+    <div className="site-editorial-page min-h-screen">
+      <PageHero label="Trader development" title="Explore Axi Select" description="Learn about the program stages, eligibility and the Edge Score before applying.">
+        <button type="button" className="home-button home-button-primary" onClick={() => openSignUp ? openSignUp() : setView?.('dashboard')}>Get started</button>
+        <a href="#edge-calculator" className="home-button reference-outline">Calculate my Edge Score</a>
+      </PageHero>
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 flex flex-col gap-16">
         
         {/* Edge Score Calculator & Stages Panel */}

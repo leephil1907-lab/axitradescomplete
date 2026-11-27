@@ -1,3 +1,4 @@
+import PageHero from './axi/PageHero';
 import React, { useState } from 'react';
 import { 
   Users, 
@@ -127,58 +128,12 @@ export default function PartnersView({ setView, showToast, openSignUp }: Partner
   };
 
   return (
-    <div className="home-shell py-8 lg:py-12">
-      {/* Hero Section */}
-      <div className="site-feature-banner p-6 sm:p-12 lg:p-16 mb-12">
-        <div className="absolute -right-20 -top-20 w-96 h-96 bg-brand-red/20 rounded-full blur-3xl pointer-events-none"></div>
-        <div className="relative z-10 max-w-3xl">
-          <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-brand-red/20 text-brand-red border border-brand-red/30 text-xs font-black uppercase tracking-wider mb-4">
-            <Award className="w-3.5 h-3.5" /> Official Axi Partner Network
-          </div>
-          <h1 className="site-display-title text-3xl sm:text-5xl font-black tracking-tight text-white mb-4 leading-tight">
-            Grow Your Income With An Award-Winning Global Broker
-          </h1>
-          <p className="text-base sm:text-lg text-slate-300 mb-8 leading-relaxed">
-            Partner with a regulated market leader trusted by over 50,000 Introducing Brokers and Affiliates worldwide. Enjoy industry-leading rebates, multi-tier Sub-IB rewards, and real-time automated payouts.
-          </p>
-
-          <div className="flex flex-wrap items-center gap-4">
-            <a
-              href="#partner-form"
-              className="bg-brand-red hover:bg-red-700 text-white font-extrabold px-8 py-3.5 rounded-xl shadow-lg transition cursor-pointer text-sm flex items-center gap-2"
-            >
-              Become an Axi Partner <ChevronRight className="w-4 h-4" />
-            </a>
-            <a
-              href="#rebate-calculator"
-              className="bg-slate-800 hover:bg-slate-700 text-white font-bold px-6 py-3.5 rounded-xl border border-slate-700 transition cursor-pointer text-sm"
-            >
-              Calculate Projected Rebates
-            </a>
-          </div>
-        </div>
-
-        {/* Hero Stat Badges */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-12 pt-8 border-t border-slate-800">
-          <div>
-            <span className="text-2xl sm:text-3xl font-black text-brand-yellow block">$12+</span>
-            <span className="text-xs text-slate-400 font-medium">Rebate Per Traded Lot</span>
-          </div>
-          <div>
-            <span className="text-2xl sm:text-3xl font-black text-white block">Up to $1,000</span>
-            <span className="text-xs text-slate-400 font-medium">CPA Per Qualified Trader</span>
-          </div>
-          <div>
-            <span className="text-2xl sm:text-3xl font-black text-emerald-400 block">$4.2B+</span>
-            <span className="text-xs text-slate-400 font-medium">Monthly Partner Volume</span>
-          </div>
-          <div>
-            <span className="text-2xl sm:text-3xl font-black text-white block">Daily</span>
-            <span className="text-xs text-slate-400 font-medium">Automated Commission Payouts</span>
-          </div>
-        </div>
-      </div>
-
+    <>
+      <PageHero label="Partnerships" title="Build your partnership with AxiTrades" description="Explore introducing broker, affiliate and other partnership options. Compare program details before applying.">
+        <a href="#partner-form" className="home-button home-button-primary">Become a partner</a>
+        <a href="#rebate-calculator" className="home-button reference-outline">Estimate rebates</a>
+      </PageHero>
+      <div className="home-shell py-8 lg:py-12">
       {/* 4 Core Partnership Programs */}
       <div className="mb-16">
         <div className="text-center max-w-2xl mx-auto mb-10">
@@ -665,5 +620,6 @@ export default function PartnersView({ setView, showToast, openSignUp }: Partner
         )}
       </div>
     </div>
+    </>
   );
 }

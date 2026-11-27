@@ -72,13 +72,14 @@ export function ReferenceHomeSections({ setView, openSignUp }: { setView: (view:
       <div className="home-shell">
         <p className="home-kicker">/// Axi trading platforms</p>
         <h2 className="home-heading">Choose your platform. The Axi app, MT4, MT5 or Copy Trading.</h2>
+        <p className="reference-lede">Compare the app, MetaTrader platforms, and copy trading tools to see what suits your trading style.</p>
         <div className="reference-platform-switch" role="group" aria-label="Choose a platform">
           {platforms.map((item, i) => <button type="button" key={item.name} aria-pressed={platform === i} onClick={() => setPlatform(i)}><item.icon size={16} aria-hidden="true" />{item.name}</button>)}
         </div>
-        <div aria-live="polite"><AnimatePresence initial={false} mode="popLayout">
+        <div aria-live="polite"><AnimatePresence initial={false} mode="wait">
         <motion.div key={active.name} className="reference-platform-panel" initial={reducedMotion ? false : { opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={reducedMotion ? undefined : { opacity: 0 }} transition={{ duration: reducedMotion ? 0 : .24 }}>
           <ReferenceArt asset={active.art} fallback={active.image} alt={`${active.name} preview`} />
-          <div><h3 key={active.name} className="campaign-enter">{active.name}</h3><p>{active.text}</p><ul>{active.features.map(item => <li key={item}>{item}</li>)}</ul>
+          <div><h3>{active.name}</h3><p>{active.text}</p><ul>{active.features.map(item => <li key={item}>{item}</li>)}</ul>
             <button type="button" onClick={() => setView('platforms')} className="home-button home-button-primary">Explore platforms <ArrowUpRight size={17} aria-hidden="true" /></button>
           </div>
         </motion.div>

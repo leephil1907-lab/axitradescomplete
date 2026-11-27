@@ -1,3 +1,4 @@
+import PageHero from './axi/PageHero';
 import React, { useState } from 'react';
 import { 
   Server, 
@@ -105,57 +106,13 @@ export default function ForexVpsView({ setView, showToast, openSignUp }: ForexVp
   };
 
   return (
-    <div className="home-shell py-8 lg:py-12">
-      {/* Hero Banner */}
-      <div className="site-feature-banner p-6 sm:p-12 lg:p-16 mb-12">
-        <div className="absolute -right-20 -top-20 w-96 h-96 bg-brand-red/20 rounded-full blur-3xl pointer-events-none"></div>
-        <div className="relative z-10 max-w-3xl">
-          <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-brand-red/20 text-brand-red border border-brand-red/30 text-xs font-black uppercase tracking-wider mb-4">
-            <Zap className="w-3.5 h-3.5" /> High-Frequency Infrastructure
-          </div>
-          <h1 className="site-display-title text-3xl sm:text-5xl font-black tracking-tight text-white mb-4 leading-tight">
-            Ultra-Low Latency Forex VPS & Algorithmic Execution
-          </h1>
-          <p className="text-base sm:text-lg text-slate-300 mb-8 leading-relaxed">
-            Execute Expert Advisors (EAs) and automated trading algorithms 24 hours a day with sub-millisecond optical cross-connects directly into Axi's Equinix LD4 (London) and NY4 (New York) liquidity hubs.
-          </p>
+    <>
+      <PageHero label="Trading infrastructure" title="Forex VPS and trading tools" description="Explore hosting options for automated strategies and learn about chart pattern analysis tools.">
+        <a href="#vps-form" className="home-button home-button-primary">Explore VPS access</a>
+        <a href="#autochartist-section" className="home-button reference-outline">Explore Autochartist</a>
+      </PageHero>
+      <div className="home-shell py-8 lg:py-12">
 
-          <div className="flex flex-wrap items-center gap-4">
-            <a
-              href="#vps-form"
-              className="bg-brand-red hover:bg-red-700 text-white font-extrabold px-8 py-3.5 rounded-xl shadow-lg transition cursor-pointer text-sm flex items-center gap-2"
-            >
-              Request Free Forex VPS <ArrowRight className="w-4 h-4" />
-            </a>
-            <a
-              href="#autochartist-section"
-              className="bg-slate-800 hover:bg-slate-700 text-white font-bold px-6 py-3.5 rounded-xl border border-slate-700 transition cursor-pointer text-sm"
-            >
-              Autochartist Scanner
-            </a>
-          </div>
-        </div>
-
-        {/* Latency Matrix */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-12 pt-8 border-t border-slate-800">
-          <div>
-            <span className="text-2xl sm:text-3xl font-black text-emerald-400 font-mono block">&lt; 0.4 ms</span>
-            <span className="text-xs text-slate-400 font-medium">Equinix London LD4</span>
-          </div>
-          <div>
-            <span className="text-2xl sm:text-3xl font-black text-emerald-400 font-mono block">&lt; 0.6 ms</span>
-            <span className="text-xs text-slate-400 font-medium">Equinix New York NY4</span>
-          </div>
-          <div>
-            <span className="text-2xl sm:text-3xl font-black text-white font-mono block">99.99%</span>
-            <span className="text-xs text-slate-400 font-medium">Guaranteed Server Uptime</span>
-          </div>
-          <div>
-            <span className="text-2xl sm:text-3xl font-black text-brand-yellow font-mono block">100% Free</span>
-            <span className="text-xs text-slate-400 font-medium">With 20+ Lots Monthly Volume</span>
-          </div>
-        </div>
-      </div>
 
       {/* 3 VPS Hardware Tiers */}
       <div className="mb-16">
@@ -505,5 +462,6 @@ export default function ForexVpsView({ setView, showToast, openSignUp }: ForexVp
         )}
       </div>
     </div>
+    </>
   );
 }

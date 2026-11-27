@@ -22,8 +22,14 @@ export function useFirebaseData() {
   const [paymentMethods, setPaymentMethods] = useState<UserPaymentMethod[]>([]);
   const [watchlist, setWatchlist] = useState<string[]>([]);
 
+  const [accountDataUnavailable, setAccountDataUnavailable] = useState(false);
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
+    let cleanupProfile = () => {};
+    let generation = 0;
+    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+      cleanupProfile();
+      const currentGeneration = ++generation;
+      setAccountDataUnavailable(false);
       setUser(currentUser);
       if (currentUser) {
         // Firestore may be disabled / missing / rules-blocked in some deployments.
@@ -33,6 +39,8 @@ export function useFirebaseData() {
         const onFsError = (label: string, clear: () => void) => (err: any) => {
           const detail = String(err?.code || err?.message || err || 'firestore error');
           if (!fsWarned.has(label)) { fsWarned.add(label); console.warn(`[Axi] ${label} store unavailable (${detail}). Falling back to local state.`); }
+          if (generation !== currentGeneration) return;
+          if (label === 'user profile') setAccountDataUnavailable(true);
           try { clear(); } catch { /* noop */ }
           setLoading(false);
         };
@@ -45,7 +53,9 @@ export function useFirebaseData() {
           let currPracticeBal = 0;
           let currKyc: KYCStatus = 'NOT_STARTED';
 
+          if (generation !== currentGeneration) return;
           if (docSnap.exists()) {
+            setAccountDataUnavailable(false);
             const data = docSnap.data();
             currPracticeBal = data.balance ?? 0;
             currLiveBal = data.liveBalance ?? 0;
@@ -67,6 +77,8 @@ export function useFirebaseData() {
                 kycStatus: 'NOT_STARTED',
                 createdAt: Date.now()
               });
+              if (generation !== currentGeneration) return;
+              setAccountDataUnavailable(false);
               setBalance(0);
               setLiveBalance(0);
               setKycStatus('NOT_STARTED');
@@ -80,6 +92,7 @@ export function useFirebaseData() {
                 'Timestamp': new Date().toUTCString()
               });
             } catch (err) {
+              if (generation === currentGeneration) setAccountDataUnavailable(true);
               console.error("Error creating user profile", err);
             }
           }
@@ -132,17 +145,17 @@ export function useFirebaseData() {
         }, onFsError('watchlist', () => setWatchlist([])));
 
         setLoading(false);
-        return () => {
+        cleanupProfile = () => {
           unsubUser(); unsubOpenPos(); unsubClosedPos(); unsubTrans(); unsubAlerts(); unsubPaymentMethods(); unsubWatchlist();
         };
       } else {
         setBalance(0); setLiveBalance(0); setKycStatus('NOT_STARTED');
-        setOpenPositions([]); setClosedPositions([]); setTransactions([]); setPriceAlerts([]); setPaymentMethods([]);
+        setOpenPositions([]); setClosedPositions([]); setTransactions([]); setPriceAlerts([]); setPaymentMethods([]); setWatchlist([]);
         setLoading(false);
       }
     });
 
-    return () => unsubscribe();
+    return () => { generation++; cleanupProfile(); unsubscribe(); };
   }, []);
 
   const loginWithGoogle = async () => {
@@ -465,6 +478,6 @@ export function useFirebaseData() {
     closedPositions, addClosedPosition,
     transactions, addTransaction, updateTransactionStatus, setTransactions,
     priceAlerts, addPriceAlert, removePriceAlert, updatePriceAlertFirebase,
-    loginWithGoogle, loginWithFacebook, loginWithEmail, logout
+    accountDataUnavailable, loginWithGoogle, loginWithFacebook, loginWithEmail, logout
   };
 }
