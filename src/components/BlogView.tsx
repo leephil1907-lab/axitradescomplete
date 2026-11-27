@@ -262,13 +262,13 @@ export default function BlogView({ showToast }: BlogViewProps) {
         </div>
 
         <form onSubmit={handleSubscribe} className="w-full md:max-w-md shrink-0 flex flex-col gap-2.5 font-semibold text-xs">
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
             <input
               type="email"
               placeholder="e.g. trader@example.com"
               value={emailInput}
               onChange={(e) => setEmailInput(e.target.value)}
-              className="bg-white/5 border border-white/10 focus:border-brand-yellow focus:bg-white/10 rounded-xl px-4 py-3 text-sm text-white focus:outline-none flex-grow font-mono"
+              className="bg-white/5 border border-white/10 focus:border-brand-yellow focus:bg-white/10 rounded-xl px-4 py-3 text-sm text-white focus:outline-none w-full min-w-0 sm:w-auto flex-1 basis-full sm:basis-0 font-mono"
             />
             <button
               type="submit"

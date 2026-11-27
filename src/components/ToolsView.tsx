@@ -249,13 +249,13 @@ export default function ToolsView({ quotes, showToast }: ToolsViewProps) {
         
         {/* Left Column: Interactive Calculators (Col span 6) */}
         <div className="lg:col-span-6 bg-white border border-slate-200 rounded-2xl p-6 flex flex-col gap-6 shadow-sm">
-          <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 pb-3">
             <h3 className="text-sm font-black text-brand-dark flex items-center gap-2 uppercase tracking-wider">
               <Calculator className="w-5 h-5 text-brand-red" /> Real-Time CFD Calculators
             </h3>
             
             {/* Calc Selection Switch */}
-            <div className="bg-slate-100 border border-slate-200 rounded-xl p-1 flex gap-1 shadow-inner">
+            <div className="bg-slate-100 border border-slate-200 rounded-xl p-1 flex flex-wrap gap-1 shadow-inner">
               <button
                 onClick={() => { setCalcType('margin'); setCalcSymbol('EURUSD'); }}
                 className={`px-3 py-1.5 text-[10px] font-black uppercase rounded-lg tracking-wider transition-all duration-150 ${

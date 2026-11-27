@@ -641,3 +641,16 @@ html.dark textarea {
   .reference-campaign .reference-lede { font-size: .98rem; }
   .reference-campaign .home-button { font-size: .82rem; }
 }
+
+/* Top-layer language picker stays attached to the viewport, not the sticky header. */
+.site-language-dialog { position: fixed; inset: 0; margin: auto; width: min(32rem, calc(100% - 1.5rem)); max-height: calc(100dvh - 1.5rem); overflow: auto; overscroll-behavior: contain; background: #1c1c1c; color: white; border: 1px solid #414141; border-radius: 1rem; }
+.site-language-dialog::backdrop { background: #0009; backdrop-filter: blur(4px); }
+.site-language-english { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: .5rem; width: 100%; min-height: 48px; margin-top: .75rem; padding: .65rem .8rem; border: 1px solid #ffd250; border-radius: 6px; cursor: pointer; text-align: left; font-weight: 700; }
+.site-language-english span { color: #ddd; font-size: .75rem; font-weight: 400; }
+.site-language-dialog button:focus-visible { outline: 2px solid #ffd250; outline-offset: 2px; }
+.markets-terminal .terminal-actions { min-width: 0; }
+@media (max-width: 24rem) {
+  .reference-nav > .home-shell { padding-inline: .8rem; }
+  .reference-nav #header-open-account-btn { padding-inline: .65rem; }
+  .reference-campaign h1 { overflow-wrap: anywhere; }
+}

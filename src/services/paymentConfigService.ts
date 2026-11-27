@@ -386,8 +386,9 @@ export function subscribePaymentConfig(onData: (config: CentralPaymentConfig, is
         onData(merged, true);
       } else {
         const initial = getLocalPaymentConfig();
-        setDoc(configDocRef, initial, { merge: true }).catch(err => console.warn('Could not bootstrap initial Firestore payment config:', err));
-        onData(initial, true);
+        // A missing shared configuration is not a live config. Do not write
+        // client defaults from a public subscription; admins publish changes.
+        onData(initial, false);
       }
     }, (error) => {
       console.warn('Firestore paymentConfig subscription error, using local storage:', error.message);
