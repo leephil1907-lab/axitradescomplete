@@ -654,3 +654,19 @@ html.dark textarea {
   .reference-nav #header-open-account-btn { padding-inline: .65rem; }
   .reference-campaign h1 { overflow-wrap: anywhere; }
 }
+
+/* Moving campaign artwork, independent of slide crossfades. */
+.campaign-scene { position: absolute; inset: 0; overflow: hidden; }
+.campaign-scene img { transform: scale(1.045); }
+.campaign-scene[data-active='true'] img { animation: campaign-drift 7s ease-in-out infinite alternate; }
+.campaign-light { position: absolute; inset: -28%; background: radial-gradient(ellipse at 70% 55%, #ff253b38, transparent 48%); mix-blend-mode: screen; }
+.campaign-scene[data-active='true'] .campaign-light { animation: campaign-light-drift 6.5s ease-in-out infinite alternate; }
+.campaign-layers[data-playing='false'] .campaign-scene :is(img,.campaign-light) { animation-play-state: paused; }
+@keyframes campaign-drift { from { transform: translate3d(0,0,0) scale(1.045); } to { transform: translate3d(-1.5%,.7%,0) scale(1.12); } }
+@keyframes campaign-light-drift { from { transform: translateX(7%); opacity: .2; } to { transform: translateX(-6%); opacity: .95; } }
+@media (prefers-reduced-motion: reduce) { .campaign-scene[data-active='true'] :is(img,.campaign-light) { animation: none; } .campaign-scene img { transform: none; } }
+.auth-field-label { display: block; margin-bottom: .3rem; font-weight: 650; font-size: .82rem; }
+.reference-login { background: #f5f3ef; }
+.reference-login-inner { max-width: 28rem; border: 1px solid #e4e0dc; border-radius: 1.25rem; background: #fff; padding: clamp(1rem, 5vw, 2.25rem); }
+.dark .reference-login { background: #101115; color: #eee; }
+.dark .reference-login-inner { background: #16181d; border-color: #32343b; }

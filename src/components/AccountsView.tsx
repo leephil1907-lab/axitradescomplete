@@ -1,6 +1,6 @@
 import { COUNTRIES } from '../data';
 import AxiLogo from './AxiLogo';
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { 
   Users, 
   ShieldAlert, 
@@ -479,6 +479,25 @@ export default function AccountsView({
   // 15: Success explore platform
   // 16: Live Generated ECN credentials output screen
   
+  const submissionLock = useRef(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [resendingVerification, setResendingVerification] = useState(false);
+  async function requestVerification() {
+    if (resendingVerification) return;
+    setResendingVerification(true);
+    try {
+      const token = await auth.currentUser?.getIdToken();
+      if (!token) throw new Error('Sign in again to request a verification email.');
+      const response = await fetch('/api/auth/verification/resend', { method: 'POST', headers: { Authorization: `Bearer ${token}` } });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || 'Verification emails are temporarily unavailable.');
+      showToast(result.status === 'verified' ? 'Your email is already verified.' : 'Verification email requested. Check your inbox and spam folder.', 'success');
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : 'Verification emails are temporarily unavailable.', 'error');
+    } finally {
+      setResendingVerification(false);
+    }
+  }
   const [wizardStep, setWizardStep] = useState<number>(0);
 
   // Synchronize master application triggers (e.g. Header Open Account click)
@@ -716,12 +735,15 @@ export default function AccountsView({
       setWizardStep(14);
     } 
     else if (wizardStep === 14) {
+      if (submissionLock.current) return;
+      submissionLock.current = true;
+      setSubmitting(true);
       // Final application step: create the real Firebase identity first.
       // Broker credentials are never fabricated in the browser; they must come from the broker/execution backend.
-      const postRegisterSync = async () => {
+      const postRegisterSync = async (token: string) => {
         const response = await fetch('/api/users/register', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
           body: JSON.stringify(newUserPayload)
         });
         if (!response.ok) throw new Error('The registration service did not accept the new account record.');
@@ -782,7 +804,9 @@ export default function AccountsView({
 
         newUserPayload.id = uid;
         newUserPayload.uid = uid;
-        await postRegisterSync();
+        const token = await auth.currentUser?.getIdToken();
+        if (!token) throw new Error('Sign-in could not be verified. Please retry.');
+        await postRegisterSync(token);
 
         setGeneratedAccount(null);
         showToast('Account registration completed. Your application is pending KYC/admin review; broker credentials will only appear after real provisioning.', 'success');
@@ -798,6 +822,9 @@ export default function AccountsView({
           showToast((err?.message || 'Unable to complete registration. Please try again.').replace('Firebase: ', ''), 'error');
         }
         void friendly;
+      } finally {
+        submissionLock.current = false;
+        setSubmitting(false);
       }
     }
   };
@@ -872,7 +899,7 @@ export default function AccountsView({
   </section>;
 
   return (
-    <div className="min-h-screen bg-[#f4f3ef] dark:bg-[#171717] flex flex-col items-center justify-start py-8 px-4 relative overflow-hidden">
+    <div className="min-h-screen bg-[#f4f3ef] dark:bg-[#171717] flex flex-col items-center justify-start py-8 px-3 sm:px-4 relative overflow-hidden">
       
       {/* Absolute floating background shapes matching brand red/yellow/white colors */}
       <div className="absolute top-[-20%] left-[-10%] w-[500px] h-[500px] bg-brand-red/5 rounded-full blur-3xl pointer-events-none"></div>
@@ -891,13 +918,13 @@ export default function AccountsView({
       )}
 
       {/* Main interactive Wizard Card Container */}
-      <div className="w-full max-w-xl bg-white rounded-sm border border-neutral-200 shadow-sm relative overflow-hidden flex flex-col">
+      <div className="w-full max-w-xl bg-white rounded-2xl border border-neutral-200 shadow-sm relative overflow-hidden flex flex-col">
         
         {/* Onboarding top branding banner */}
         <div className="bg-white border-b border-slate-100 py-5 px-6 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <span className="font-sans font-black text-2xl tracking-tight text-[#E61C3F] flex items-center gap-1">
-              axi <span className="text-[10px] uppercase font-bold text-slate-400 border border-slate-200 px-1.5 py-0.5 rounded tracking-widest bg-slate-50">STP LIVE</span>
+              axi <span className="text-[10px] uppercase font-bold text-slate-400 border border-slate-200 px-1.5 py-0.5 rounded tracking-widest bg-slate-50">ACCOUNT APPLICATION</span>
             </span>
           </div>
           {wizardStep > 0 && wizardStep < 15 && (
@@ -908,7 +935,7 @@ export default function AccountsView({
         </div>
 
         {/* Dynamic Screen View Controller via Framer Motion */}
-        <div className="p-6 sm:p-8 flex-grow">
+        <div className="p-4 sm:p-8 flex-grow">
           <AnimatePresence mode="wait">
             
             {/* STEP 0: WELCOME GREETING SCREEN */}
@@ -933,7 +960,7 @@ export default function AccountsView({
                 </h1>
                 
                 <p className="text-slate-500 text-xs sm:text-sm font-semibold max-w-md leading-relaxed mb-8">
-                  You've joined thousands of savvy traders with access to round-the-clock trading. Complete your application to start exploring the global markets.
+                  Complete your account application. Verification and review are required before any additional services can become available.
                 </p>
 
                 <div className="w-full flex flex-col gap-3">
@@ -946,20 +973,7 @@ export default function AccountsView({
                     Start Onboarding Application <ArrowRight className="w-4 h-4 stroke-[3]" />
                   </motion.button>
                   
-                  <span className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">
-                    Segregated Trust Accounts • FCA & ASIC Monitored
-                  </span>
-                </div>
-
-                {/* Aesthetic image preview representing onboarding dashboard screen */}
-                <div className="mt-8 border border-slate-150 rounded-xl p-3 w-full bg-slate-50/50 flex items-center gap-3 text-left">
-                  <div className="w-10 h-10 rounded-lg bg-white border border-slate-200 flex items-center justify-center shadow-xs">
-                    <ShieldCheck className="w-5 h-5 text-emerald-500" />
-                  </div>
-                  <div className="flex flex-col">
-                    <span className="text-[11px] font-black text-slate-800 uppercase tracking-wide">FCA Segregation Guaranteed</span>
-                    <span className="text-[9px] text-slate-400 font-semibold">Tier-1 custodial banking protection in absolute secure isolation.</span>
-                  </div>
+                  <a className="text-sm font-semibold text-[#ad0010] underline" href="/login">Already registered? Log in</a>
                 </div>
               </motion.div>
             )}
@@ -978,7 +992,7 @@ export default function AccountsView({
                     What are you interested in?
                   </h2>
                   <p className="text-slate-400 text-[11px] font-semibold mt-1">
-                    Select your trading goals so we can optimize your MetaTrader interface parameters.
+                    Select the markets or account features you want to explore.
                   </p>
                 </div>
 
@@ -2070,16 +2084,18 @@ export default function AccountsView({
 
                 <div className="flex gap-3 pt-4 border-t border-slate-100">
                   <button
+                    disabled={submitting}
                     onClick={() => setWizardStep(13)}
                     className="flex-1 bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-500 font-extrabold text-xs py-3.5 rounded-xl uppercase tracking-wider cursor-pointer"
                   >
                     Back
                   </button>
                   <button
+                    disabled={submitting}
                     onClick={validateAndNext}
                     className="flex-1 bg-[#FFD250] hover:bg-[#FFC518] text-slate-950 font-black text-xs py-3.5 rounded-xl uppercase tracking-wider cursor-pointer shadow-sm flex items-center justify-center gap-1.5"
                   >
-                    Continue <ChevronRight className="w-4 h-4 stroke-[3]" />
+                    {submitting ? 'Submitting…' : 'Submit application'} <ChevronRight className="w-4 h-4 stroke-[3]" />
                   </button>
                 </div>
               </motion.div>
@@ -2111,10 +2127,11 @@ export default function AccountsView({
 
                 <div className="w-full flex flex-col gap-3 max-w-xs mb-8">
                   <button
-                    onClick={() => { showToast('Broker credentials are issued only after real backend provisioning.', 'info'); }}
+                    onClick={requestVerification}
+                    disabled={resendingVerification}
                     className="w-full bg-[#FFD250] hover:bg-[#FFC518] text-slate-950 font-black text-xs py-4 rounded-xl uppercase tracking-wider shadow-md cursor-pointer transition-colors"
                   >
-                    View application status
+                    {resendingVerification ? 'Requesting…' : 'Resend verification email'}
                   </button>
                   
                   <button

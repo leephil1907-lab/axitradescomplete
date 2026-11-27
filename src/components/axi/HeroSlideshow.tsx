@@ -51,10 +51,11 @@ export default function HeroSlideshow({ onAction }: { onAction: (actionId: strin
       onTouchStart={e => { const finger = e.touches[0]; if (e.touches.length === 1) touch.current = { x: finger.clientX, y: finger.clientY }; }}
       onTouchCancel={() => { touch.current = null; }}
       onTouchEnd={e => { const start = touch.current; touch.current = null; const finger = e.changedTouches[0]; if (!start || !finger) return; const x = finger.clientX - start.x; const y = finger.clientY - start.y; if (Math.abs(x) > 50 && Math.abs(x) > Math.abs(y) * 1.5) move(x < 0 ? 1 : -1); }}>
-      <div className="campaign-layers" aria-hidden="true">
-        {slides.map((item, i) => <motion.img key={item.key} src={item.image} alt="" data-art={item.key} fetchPriority={i === 0 ? 'high' : 'low'}
-          initial={false} animate={{ opacity: i === index ? 1 : 0, scale: i === index || reduced ? 1 : 1.035 }}
-          transition={{ duration: reduced ? 0 : .75, ease: 'easeInOut' }} />)}
+      <div className="campaign-layers" data-playing={playing} aria-hidden="true">
+        {slides.map((item, i) => <motion.div className="campaign-scene" key={item.key} data-active={i === index}
+          initial={false} animate={{ opacity: i === index ? 1 : 0 }} transition={{ duration: reduced ? 0 : .75 }}>
+          <img src={item.image} alt="" data-art={item.key} fetchPriority={i === 0 ? 'high' : 'low'}
+          /><span className="campaign-light" /></motion.div>)}
       </div>
       <div className="home-shell reference-campaign-shell">
         <div className="reference-campaign-copy" aria-live={playing ? 'off' : 'polite'}>

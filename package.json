@@ -13,7 +13,8 @@
     "start": "node dist/server.cjs",
     "clean": "rm -rf dist",
     "lint": "tsc --noEmit",
-    "test:e2e:stripe": "node scripts/e2e-stripe-funding.mjs"
+    "test:e2e:stripe": "node scripts/e2e-stripe-funding.mjs",
+    "test:e2e:account": "node scripts/e2e-account.mjs"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",

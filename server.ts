@@ -8,7 +8,7 @@ import { GoogleGenAI } from '@google/genai';
 import Stripe from 'stripe';
 import nodemailer from 'nodemailer';
 import { sendAxiEmail } from './emailService';
-import { sendRegistrationEmails, sendPasswordResetEmail } from './server/emailService';
+import { sendRegistrationEmails, sendPasswordResetEmail, accountEmailConfigured, resendVerificationEmail } from './server/emailService';
 import { hasPostgres, initPostgres, dbUsers, dbFindUser, dbUpsertUser, dbUpdateUser, dbAdjustBalance, dbBalanceLedger, audit, dbAuditLogs, dbPaymentMethods, dbSavePaymentMethods, dbCreateFunding } from './server/postgres';
 import YahooFinanceRaw from 'yahoo-finance2';
 import { requireAuth, requireAdmin, authenticateAdminCredentials, adminLoginConfigured, verifyBearer, verifyAdminSession } from './server/adminAuth';
@@ -283,16 +283,8 @@ app.post('/api/stripe/webhook', express.raw({ type: 'application/json' }), async
   res.json({ received: true });
 });
 
-// Production email endpoints. SMTP credentials stay on Railway/server; they are never shipped to the browser.
-app.post('/api/email/registration', async (req, res) => {
-  try {
-    const { email, name } = req.body || {};
-    if (!email) return res.status(400).json({ error: 'Recipient email is required' });
-    const safeName = String(name || 'Client').replace(/[<>]/g, '');
-    await sendAxiEmail(String(email).trim().toLowerCase(), 'Welcome to Axi Trades', 'Welcome to Axi Trades', `<p>Hello ${safeName},</p><p>Your registration has been received successfully. Your account is currently being prepared for secure onboarding.</p><p>For your protection, account funding and trading access remain subject to the platform's verification and approval controls.</p><p>Regards,<br>Axi Trades Support</p>`);
-    res.json({ success: true });
-  } catch (e: any) { res.status(503).json({ error: e?.message || 'Email service unavailable' }); }
-});
+// Welcome mail originates from completed authenticated registration only.
+app.post('/api/email/registration', (_req, res) => res.status(410).json({ error: 'Registration notifications are sent after account submission.' }));
 
 app.post('/api/admin/email', requireAdmin, async (req, res) => {
   try {
@@ -1949,18 +1941,45 @@ app.get('/api/users', requireAdmin,  async (req, res) => {
   res.json({ success: true, users: appUsersStore, total: appUsersStore.length, source: 'fallback' });
 });
 
-app.post('/api/auth/password-reset/request', async (req,res)=>{const email=String(req.body?.email||'').trim().toLowerCase();if(!email)return res.status(400).json({success:false,error:'Email address is required.'});try{await sendPasswordResetEmail(email)}catch(e){console.warn('[Axi password reset]',e)}return res.json({success:true});});
-
-// Register or synchronize a client account
-app.post('/api/users/register', async (req, res) => {
-  const body = req.body || {};
-  const email = (body.email || '').trim().toLowerCase();
-  if (!email) {
-    return res.status(400).json({ error: 'Email address is required' });
+app.post('/api/auth/password-reset/request', async (req, res) => {
+  const email = String(req.body?.email || '').trim().toLowerCase();
+  if (email.length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return res.status(400).json({ success: false, error: 'Enter a valid email address.' });
+  if (hitRateLimit(`reset-ip:${clientIp(req)}`, 10, 900000) || hitRateLimit(`reset-address:${email}`, 3, 900000)) {
+    return res.status(429).json({ success: false, error: 'Too many reset requests. Please try again later.' });
   }
+  if (!accountEmailConfigured()) return res.status(503).json({ success: false, error: 'Password recovery is temporarily unavailable.' });
+  // Keep the public response identical for known and unknown accounts.
+  void sendPasswordResetEmail(email).catch(error => {
+    if (error?.code !== 'auth/user-not-found') console.warn('[Axi password reset] delivery unavailable');
+  });
+  return res.status(202).json({ success: true });
+});
 
-  const existingIdx = appUsersStore.findIndex(u => u.email.toLowerCase() === email || (body.id && u.id === body.id));
-  const uid = body.id || `usr_${Math.floor(1000 + Math.random() * 9000)}`;
+app.post('/api/auth/verification/resend', requireAuth, async (req, res) => {
+  const identity = (req as any).user as { uid: string; email: string };
+  if (!identity.email) return res.status(400).json({ error: 'Your account has no email address.' });
+  if (hitRateLimit(`verification-resend:${identity.uid}`, 2, 900000)) return res.status(429).json({ error: 'Please wait before requesting another verification email.' });
+  if (!accountEmailConfigured()) return res.status(503).json({ error: 'Verification emails are temporarily unavailable.' });
+  try {
+    return res.json({ status: await resendVerificationEmail(identity.email) });
+  } catch {
+    return res.status(503).json({ error: 'Verification emails are temporarily unavailable.' });
+  }
+});
+
+// The registration identity comes from the verified Firebase token, not the form.
+app.post('/api/users/register', requireAuth, async (req, res) => {
+  const body = req.body || {};
+  const identity = (req as any).user as { uid: string; email: string };
+  const email = identity.email.trim().toLowerCase();
+  if (!email || String(body.email || '').trim().toLowerCase() !== email) {
+    return res.status(400).json({ error: 'The application must match your signed-in account.' });
+  }
+  const uid = identity.uid;
+  const existingIdx = appUsersStore.findIndex(u => u.id === uid);
+  if (existingIdx < 0 && appUsersStore.some(u => u.email.toLowerCase() === email)) {
+    return res.status(409).json({ error: 'This application requires support review.' });
+  }
   const displayName = body.name || body.displayName || `${body.firstName || ''} ${body.lastName || ''}`.trim() || email.split('@')[0];
 
   const userData = {
@@ -1969,17 +1988,17 @@ app.post('/api/users/register', async (req, res) => {
     email: email,
     phone: body.phone || '',
     country: body.country || 'International',
-    status: body.status || 'Pending',
-    verificationStatus: body.verificationStatus || 'Pending',
-    kycStatus: body.kycStatus || 'NOT_STARTED',
-    balance: typeof body.balance === 'number' ? body.balance : 0,
-    demoBalance: typeof body.demoBalance === 'number' ? body.demoBalance : 0,
-    pnlPercentage: typeof body.pnlPercentage === 'number' ? body.pnlPercentage : 0,
+    status: 'Pending',
+    verificationStatus: 'Pending',
+    kycStatus: 'NOT_STARTED',
+    balance: 0,
+    demoBalance: 0,
+    pnlPercentage: 0,
     pnlOverride: null,
-    registeredAt: body.registeredAt || new Date().toISOString().replace('T', ' ').substring(0, 16),
+    registeredAt: new Date().toISOString(),
     lastActive: 'Active Now (' + new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) + ' UTC)',
     provider: body.provider || 'Email / Portal Auth',
-    accountNo: body.accountNo || '',
+    accountNo: '',
     accountType: body.accountType || 'Pending broker provisioning',
     tradingPlatform: body.tradingPlatform || 'MT5',
     leverage: body.leverage || '',
@@ -2000,7 +2019,8 @@ app.post('/api/users/register', async (req, res) => {
     const prev = appUsersStore[existingIdx];
     const merged = {
       ...prev,
-      ...userData,
+      lastActive: userData.lastActive,
+      updatedAt: userData.updatedAt,
       // Admin-controlled fields — always keep the existing value:
       status: prev.status || userData.status,
       verificationStatus: prev.verificationStatus || userData.verificationStatus,
