@@ -899,7 +899,7 @@ export default function AccountsView({
   </section>;
 
   return (
-    <div className="min-h-screen bg-[#f4f3ef] dark:bg-[#171717] flex flex-col items-center justify-start py-8 px-3 sm:px-4 relative overflow-hidden">
+    <div className="account-application min-h-screen flex flex-col items-center justify-start py-8 px-3 sm:px-4 relative overflow-hidden">
       
       {/* Absolute floating background shapes matching brand red/yellow/white colors */}
       <div className="absolute top-[-20%] left-[-10%] w-[500px] h-[500px] bg-brand-red/5 rounded-full blur-3xl pointer-events-none"></div>
@@ -968,7 +968,7 @@ export default function AccountsView({
                     whileHover={{ scale: 1.02 }}
                     whileTap={{ scale: 0.98 }}
                     onClick={() => setWizardStep(1)}
-                    className="w-full bg-[#FFD250] hover:bg-[#FFC518] text-slate-950 font-black text-xs sm:text-sm py-4 rounded-xl shadow-md uppercase tracking-wider cursor-pointer flex items-center justify-center gap-1.5 transition-colors"
+                    className="w-full auth-primary font-black text-xs sm:text-sm py-4 rounded-xl shadow-md uppercase tracking-wider cursor-pointer flex items-center justify-center gap-1.5 transition-colors"
                   >
                     Start Onboarding Application <ArrowRight className="w-4 h-4 stroke-[3]" />
                   </motion.button>
@@ -1029,7 +1029,7 @@ export default function AccountsView({
                   </button>
                   <button
                     onClick={validateAndNext}
-                    className="flex-1 bg-[#FFD250] hover:bg-[#FFC518] text-slate-950 font-black text-xs py-3.5 rounded-xl uppercase tracking-wider cursor-pointer shadow-sm flex items-center justify-center gap-1.5"
+                    className="flex-1 auth-primary font-black text-xs py-3.5 rounded-xl uppercase tracking-wider cursor-pointer shadow-sm flex items-center justify-center gap-1.5"
                   >
                     Continue <ArrowRight className="w-4 h-4 stroke-[3]" />
                   </button>
@@ -1145,7 +1145,7 @@ export default function AccountsView({
                 <div className="flex flex-col gap-4 mt-2">
                   <button
                     onClick={validateAndNext}
-                    className="w-full bg-[#FFD250] hover:bg-[#FFC518] text-slate-950 font-black text-xs py-4 rounded-xl uppercase tracking-wider shadow-md cursor-pointer flex items-center justify-center gap-1"
+                    className="w-full auth-primary font-black text-xs py-4 rounded-xl uppercase tracking-wider shadow-md cursor-pointer flex items-center justify-center gap-1"
                   >
                     Continue <ChevronRight className="w-4 h-4 stroke-[3.5]" />
                   </button>
@@ -1292,7 +1292,7 @@ export default function AccountsView({
                   </button>
                   <button
                     onClick={validateAndNext}
-                    className="flex-1 bg-[#FFD250] hover:bg-[#FFC518] text-slate-950 font-black text-xs py-3.5 rounded-xl uppercase tracking-wider cursor-pointer shadow-sm flex items-center justify-center gap-1"
+                    className="flex-1 auth-primary font-black text-xs py-3.5 rounded-xl uppercase tracking-wider cursor-pointer shadow-sm flex items-center justify-center gap-1"
                   >
                     Continue <ArrowRight className="w-4 h-4 stroke-[3]" />
                   </button>
@@ -1390,7 +1390,7 @@ export default function AccountsView({
                   </button>
                   <button
                     onClick={validateAndNext}
-                    className="flex-1 bg-[#FFD250] hover:bg-[#FFC518] text-slate-950 font-black text-xs py-3.5 rounded-xl uppercase tracking-wider cursor-pointer shadow-sm flex items-center justify-center gap-1"
+                    className="flex-1 auth-primary font-black text-xs py-3.5 rounded-xl uppercase tracking-wider cursor-pointer shadow-sm flex items-center justify-center gap-1"
                   >
                     Continue <ArrowRight className="w-4 h-4 stroke-[3]" />
                   </button>
@@ -1469,7 +1469,7 @@ export default function AccountsView({
                   </button>
                   <button
                     onClick={validateAndNext}
-                    className="flex-1 bg-[#FFD250] hover:bg-[#FFC518] text-slate-950 font-black text-xs py-3.5 rounded-xl uppercase tracking-wider cursor-pointer shadow-sm flex items-center justify-center gap-1"
+                    className="flex-1 auth-primary font-black text-xs py-3.5 rounded-xl uppercase tracking-wider cursor-pointer shadow-sm flex items-center justify-center gap-1"
                   >
                     Continue <ArrowRight className="w-4 h-4 stroke-[3]" />
                   </button>
@@ -1554,7 +1554,7 @@ export default function AccountsView({
                   </button>
                   <button
                     onClick={validateAndNext}
-                    className="flex-1 bg-[#FFD250] hover:bg-[#FFC518] text-slate-950 font-black text-xs py-3.5 rounded-xl uppercase tracking-wider cursor-pointer shadow-sm flex items-center justify-center gap-1"
+                    className="flex-1 auth-primary font-black text-xs py-3.5 rounded-xl uppercase tracking-wider cursor-pointer shadow-sm flex items-center justify-center gap-1"
                   >
                     Continue <ArrowRight className="w-4 h-4 stroke-[3]" />
                   </button>
@@ -1620,7 +1620,7 @@ export default function AccountsView({
                   </button>
                   <button
                     onClick={validateAndNext}
-                    className="flex-1 bg-[#FFD250] hover:bg-[#FFC518] text-slate-950 font-black text-xs py-3.5 rounded-xl uppercase tracking-wider cursor-pointer shadow-sm flex items-center justify-center gap-1"
+                    className="flex-1 auth-primary font-black text-xs py-3.5 rounded-xl uppercase tracking-wider cursor-pointer shadow-sm flex items-center justify-center gap-1"
                   >
                     Continue <ArrowRight className="w-4 h-4 stroke-[3]" />
                   </button>
@@ -1689,7 +1689,7 @@ export default function AccountsView({
                   </button>
                   <button
                     onClick={validateAndNext}
-                    className="flex-1 bg-[#FFD250] hover:bg-[#FFC518] text-slate-950 font-black text-xs py-3.5 rounded-xl uppercase tracking-wider cursor-pointer shadow-sm flex items-center justify-center gap-1"
+                    className="flex-1 auth-primary font-black text-xs py-3.5 rounded-xl uppercase tracking-wider cursor-pointer shadow-sm flex items-center justify-center gap-1"
                   >
                     Continue <ArrowRight className="w-4 h-4 stroke-[3]" />
                   </button>
@@ -1754,7 +1754,7 @@ export default function AccountsView({
                   </button>
                   <button
                     onClick={validateAndNext}
-                    className="flex-1 bg-[#FFD250] hover:bg-[#FFC518] text-slate-950 font-black text-xs py-3.5 rounded-xl uppercase tracking-wider cursor-pointer shadow-sm flex items-center justify-center gap-1"
+                    className="flex-1 auth-primary font-black text-xs py-3.5 rounded-xl uppercase tracking-wider cursor-pointer shadow-sm flex items-center justify-center gap-1"
                   >
                     Continue <ArrowRight className="w-4 h-4 stroke-[3]" />
                   </button>
@@ -1916,7 +1916,7 @@ export default function AccountsView({
                   </button>
                   <button
                     onClick={validateAndNext}
-                    className="flex-1 bg-[#FFD250] hover:bg-[#FFC518] text-slate-950 font-black text-xs py-3.5 rounded-xl uppercase tracking-wider cursor-pointer shadow-sm flex items-center justify-center gap-1.5"
+                    className="flex-1 auth-primary font-black text-xs py-3.5 rounded-xl uppercase tracking-wider cursor-pointer shadow-sm flex items-center justify-center gap-1.5"
                   >
                     Create Account <ChevronRight className="w-4 h-4 stroke-[3]" />
                   </button>
@@ -2021,7 +2021,7 @@ export default function AccountsView({
                   </button>
                   <button
                     onClick={validateAndNext}
-                    className="flex-1 bg-[#FFD250] hover:bg-[#FFC518] text-slate-950 font-black text-xs py-3.5 rounded-xl uppercase tracking-wider cursor-pointer shadow-sm flex items-center justify-center gap-1"
+                    className="flex-1 auth-primary font-black text-xs py-3.5 rounded-xl uppercase tracking-wider cursor-pointer shadow-sm flex items-center justify-center gap-1"
                   >
                     Continue <ArrowRight className="w-4 h-4 stroke-[3]" />
                   </button>
@@ -2093,7 +2093,7 @@ export default function AccountsView({
                   <button
                     disabled={submitting}
                     onClick={validateAndNext}
-                    className="flex-1 bg-[#FFD250] hover:bg-[#FFC518] text-slate-950 font-black text-xs py-3.5 rounded-xl uppercase tracking-wider cursor-pointer shadow-sm flex items-center justify-center gap-1.5"
+                    className="flex-1 auth-primary font-black text-xs py-3.5 rounded-xl uppercase tracking-wider cursor-pointer shadow-sm flex items-center justify-center gap-1.5"
                   >
                     {submitting ? 'Submitting…' : 'Submit application'} <ChevronRight className="w-4 h-4 stroke-[3]" />
                   </button>
@@ -2129,7 +2129,7 @@ export default function AccountsView({
                   <button
                     onClick={requestVerification}
                     disabled={resendingVerification}
-                    className="w-full bg-[#FFD250] hover:bg-[#FFC518] text-slate-950 font-black text-xs py-4 rounded-xl uppercase tracking-wider shadow-md cursor-pointer transition-colors"
+                    className="w-full auth-primary font-black text-xs py-4 rounded-xl uppercase tracking-wider shadow-md cursor-pointer transition-colors"
                   >
                     {resendingVerification ? 'Requesting…' : 'Resend verification email'}
                   </button>

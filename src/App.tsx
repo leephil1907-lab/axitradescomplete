@@ -565,7 +565,7 @@ export default function App() {
   const isWorkspace = ['login', 'markets', 'funds', 'dashboard', 'settings', 'admin', 'accounts'].includes(currentView);
 
   return (
-    <div className={`min-h-screen w-full overflow-x-hidden transition-colors duration-700 ease-in-out ${isDarkMode ? 'dark bg-slate-950 text-slate-100' : 'bg-[#FAF6EE] text-slate-900'} flex flex-col font-sans selection:bg-brand-red selection:text-white`}>
+    <div className={`min-h-screen w-full overflow-x-hidden transition-colors duration-700 ease-in-out site-theme ${isDarkMode ? 'dark' : ''} flex flex-col font-sans selection:bg-brand-red selection:text-white`}>
       
       {/* Universal Responsive Header */}
       {currentView !== 'login' && <Header 

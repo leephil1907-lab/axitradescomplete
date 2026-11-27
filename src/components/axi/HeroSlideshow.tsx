@@ -52,7 +52,7 @@ export default function HeroSlideshow({ onAction }: { onAction: (actionId: strin
       onTouchCancel={() => { touch.current = null; }}
       onTouchEnd={e => { const start = touch.current; touch.current = null; const finger = e.changedTouches[0]; if (!start || !finger) return; const x = finger.clientX - start.x; const y = finger.clientY - start.y; if (Math.abs(x) > 50 && Math.abs(x) > Math.abs(y) * 1.5) move(x < 0 ? 1 : -1); }}>
       <div className="campaign-layers" data-playing={playing} aria-hidden="true">
-        {slides.map((item, i) => <motion.div className="campaign-scene" key={item.key} data-active={i === index}
+        {slides.map((item, i) => <motion.div className="campaign-scene" key={item.key} data-active={i === index} data-scene={item.key}
           initial={false} animate={{ opacity: i === index ? 1 : 0 }} transition={{ duration: reduced ? 0 : .75 }}>
           <img src={item.image} alt="" data-art={item.key} fetchPriority={i === 0 ? 'high' : 'low'}
           /><span className="campaign-light" /></motion.div>)}
@@ -62,7 +62,7 @@ export default function HeroSlideshow({ onAction }: { onAction: (actionId: strin
           {<motion.div key={slide.key}
             initial={reduced ? false : { opacity: 0, y: 18 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: reduced ? 0 : .5 }}>
             <p className="home-kicker">/// {slide.label}</p>
-            <h1>{customize('heroTitle', slide.title)}</h1>
+            <h1><span className="campaign-mark" aria-hidden="true" />{customize('heroTitle', slide.title)}</h1>
             <p className="reference-lede">{customize('heroSubtitle', slide.description || '')}</p>
           </motion.div>}
           {slide.action && <div className="reference-actions">
