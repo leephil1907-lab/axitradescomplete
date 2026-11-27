@@ -1,3 +1,4 @@
+import PageHero from './axi/PageHero';
 import React, { useState } from 'react';
 import { ViewType } from '../types';
 import { BookOpen, PlayCircle, CheckCircle2, ChevronRight, Award, GraduationCap, Clock, MonitorPlay } from 'lucide-react';
@@ -79,41 +80,10 @@ export default function AcademyView({ setView, showToast }: AcademyViewProps) {
   };
 
   return (
-    <div className="bg-[#f8f7f5] min-h-screen font-sans">
-      {/* Hero Section */}
-      <div className="site-feature-banner pt-16 pb-16 px-5 md:pt-24">
-        <div className="max-w-7xl mx-auto relative z-10 flex flex-col md:flex-row items-center gap-10">
-          <div className="flex-1 text-center md:text-left">
-            <h1 className="site-display-title text-4xl md:text-5xl lg:text-6xl font-bold tracking-tight mb-4">
-              Axi <span className="text-[#E3000F]">Academy</span>
-            </h1>
-            <p className="text-slate-300 text-lg max-w-xl mx-auto md:mx-0 mb-8">
-              Master the markets with free educational resources, interactive courses, and trading guides designed for all experience levels.
-            </p>
-            <a href="#academy-courses" className="bg-[#FFD250] hover:bg-[#FFC518] text-slate-900 font-bold px-8 py-3.5 rounded-sm inline-flex items-center gap-2 transition shadow-lg">
-              <GraduationCap className="w-5 h-5" /> Start Learning
-            </a>
-          </div>
-          <div className="hidden md:flex flex-1 justify-end">
-             <div className="bg-slate-800 p-6 rounded-2xl border border-slate-700 shadow-2xl relative">
-                <div className="absolute -top-4 -left-4 bg-[#E3000F] text-white font-bold p-3 rounded-full shadow-lg">
-                  <Award className="w-6 h-6" />
-                </div>
-                <h3 className="font-bold text-xl mb-2">Your Progress</h3>
-                <div className="flex items-center gap-4 mb-4">
-                  <div className="w-16 h-16 rounded-full border-4 border-[#FFD250] flex items-center justify-center font-bold text-xl">
-                    0%
-                  </div>
-                  <div>
-                    <p className="text-slate-400 text-sm">Courses Completed</p>
-                    <p className="font-bold">0 of 3</p>
-                  </div>
-                </div>
-             </div>
-          </div>
-        </div>
-      </div>
-
+    <div className="site-editorial-page min-h-screen">
+      <PageHero label="Education" title="Axi Academy" description="Build market knowledge with courses, trading guides and interactive lessons for every experience level.">
+        <a href="#academy-courses" className="home-button home-button-primary">Explore courses</a>
+      </PageHero>
       <div id="academy-courses" tabIndex={-1} className="home-shell scroll-mt-24 py-12">
         <h2 className="text-3xl font-bold text-slate-900 mb-8 flex items-center gap-3">
           <BookOpen className="w-8 h-8 text-[#E3000F]" /> Featured Courses

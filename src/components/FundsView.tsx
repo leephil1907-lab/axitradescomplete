@@ -742,7 +742,7 @@ export default function FundsView({
   });
 
   return (
-    <div className="min-h-screen bg-[#f4f3ef] text-slate-900 pb-24">
+    <div className="funds-workspace min-h-screen pb-24">
       {/* Header Banner */}
       <div className="bg-white border-b border-slate-200">
         <div className="home-shell py-6">
@@ -754,10 +754,10 @@ export default function FundsView({
                 <span className="text-brand-red font-extrabold">Funds Management</span>
               </div>
               <h1 className="workspace-title text-slate-900">Funds & Payment Center</h1>
-              <p className="text-xs text-slate-500 mt-0.5">Real-world multi-currency deposit, withdrawal, and verified ledger</p>
+              <p className="text-xs text-slate-500 mt-0.5">Review funding methods, withdrawal requests, and transaction records.</p>
             </div>
 
-            <div className="flex items-center gap-3">
+            <div className="flex flex-wrap items-center gap-3">
               <div className="bg-slate-100 rounded-xl p-3 border border-slate-200 flex items-center gap-3">
                 <div className="w-10 h-10 rounded-lg bg-emerald-50 border border-emerald-200 flex items-center justify-center text-emerald-600">
                   <DollarSign className="w-5 h-5 font-black" />

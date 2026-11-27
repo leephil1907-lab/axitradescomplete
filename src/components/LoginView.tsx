@@ -98,7 +98,16 @@ export default function LoginView({
       showToast?.('Authentication successful.', 'success');
       setView('dashboard');
     } catch (err: any) {
-      showError((err?.message || `${provider} authentication failed.`).replace('Firebase: ', ''));
+      const name = provider === 'google' ? 'Google' : 'Facebook';
+      const messages: Record<string, string> = {
+        'auth/unauthorized-domain': `${name} sign-in is not configured for this website address. Try the main site or contact support.`,
+        'auth/operation-not-allowed': `${name} sign-in is not enabled. Try email sign-in or contact support.`,
+        'auth/popup-blocked': 'Your browser blocked the sign-in popup. Allow popups for this site and try again.',
+        'auth/popup-closed-by-user': 'The sign-in window closed before you finished. Try again and keep it open until sign-in completes.',
+        'auth/network-request-failed': `Could not reach ${name} sign-in. Check your connection and try again.`,
+        'auth/account-exists-with-different-credential': 'An account already uses this email. Sign in with your original method.',
+      };
+      showError(messages[err?.code] || (err?.message || `${name} authentication failed.`).replace('Firebase: ', ''));
     } finally {
       setBusy(false);
     }

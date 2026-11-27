@@ -723,3 +723,88 @@ html.dark textarea {
 @media (min-width: 64rem) {
   .reference-campaign-shell { min-height: clamp(40rem, 55vw, 49rem); }
 }
+
+/* Supplied posters: transparent scene layers get their own protected frame. */
+.campaign-scene:is([data-scene='ai'],[data-scene='copy'],[data-scene='clock']) { background: linear-gradient(150deg,#344957,#abb7bf); }
+.campaign-scene:is([data-scene='ai'],[data-scene='copy'],[data-scene='clock']) img { inset: auto 4% 0 auto; width: 47%; height: 85%; object-fit: contain; object-position: right bottom; mask-image: none; }
+.reference-get-started { background-image: linear-gradient(90deg,#263744f5 0%,#26374493 48%,transparent 82%), url('./assets/campaign-posters/intro.webp'); }
+.reference-platforms { background: linear-gradient(155deg,#334653,#17232c 74%); }
+.reference-platform-panel { position: relative; isolation: isolate; border-radius: 1rem; overflow: hidden; }
+.reference-platform-panel > div { display: flex; flex-direction: column; align-items: flex-start; }
+.reference-platform-panel .home-button { margin-top: auto; }
+.reference-mobile-menu { background: radial-gradient(ellipse at 22% 48%,#26282a,#141416 75%); }
+.mobile-menu-links[hidden] { display: none; }
+.mobile-menu-links:not([hidden]) { display: grid; gap: .2rem; padding: 0 0 .8rem .8rem; }
+.mobile-menu-links button { border-left: 1px solid #ffffff38; padding-inline: .9rem; }
+.mobile-menu-links button:hover { background: #ffffff10; }
+.market-ribbon { background: var(--site-surface); color: var(--site-ink); border-color: var(--site-border); padding-block: .45rem .85rem; }
+.market-ribbon-toolbar { display: flex; justify-content: space-between; align-items: center; gap: .75rem; }
+.market-ribbon-toolbar button { display: inline-flex; align-items: center; gap: .4rem; min-height: 44px; cursor: pointer; }
+.market-ribbon-toggle { justify-content: center; min-width: 44px; }
+.market-ribbon-viewport { overflow-x: auto; overscroll-behavior-inline: contain; scrollbar-width: thin; }
+.market-ribbon-track { display: flex; width: max-content; animation: market-quote-scroll 42s linear infinite; }
+.market-ribbon-strip { display: flex; gap: .65rem; padding-inline: .325rem; }
+.market-ribbon-viewport[data-paused='true'] .market-ribbon-track, .market-ribbon-viewport:focus .market-ribbon-track { animation: none; }
+.market-ribbon-viewport[data-paused='true'] .market-ribbon-repeat, .market-ribbon-viewport:focus .market-ribbon-repeat { display: none; }
+.market-ribbon-strip .market-ribbon-cell { width: 11.5rem; min-width: 0; background: var(--site-canvas); padding: .65rem .8rem; border: 1px solid var(--site-border); border-radius: .65rem; }
+.market-ribbon-strip .market-ribbon-cell small { color: var(--site-ink); opacity: .75; }
+@keyframes market-quote-scroll { to { transform: translateX(-50%); } }
+@media (prefers-reduced-motion: reduce) {
+  .market-ribbon-track { animation: none; }
+  .market-ribbon-repeat, .market-ribbon-toggle { display: none !important; }
+}
+@media (max-width: 47.99rem) {
+  .campaign-scene:is([data-scene='ai'],[data-scene='copy'],[data-scene='clock']) img { inset: auto 0 0; width: 100%; height: 36%; object-position: center bottom; }
+  .campaign-scene[data-scene='copy'] img { height: 37%; object-position: right bottom; }
+  .reference-platform-switch { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); }
+  .reference-platform-panel { display: flex; flex-direction: column; background: transparent; }
+  .reference-platform-panel > img { width: 100%; height: clamp(10rem,54vw,18rem); object-fit: contain; object-position: center; }
+  .reference-platform-panel > div { position: relative; width: 100%; border-radius: .95rem; background: #233542; padding: 1rem; }
+  .reference-platform-panel .home-button { width: 100%; justify-content: space-between; }
+  .reference-get-started { background-image: linear-gradient(#344755 0%,#344755 30%,#34475556 65%), url('./assets/campaign-posters/intro.webp'); background-size: auto, auto 72%; background-position: center, 64% bottom; background-repeat: no-repeat; background-color: #344755; }
+  .reference-get-started .home-button { width: 100%; justify-content: space-between; }
+}
+.site-footer { background: #141416; }
+.site-footer-nav h3 { font-weight: 650; }
+@media (max-width: 47.99rem) {
+  .reference-get-started { padding-bottom: clamp(15rem,78vw,34rem); }
+  .site-footer-nav { row-gap: 2.15rem; }
+  .site-footer-nav button { text-align: start; }
+}
+
+/* Private operations workspace, separate from the marketing chrome. */
+.admin-shell { min-height: 100dvh; color-scheme: dark; color: #f5f7f9; background: #141b22; }
+.admin-gate { display: grid; place-items: center; padding: clamp(1rem,5vw,2.5rem); background: radial-gradient(ellipse at 50% 0%,#344958,#141b22 65%); }
+.admin-login-card { width: min(100%,27rem); padding: clamp(1rem,5vw,2rem); background: #1b2833; border: 1px solid #495768; border-radius: 1rem; box-shadow: 0 18px 40px #0005; }
+.admin-eyebrow { font-size: .72rem; text-transform: uppercase; letter-spacing: .12em; color: #f4a4b3; font-weight: 700; margin-bottom: .4rem; }
+.admin-login-card .admin-eyebrow { margin-top: 1.35rem; }
+.admin-login-card label { display: block; margin: 1rem 0 .35rem; font-weight: 650; }
+.admin-login-card input { width: 100%; min-height: 46px; padding: .6rem .8rem; border: 1px solid #617383; border-radius: .5rem; background: #131d27; color: #fff; }
+.admin-primary { width: 100%; min-height: 46px; margin-top: 1.2rem; border-radius: .5rem; background: var(--site-accent); color: white; font-weight: 700; cursor: pointer; }
+.admin-primary:disabled { opacity: .65; }
+.admin-back { width: 100%; min-height: 44px; margin-top: .4rem; cursor: pointer; }
+.admin-topbar { padding: clamp(1rem,4vw,1.6rem); background: #1e2b36; border-bottom: 1px solid #ffffff25; }
+.admin-content, .admin-panel { padding: clamp(.85rem,3vw,1.5rem); }
+.admin-nav { display: flex; flex-wrap: wrap; gap: .45rem; border-bottom: 1px solid #ffffff26; padding-bottom: .8rem; }
+.admin-nav button { min-height: 44px; cursor: pointer; }
+.admin-shell :is(button,input,a):focus-visible { outline: 2px solid #fda5b5; outline-offset: 2px; }
+
+/* Common interior design: full-width editorial mastheads and compact workspaces. */
+.site-page-hero { background: linear-gradient(125deg,#1a2935,#415765 90%); }
+.site-page-hero h1 { font-weight: 520; font-size: clamp(2.35rem, 5.7vw, 5.4rem); overflow-wrap: anywhere; }
+.site-page-hero .home-kicker { color: #e5edf1; }
+.site-page-hero .reference-outline { border-color: #c7d4db; }
+.site-page-hero-copy { min-width: 0; }
+.site-page-actions .home-button { max-width: 100%; white-space: normal; }
+.site-public :is([id='partner-form'],[id='rebate-calculator'],[id='claim-promo'],[id='leaderboard'],[id='vps-form'],[id='autochartist-section'],[id='edge-calculator']) { scroll-margin-top: 6.5rem; }
+.site-public .home-shell :is(.bg-white.border,.bg-slate-50.border) { border-color: var(--site-border); }
+.client-terminal { background: #131a21; }
+.client-terminal-masthead, .workspace-masthead { color: #f3f6f8; background: linear-gradient(110deg,#1c2c38,#344c5b); }
+.workspace-masthead { border-radius: .85rem; padding: clamp(1rem,3vw,1.6rem); }
+.funds-workspace { background-color: var(--site-canvas); color: var(--site-ink); }
+[data-site-view='funds'] .workspace-title { color: #213440; }
+@media (max-width: 47.99rem) {
+  .site-page-hero-inner { padding-block: 2.65rem; }
+  .site-page-actions { gap: .5rem; }
+  .site-page-actions .home-button { min-height: 44px; }
+}

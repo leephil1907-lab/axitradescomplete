@@ -1,3 +1,4 @@
+import PageHero from './axi/PageHero';
 import React, { useState } from 'react';
 import { 
   Award, 
@@ -131,57 +132,13 @@ export default function PromotionsView({ setView, showToast, openSignUp, openQui
   };
 
   return (
-    <div className="home-shell py-8 lg:py-12">
-      {/* Hero Banner */}
-      <div className="site-feature-banner p-6 sm:p-12 lg:p-16 mb-12">
-        <div className="absolute -right-20 -top-20 w-96 h-96 bg-brand-red/20 rounded-full blur-3xl pointer-events-none"></div>
-        <div className="relative z-10 max-w-3xl">
-          <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-brand-yellow/20 text-brand-yellow border border-brand-yellow/30 text-xs font-black uppercase tracking-wider mb-4">
-            <Gift className="w-3.5 h-3.5" /> Official Axi Promotions & Contests
-          </div>
-          <h1 className="site-display-title text-3xl sm:text-5xl font-black tracking-tight text-white mb-4 leading-tight">
-            Boost Your Trading Capital with Exclusive Axi Bonuses
-          </h1>
-          <p className="text-base sm:text-lg text-slate-300 mb-8 leading-relaxed">
-            Take advantage of institutional deposit bonuses, compete in global trading championships for cash prize pools, and win exclusive Manchester City FC VIP hospitality tickets.
-          </p>
+    <>
+      <PageHero label="Promotions" title="Explore promotions and contests" description="Review eligibility, terms and current availability before applying for a promotion.">
+        <a href="#claim-promo" className="home-button home-button-primary">Explore the offer</a>
+        <a href="#leaderboard" className="home-button reference-outline">View standings</a>
+      </PageHero>
+      <div className="home-shell py-8 lg:py-12">
 
-          <div className="flex flex-wrap items-center gap-4">
-            <a
-              href="#claim-promo"
-              className="bg-brand-red hover:bg-red-700 text-white font-extrabold px-8 py-3.5 rounded-xl shadow-lg transition cursor-pointer text-sm flex items-center gap-2"
-            >
-              Claim 100% Deposit Bonus <ChevronRight className="w-4 h-4" />
-            </a>
-            <a
-              href="#leaderboard"
-              className="bg-slate-800 hover:bg-slate-700 text-white font-bold px-6 py-3.5 rounded-xl border border-slate-700 transition cursor-pointer text-sm"
-            >
-              View $100K Championship Standings
-            </a>
-          </div>
-        </div>
-
-        {/* Feature Badges */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-12 pt-8 border-t border-slate-800">
-          <div>
-            <span className="text-2xl sm:text-3xl font-black text-brand-yellow block">+100%</span>
-            <span className="text-xs text-slate-400 font-medium">Tradable Margin Booster</span>
-          </div>
-          <div>
-            <span className="text-2xl sm:text-3xl font-black text-white block">$100,000</span>
-            <span className="text-xs text-slate-400 font-medium">Monthly Championship Pool</span>
-          </div>
-          <div>
-            <span className="text-2xl sm:text-3xl font-black text-emerald-400 block">$0 Fee</span>
-            <span className="text-xs text-slate-400 font-medium">To Enter Contests</span>
-          </div>
-          <div>
-            <span className="text-2xl sm:text-3xl font-black text-white block">VIP Etihad</span>
-            <span className="text-xs text-slate-400 font-medium">Man City Matchday Access</span>
-          </div>
-        </div>
-      </div>
 
       {/* 4 Active Promotions Grid */}
       <div className="mb-16">
@@ -585,5 +542,6 @@ export default function PromotionsView({ setView, showToast, openSignUp, openQui
         )}
       </div>
     </div>
+    </>
   );
 }

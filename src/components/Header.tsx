@@ -232,6 +232,13 @@ export default function Header({
   const openDropdown = (label: string) => { cancelClose(); setActiveDropdown(label); };
 
 
+  const mobileGroups = [{ ...navItems[2], label: 'Your Edge' }, navItems[0], navItems[1], ...navItems.slice(3)];
+  const query = menuQuery.trim().toLowerCase();
+  const mobileResults = mobileGroups.map(group => ({ ...group, matches: [
+    ...group.children,
+    { name: group.label === 'Your Edge' ? 'Compare trading platforms' : group.ctaText, target: group.ctaTarget },
+  ].filter(child => `${child.name} ${group.label}`.toLowerCase().includes(query)) }));
+
   const languages = [
     { name: 'English (Global)', flagUrl: 'https://flagcdn.com/w40/gb.png' },
     { name: 'العربية', flagUrl: 'https://flagcdn.com/w40/ae.png' },
@@ -531,16 +538,16 @@ export default function Header({
         <motion.div initial={reduceMotion ? false : { opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="reference-mobile-menu-inner">
           <div className="mobile-menu-top"><AxiLogo variant="white" size="lg" /><button type="button" aria-label="Close menu" onClick={() => setMobileMenuOpen(false)}><X size={27} /></button></div>
           <nav aria-label="Main menu">
-            {[{ ...navItems[2], label: 'Your Edge' }, navItems[0], navItems[1], ...navItems.slice(3)].map(group => {
-              const open = activeMobileDropdown === group.label;
-              const matches = group.children.filter(child => `${child.name} ${group.label}`.toLowerCase().includes(menuQuery.trim().toLowerCase()));
-              if (menuQuery.trim() && !matches.length) return null;
+            {mobileResults.map((group, i) => {
+              const open = query ? group.matches.length > 0 : activeMobileDropdown === group.label;
+              if (query && !open) return null;
+              const id = `mobile-nav-group-${i}`;
               return <div key={group.label} className="mobile-menu-group">
-                <button type="button" aria-expanded={open || Boolean(menuQuery.trim())} onClick={() => setActiveMobileDropdown(open ? null : group.label)}>{group.label}<ChevronRight size={19} className={open ? 'rotate-90' : ''} /></button>
-                {(open || menuQuery.trim()) && <div className="mobile-menu-links">{matches.map(child => <button type="button" key={child.name} onClick={() => handleNav(child.target)}>{child.name}</button>)}</div>}
+                <button type="button" aria-expanded={open} aria-controls={id} onClick={() => { if (query) setMenuQuery(''); setActiveMobileDropdown(open ? null : group.label); }}>{group.label}<ChevronRight size={19} className={open ? 'rotate-90' : ''} /></button>
+                <div id={id} hidden={!open} className="mobile-menu-links">{group.matches.map(child => <button type="button" key={child.name} onClick={() => handleNav(child.target)}>{child.name}</button>)}</div>
               </div>;
             })}
-            {menuQuery.trim() && !navItems.some(group => group.children.some(child => `${child.name} ${group.label === 'Platforms' ? 'Your Edge' : group.label}`.toLowerCase().includes(menuQuery.trim().toLowerCase()))) && <p className="py-5">No matching pages.</p>}
+            {query && !mobileResults.some(group => group.matches.length) && <p className="py-5" role="status">No matching pages.</p>}
           </nav>
           <div className="mobile-menu-search"><label><Search size={20} /><input aria-label="Search navigation" placeholder="Search categories, markets, assets" value={menuQuery} onChange={e => setMenuQuery(e.target.value)} /></label><button type="button" aria-label="Select language" onClick={() => { setMobileMenuOpen(false); setShowLanguageModal(true); }}><Globe size={23} /></button></div>
           <div className="mobile-menu-actions"><button type="button" onClick={() => handleNav(user ? 'dashboard' : 'login')}>{user ? 'Dashboard' : 'Login'}</button><button type="button" onClick={() => { setMobileMenuOpen(false); openSignUp(); }}>Open Account</button></div>

@@ -231,6 +231,7 @@ export default function App() {
     addPriceAlert,
     removePriceAlert,
     updatePriceAlertFirebase,
+    accountDataUnavailable,
     loginWithGoogle,
     loginWithFacebook,
     loginWithEmail,
@@ -238,36 +239,12 @@ export default function App() {
   } = useFirebaseData();
 
 
-  const isAdminUser = !!user?.email && [
-    'leephil1907@gmail.com',
-    'admin@axi.com',
-    'axicustomersupport@gmail.com'
-  ].includes(user.email.toLowerCase());
-
-  // AXI_ADMIN_SESSION_ROUTE_FIX_V1
-  const hasStandaloneAdminSession = typeof window !== 'undefined' && Boolean(window.sessionStorage.getItem('axi_admin_token'));
-
-  // Only redirect away from login if authenticated, and away from private routes if not authenticated
+  const customerOnly = currentView === 'dashboard' || currentView === 'settings' || currentView === 'funds';
   useEffect(() => {
-    if (!loading) {
-      if (user) {
-        if (false && currentView === 'admin' && !isAdminUser && !hasStandaloneAdminSession) {
-          setView('dashboard');
-          return;
-        }
-        // If user is logged in and currently on the login page, take them to their terminal
-        if (currentView === 'login') {
-          setView('dashboard');
-        }
-      } else {
-        // Not authenticated, protect private routes
-        const secureViews: ViewType[] = ['dashboard', 'settings', 'funds'];
-        if (secureViews.includes(currentView) && !hasStandaloneAdminSession) {
-          setView('login');
-        }
-      }
-    }
-  }, [user, loading, currentView]);
+    if (loading) return;
+    if (user && currentView === 'login') setView('dashboard');
+    if (!user && customerOnly) setView('login');
+  }, [user, loading, currentView, customerOnly, setView]);
 
   // For compatibility with components expecting set state functions, we provide wrappers where needed
   const setClosedPositions = (val: any) => {
@@ -568,7 +545,7 @@ export default function App() {
     <div className={`min-h-screen w-full overflow-x-hidden transition-colors duration-700 ease-in-out site-theme ${isDarkMode ? 'dark' : ''} flex flex-col font-sans selection:bg-brand-red selection:text-white`}>
       
       {/* Universal Responsive Header */}
-      {currentView !== 'login' && <Header 
+      {currentView !== 'login' && currentView !== 'admin' && <Header
         currentView={currentView} 
         setView={setView} 
         openSignUp={openSignUpWizard} 
@@ -599,7 +576,7 @@ export default function App() {
         <motion.main
           key={currentView}
           data-public-translation={!isWorkspace && !user ? "" : undefined}
-          className={`flex-grow axi-design ${isWorkspace ? 'site-workspace' : 'site-public'}`}
+          className={`flex-grow axi-design ${isWorkspace ? 'site-workspace' : 'site-public'}`} data-site-view={currentView}
           initial={reduceMotion ? false : { opacity: 0, y: 14 }}
           animate={{ opacity: 1, y: 0 }}
           exit={reduceMotion ? undefined : { opacity: 0, y: -6 }}
@@ -607,7 +584,8 @@ export default function App() {
         >
           {/* Per-view boundary: a failure in one view must never dead-end the
               whole application. Reset on every view change. */}
-          <ViewErrorBoundary viewKey={currentView}>
+          {customerOnly && user && accountDataUnavailable && <div role="status" className="px-4 py-3 bg-amber-100 text-slate-950 text-sm">You’re signed in, but your account data couldn’t be loaded. Balances and account status may be unavailable. Refresh to retry or contact support.</div>}
+          {customerOnly && (loading || !user) ? <p role="status" className="home-shell py-12">Checking your session…</p> : <ViewErrorBoundary viewKey={currentView}>
           {currentView === 'login' && (
             <LoginView 
               setView={setView} 
@@ -764,15 +742,15 @@ export default function App() {
               convertFromUSD={convertFromUSD}
             />
           )}
-          </ViewErrorBoundary>
+          </ViewErrorBoundary>}
         </motion.main>
       </AnimatePresence>
 
       {/* Universal Footer Disclosures */}
-      {currentView !== 'login' && <Footer setView={setView} openSignUp={openSignUpWizard} showCallout={!isWorkspace && currentView !== 'home' && currentView !== 'spot' && currentView !== 'perpetuals'} />}
+      {currentView !== 'login' && currentView !== 'admin' && <Footer setView={setView} openSignUp={openSignUpWizard} showCallout={!isWorkspace && currentView !== 'home' && currentView !== 'spot' && currentView !== 'perpetuals'} />}
 
       {/* WhatsApp chat launcher (number never shown, deep-links to wa.me) */}
-      {currentView !== 'markets' && <WhatsAppChatButton compactOffset={!isWorkspace && !showRiskNotice} />}
+      {currentView !== 'markets' && currentView !== 'admin' && <WhatsAppChatButton compactOffset={!isWorkspace && !showRiskNotice} />}
       {!isWorkspace && showRiskNotice && <aside aria-label="Trading risk warning" className="reference-risk-bar">
         <p>Over-the-counter derivatives are leveraged products and carry a high risk to your capital. Trading is not suitable for everyone and losses may exceed your initial investment. Only trade with money you can afford to lose.</p>
         <button type="button" onClick={() => setShowRiskNotice(false)} aria-label="Dismiss trading risk warning">×</button>
