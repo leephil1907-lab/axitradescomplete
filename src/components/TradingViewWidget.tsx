@@ -88,10 +88,10 @@ export default function TradingViewWidget({
       isFullscreen ? 'fixed inset-0 z-50 rounded-none h-screen p-4 bg-slate-950' : 'h-full'
     }`}>
       {/* TradingView Header Toolbar */}
-      <div className={`px-4 py-2 border-b flex items-center justify-between text-xs font-bold shrink-0 ${
+      <div className={`px-3 py-2 border-b flex flex-wrap gap-2 items-center justify-between text-xs font-bold shrink-0 ${
         chartTheme === 'dark' ? 'bg-[#141B26] border-slate-800 text-white' : 'bg-slate-50 border-slate-200 text-slate-800'
       }`}>
-        <div className="flex items-center gap-2">
+        <div className="flex min-w-0 flex-wrap items-center gap-2">
           <BarChart2 className="w-4 h-4 text-[#E3000F]" />
           <span className="font-extrabold uppercase tracking-wider">TradingView Advanced Chart</span>
           <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 uppercase">

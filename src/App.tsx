@@ -48,7 +48,7 @@ import EconomicCalendar from './components/EconomicCalendar';
 import WhatsAppChatButton from './components/WhatsAppChatButton';
 import { ASSET_METADATA } from './data';
 import { liveMarketFeed } from './services/liveMarketFeed';
-import { applyStoredLanguage } from './services/siteTranslator';
+import { applyStoredLanguage, chooseLanguage } from './services/siteTranslator';
 
 // Price shells contain metadata only. liveMarketFeed supplies all prices.
 const INITIAL_QUOTES: Record<string, MarketQuote> = Object.entries(ASSET_METADATA).reduce((acc, [symbol, meta]) => {
@@ -67,10 +67,18 @@ export default function App() {
   const [isCommandMenuOpen, setIsCommandMenuOpen] = useState(false);
   const [isQuickDepositOpen, setIsQuickDepositOpen] = useState(false);
 
-  // Apply the visitor's chosen interface language (DOM-safe, text-node only).
+  const [translationUnavailable, setTranslationUnavailable] = useState(false);
   useEffect(() => {
+    const unavailable = () => setTranslationUnavailable(true);
+    const restored = () => setTranslationUnavailable(false);
+    window.addEventListener('axi-translation-unavailable', unavailable);
+    window.addEventListener('axi-translation-restored', restored);
     const t = setTimeout(() => applyStoredLanguage(), 350);
-    return () => clearTimeout(t);
+    return () => {
+      clearTimeout(t);
+      window.removeEventListener('axi-translation-unavailable', unavailable);
+      window.removeEventListener('axi-translation-restored', restored);
+    };
   }, []);
 
   
@@ -582,10 +590,16 @@ export default function App() {
         balance={balance}
       />}
 
+      {translationUnavailable && !isWorkspace && <div translate="no" role="status" className="px-4 py-2 text-center text-sm bg-amber-100 text-slate-900">
+        Some content could not be translated.{' '}
+        <button type="button" className="underline" onClick={() => chooseLanguage('English (Global)')}>Switch to English</button>
+      </div>}
+
       {/* Main Render Section with transitions */}
       <AnimatePresence mode="wait">
         <motion.main
           key={currentView}
+          data-public-translation={!isWorkspace && !user ? "" : undefined}
           className={`flex-grow axi-design ${isWorkspace ? 'site-workspace' : 'site-public'}`}
           initial={reduceMotion ? false : { opacity: 0, y: 14 }}
           animate={{ opacity: 1, y: 0 }}

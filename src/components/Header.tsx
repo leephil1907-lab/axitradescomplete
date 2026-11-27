@@ -75,11 +75,13 @@ export default function Header({
   }, [mobileMenuOpen]);
   const [activeMobileDropdown, setActiveMobileDropdown] = useState<string | null>(null);
   const [showLanguageModal, setShowLanguageModal] = useState(false);
-  // NOTE: The platform is served in English. Browser auto-translate is disabled
-  // site-wide (index.html notranslate meta) because machine-translating this live
-  // React app corrupted React's DOM and caused the "NotFoundError … not found
-  // here" crash. So the interface always runs in English; the list is retained
-  // for display only.
+  const languageDialog = useRef<HTMLDialogElement>(null);
+  useEffect(() => {
+    if (!showLanguageModal) return;
+    const dialog = languageDialog.current;
+    dialog?.showModal();
+    return () => dialog?.close();
+  }, [showLanguageModal]);
   const [selectedLang, setSelectedLang] = useState(() => { try { return localStorage.getItem('axi_language') || 'English (Global)'; } catch { return 'English (Global)'; } });
 
   const handleLanguageSelect = (name: string) => {
@@ -551,32 +553,35 @@ export default function Header({
 
       {/* Language Selector Modal */}
       {showLanguageModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm">
-          <div className="bg-[#1C1C1C] border border-neutral-800 rounded-2xl w-full max-w-lg p-6 text-white shadow-2xl">
+        <dialog ref={languageDialog} translate="no" className="site-language-dialog" aria-labelledby="language-dialog-title" onCancel={event => { event.preventDefault(); setShowLanguageModal(false); }} onClick={event => { if (event.target === event.currentTarget) setShowLanguageModal(false); }}>
+          <div className="p-4 sm:p-6">
             <div className="flex items-center justify-between pb-4 border-b border-neutral-800">
-              <h3 className="font-bold text-base flex items-center gap-2">
+              <h3 id="language-dialog-title" className="font-bold text-base flex items-center gap-2">
                 <Globe className="w-5 h-5 text-[#F5CE47]" /> Select Region & Language
               </h3>
-              <button onClick={() => setShowLanguageModal(false)} className="text-neutral-400 hover:text-white cursor-pointer">
+              <button type="button" aria-label="Close language selector" onClick={() => setShowLanguageModal(false)} className="text-neutral-400 hover:text-white cursor-pointer">
                 <X className="w-5 h-5" />
               </button>
             </div>
-            <div className="grid grid-cols-2 gap-3 mt-4 max-h-80 overflow-y-auto pr-1">
-              {languages.map((lang, idx) => (
+            <button type="button" autoFocus className="site-language-english" aria-pressed={selectedLang === 'English (Global)'} onClick={() => handleLanguageSelect('English (Global)')}>English <span>Original language</span></button>
+            <div className="grid grid-cols-2 gap-2 mt-3">
+              {languages.filter(lang => lang.name !== 'English (Global)').map(lang => (
                 <button
-                  key={idx}
+                  key={lang.name}
+                  type="button"
+                  aria-pressed={selectedLang === lang.name}
                   onClick={() => handleLanguageSelect(lang.name)}
                   className={`flex items-center gap-3 p-2.5 rounded-lg border text-left text-xs transition cursor-pointer ${
                     selectedLang === lang.name ? 'border-[#F5CE47] bg-[#F5CE47]/10 text-white font-bold' : 'border-neutral-800 hover:bg-neutral-800 text-neutral-300'
                   }`}
                 >
                   <img src={lang.flagUrl} alt="" className="w-5 h-3.5 rounded object-cover" />
-                  <span>{lang.name}</span>
+                  <span className="min-w-0 break-words">{lang.name}</span>
                 </button>
               ))}
             </div>
           </div>
-        </div>
+        </dialog>
       )}
     </header>
   );

@@ -60,7 +60,7 @@ function isEnabled(): boolean { return enabled; }
 
 function looksSkippable(node: Text): boolean {
   const parent = node.parentElement;
-  if (!parent || !node.isConnected) return true;
+  if (!parent || !node.isConnected || !parent.closest('[data-public-translation]')) return true;
   let cur: HTMLElement | null = parent;
   while (cur && cur !== document.body) {
     if (SKIP_TAGS.has(cur.tagName)) return true;
@@ -97,7 +97,7 @@ async function flush() {
   if (!enabled || !pending.size) return;
   const batch: Text[] = [];
   for (const n of pending) {
-    if (batch.length >= 25) break;
+    if (batch.length >= 15) break;
     batch.push(n);
   }
   if (!batch.length) return;
@@ -123,6 +123,7 @@ async function flush() {
         throw new Error('translate endpoint rejected');
       }
       retryCount = 0;
+      window.dispatchEvent(new Event('axi-translation-restored'));
       data.translated.forEach((tr: string, i: number) => {
         const src = toFetch[i];
         if (tr && tr.trim()) {
@@ -140,7 +141,12 @@ async function flush() {
       console.warn('[siteTranslator] batch failed, will retry', e);
       retryCount++;
       if (retryCount < 4) queueFlush(2000); // keep nodes queued; retry shortly
-      else { retryCount = 0; for (const n of batch) pending.delete(n); }
+      else {
+        retryCount = 0;
+        for (const n of batch) pending.delete(n);
+        window.dispatchEvent(new Event('axi-translation-unavailable'));
+        if (pending.size) queueFlush(2000);
+      }
       return;
     }
   } else {
@@ -154,7 +160,7 @@ async function flush() {
       const tr = cache.get(`${currentCode}\u0001${core}`) || fetched.get(core);
       if (!tr) continue;
       for (const node of map.get(core) || []) {
-        if (!node.isConnected) continue;
+        if (looksSkippable(node) || coreOf(node) !== core) continue;
         const raw = node.nodeValue || '';
         const trimmed = raw.trim();
         if (!trimmed || trimmed === tr) continue;
@@ -223,6 +229,7 @@ export function applyStoredLanguage(): void {
   if (typeof window === 'undefined' || !document.body) return;
   try {
     const code = codeForName(storedName());
+    document.documentElement.lang = code || 'en';
     if (code) startEngine(code);
   } catch (e) {
     console.error('[siteTranslator] apply failed', e);
@@ -232,8 +239,11 @@ export function applyStoredLanguage(): void {
 /** User picked a language in the selector. Reload is intentional & safest:
  *  fresh English DOM -> translated deterministically. English clears it. */
 export function chooseLanguage(name: string): void {
-  try { localStorage.setItem('axi_language', name); } catch { /* ignore */ }
   const code = codeForName(name);
+  try {
+    if (code) localStorage.setItem('axi_language', name);
+    else localStorage.removeItem('axi_language');
+  } catch { /* ignore */ }
   const active = enabled ? currentCode : '';
   if (!code && !active) return;
   if (code === active) return;

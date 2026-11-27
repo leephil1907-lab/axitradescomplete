@@ -1076,7 +1076,7 @@ export default function MarketsView({
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
-          <div className="lg:col-span-4 flex flex-col gap-4">
+          <div className="lg:col-span-4 min-w-0 flex flex-col gap-4">
             <div className="grid grid-cols-2 gap-3">
               <motion.div animate={{ opacity: [0.4, 0.8, 0.4] }} transition={{ repeat: Infinity, duration: 1.2 }} className="h-20 bg-slate-200 rounded-xl" />
               <motion.div animate={{ opacity: [0.4, 0.8, 0.4] }} transition={{ repeat: Infinity, duration: 1.2 }} className="h-20 bg-slate-200 rounded-xl" />
@@ -1207,7 +1207,7 @@ export default function MarketsView({
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
         {/* LEFT COLUMN: Markets List & Dashboard (mobile full width) */}
-        <div className="lg:col-span-4 flex flex-col gap-4">
+        <div className="lg:col-span-4 min-w-0 flex flex-col gap-4">
           {/* Dashboard Cards */}
           <div className="grid grid-cols-2 gap-3">
             <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
@@ -1317,7 +1317,7 @@ export default function MarketsView({
         </div>
 
         {/* RIGHT COLUMN: Chart & Order Entry */}
-        <div className="lg:col-span-8 flex flex-col gap-4">
+        <div className="lg:col-span-8 min-w-0 flex flex-col gap-4">
           
           {/* Chart Section */}
           <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
